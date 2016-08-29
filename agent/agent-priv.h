@@ -7,6 +7,7 @@
 
 #include <config.h>
 #include <glib.h>
+#include <stdint.h>
 
 #include "agent.h"
 
@@ -28,14 +29,14 @@
  */
 typedef struct
 {
-    guint message;
-    guint buffer;
-    gsize offset;
+    uint32_t message;
+    uint32_t buffer;
+    uint32_t offset;
 } NiceInputMessageIter;
 
 void nice_input_message_iter_reset(NiceInputMessageIter * iter);
-gboolean nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, NiceInputMessage * messages, guint n_messages);
-guint nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter);
+gboolean nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, NiceInputMessage * messages, uint32_t n_messages);
+uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter);
 gboolean nice_input_message_iter_compare(const NiceInputMessageIter * a, const NiceInputMessageIter * b);
 
 
@@ -69,153 +70,80 @@ gboolean nice_input_message_iter_compare(const NiceInputMessageIter * a, const N
 struct _NiceAgent
 {
     GObject parent;                 /* gobject pointer */
-
-    gboolean full_mode;             /* property: full-mode */
+    int32_t full_mode;             /* property: full-mode */
     GTimeVal next_check_tv;         /* property: next conncheck timestamp */
-    gchar * stun_server_ip;         /* property: STUN server IP */
-    guint stun_server_port;         /* property: STUN server port */
-#if 0
-    gchar * proxy_ip;               /* property: Proxy server IP */
-    guint proxy_port;               /* property: Proxy server port */
-    NiceProxyType proxy_type;       /* property: Proxy type */
-    gchar * proxy_username;         /* property: Proxy username */
-    gchar * proxy_password;         /* property: Proxy password */
-#endif
-    gboolean controlling_mode;      /* property: controlling-mode */
-    guint timer_ta;                 /* property: timer Ta */
-    guint max_conn_checks;          /* property: max connectivity checks */
-
-    GSList * local_addresses;        /* list of NiceAddresses for local
-				     interfaces */
-    GSList * streams;               /* list of Stream objects */
+    char * stun_server_ip;         /* property: STUN server IP */
+    uint32_t stun_server_port;         /* property: STUN server port */
+    int32_t controlling_mode;      /* property: controlling-mode */
+    uint32_t timer_ta;                 /* property: timer Ta */
+    uint32_t max_conn_checks;          /* property: max connectivity checks */
+    GSList * local_addresses;        /* list of NiceAddresses for local interfaces */
+    GSList * streams_list;               /* list of Stream objects */
     GMainContext * main_context;    /* main context pointer */
-    guint next_candidate_id;        /* id of next created candidate */
-    guint next_stream_id;           /* id of next created candidate */
+    uint32_t next_candidate_id;        /* id of next created candidate */
+    uint32_t next_stream_id;           /* id of next created candidate */
     NiceRNG * rng;                  /* random number generator */
     GSList * discovery_list;        /* list of CandidateDiscovery items */
-    guint discovery_unsched_items;  /* number of discovery items unscheduled */
+    uint32_t discovery_unsched_items;  /* number of discovery items unscheduled */
     GSource * discovery_timer_source; /* source of discovery timer */
     GSource * conncheck_timer_source; /* source of conncheck timer */
     GSource * keepalive_timer_source; /* source of keepalive timer */
     GSList * refresh_list;        /* list of CandidateRefresh items */
-    guint64 tie_breaker;            /* tie breaker (ICE sect 5.2
-				     "Determining Role" ID-19) */
+    uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
     NiceCompatibility compatibility; /* property: Compatibility mode */
-    gboolean media_after_tick;       /* Received media after keepalive tick */
+    int32_t media_after_tick;       /* Received media after keepalive tick */
 #ifdef HAVE_GUPNP
     GUPnPSimpleIgdThread * upnp;	  /* GUPnP Single IGD agent */
-    gboolean upnp_enabled;           /* whether UPnP discovery is enabled */
-    guint upnp_timeout;              /* UPnP discovery timeout */
+    int32_t upnp_enabled;           /* whether UPnP discovery is enabled */
+    uint32_t upnp_timeout;              /* UPnP discovery timeout */
     GSList * upnp_mapping;           /* NiceAddresses of cands being mapped */
     GSource * upnp_timer_source;     /* source of upnp timeout timer */
 #endif
-    gchar * software_attribute;      /* SOFTWARE attribute */
-    gboolean reliable;               /* property: reliable */
-    gboolean keepalive_conncheck;    /* property: keepalive_conncheck */
+    char * software_attribute;      /* SOFTWARE attribute */
+    int32_t reliable;               /* property: reliable */
+    int32_t keepalive_conncheck;    /* property: keepalive_conncheck */
 
     GQueue pending_signals;
-    guint16 rfc4571_expecting_length;
+    uint16_t rfc4571_expecting_length;
     gboolean use_ice_udp;
     gboolean use_ice_tcp;
     /* XXX: add pointer to internal data struct for ABI-safe extensions */
 };
 
-gboolean
-agent_find_component(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    Stream ** stream,
-    Component ** component);
-
-Stream * agent_find_stream(NiceAgent * agent, guint stream_id);
-
+int32_t agent_find_component(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, Stream ** stream, Component ** component);
+Stream * agent_find_stream(NiceAgent * agent, uint32_t stream_id);
 void agent_gathering_done(NiceAgent * agent);
 void agent_signal_gathering_done(NiceAgent * agent);
-
 void agent_lock(void);
 void agent_unlock(void);
 void agent_unlock_and_emit(NiceAgent * agent);
 
-void agent_signal_new_selected_pair(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    NiceCandidate * lcandidate,
-    NiceCandidate * rcandidate);
-
-void agent_signal_component_state_change(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    NiceComponentState state);
-
-void agent_signal_new_candidate(
-    NiceAgent * agent,
-    NiceCandidate * candidate);
-
+void agent_signal_new_selected_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceCandidate * lcandidate, NiceCandidate * rcandidate);
+void agent_signal_component_state_change(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceComponentState state);
+void agent_signal_new_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void agent_signal_new_remote_candidate(NiceAgent * agent, NiceCandidate * candidate);
-
 void agent_signal_initial_binding_request_received(NiceAgent * agent, Stream * stream);
-
 guint64 agent_candidate_pair_priority(NiceAgent * agent, NiceCandidate * local, NiceCandidate * remote);
-
-void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out,
-                                    const gchar * name, guint interval, GSourceFunc function, gpointer data);
-
+void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out, const gchar * name, uint32_t interval, GSourceFunc function, gpointer data);
 StunUsageIceCompatibility agent_to_ice_compatibility(NiceAgent * agent);
 StunUsageTurnCompatibility agent_to_turn_compatibility(NiceAgent * agent);
 NiceTurnSocketCompatibility agent_to_turn_socket_compatibility(NiceAgent * agent);
-
-void agent_remove_local_candidate(NiceAgent * agent,
-                                  NiceCandidate * candidate);
-
+void agent_remove_local_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void nice_agent_init_stun_agent(NiceAgent * agent, StunAgent * stun_agent);
-
 void _priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, gint tos);
+int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer data);
+uint32_t memcpy_buffer_to_input_message(NiceInputMessage * message, const uint8_t * buffer, uint32_t buffer_length);
+uint8_t * compact_input_message(const NiceInputMessage * message, uint32_t * buffer_length);
+uint8_t * compact_output_message(const NiceOutputMessage * message, uint32_t * buffer_length);
+uint32_t output_message_get_size(const NiceOutputMessage * message);
+gssize agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len,  const gchar * buf);
 
-gboolean
-component_io_cb(
-    GSocket * gsocket,
-    GIOCondition condition,
-    gpointer data);
-
-gsize
-memcpy_buffer_to_input_message(NiceInputMessage * message,
-                               const guint8 * buffer, gsize buffer_length);
-guint8 *
-compact_input_message(const NiceInputMessage * message, gsize * buffer_length);
-
-guint8 *
-compact_output_message(const NiceOutputMessage * message, gsize * buffer_length);
-
-gsize
-output_message_get_size(const NiceOutputMessage * message);
-
-gssize agent_socket_send(NiceSocket * sock, const NiceAddress * addr, gsize len,
-                         const gchar * buf);
-
-
-guint32
-nice_candidate_jingle_priority(NiceCandidate * candidate);
-
-guint32
-nice_candidate_msn_priority(NiceCandidate * candidate);
-
-guint32
-nice_candidate_ice_priority_full(guint type_pref, guint local_pref,
-                                 guint component_id);
-
-guint32
-nice_candidate_ice_priority(const NiceCandidate * candidate,
-                            gboolean reliable, gboolean nat_assisted);
-
-guint32
-nice_candidate_ms_ice_priority(const NiceCandidate * candidate,
-                               gboolean reliable, gboolean nat_assisted);
-
-guint64
-nice_candidate_pair_priority(guint32 o_prio, guint32 a_prio);
+uint32_t nice_candidate_jingle_priority(NiceCandidate * candidate);
+uint32_t nice_candidate_msn_priority(NiceCandidate * candidate);
+uint32_t nice_candidate_ice_priority_full(uint32_t type_pref, uint32_t local_pref, uint32_t component_id);
+uint32_t nice_candidate_ice_priority(const NiceCandidate * candidate, gboolean reliable, gboolean nat_assisted);
+uint32_t nice_candidate_ms_ice_priority(const NiceCandidate * candidate, gboolean reliable, gboolean nat_assisted);
+uint64_t nice_candidate_pair_priority(uint32_t o_prio, uint32_t a_prio);
 
 /*
  * nice_debug_init:
@@ -227,13 +155,13 @@ void nice_debug_init(void);
 
 
 #ifdef NDEBUG
-static inline gboolean nice_debug_is_enabled(void)
+static inline int32_t nice_debug_is_enabled(void)
 {
     return FALSE;
 }
 static inline void nice_debug(const char * fmt, ...) { }
 #else
-gboolean nice_debug_is_enabled(void);
+int32_t nice_debug_is_enabled(void);
 void nice_debug(const char * fmt, ...) G_GNUC_PRINTF(1, 2);
 #endif
 

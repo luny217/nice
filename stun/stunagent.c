@@ -46,10 +46,8 @@ bool stun_agent_default_validater(StunAgent * agent,
                    (memcmp(username, val[i].username, username_len) == 0));
 #endif
         stun_debug_bytes("  First username: ", username, username_len);
-        stun_debug_bytes("  Second username: ", val[i].username,
-                         val[i].username_len);
-        if (username_len == val[i].username_len &&
-                memcmp(username, val[i].username, username_len) == 0)
+        stun_debug_bytes("  Second username: ", val[i].username, val[i].username_len);
+        if (username_len == val[i].username_len && memcmp(username, val[i].username, username_len) == 0)
         {
             *password = (uint8_t *) val[i].password;
             *password_len = val[i].password_len;
@@ -146,9 +144,7 @@ bool stun_agent_forget_transaction(StunAgent * agent, StunTransactionId id)
 
     for (i = 0; i < STUN_AGENT_MAX_SAVED_IDS; i++)
     {
-        if (agent->sent_ids[i].valid == TRUE &&
-                memcmp(id, agent->sent_ids[i].id,
-                       sizeof(StunTransactionId)) == 0)
+        if (agent->sent_ids[i].valid == TRUE && memcmp(id, agent->sent_ids[i].id, sizeof(StunTransactionId)) == 0)
         {
             agent->sent_ids[i].valid = FALSE;
             return TRUE;
@@ -259,17 +255,8 @@ bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
     stun_message_id(request, id);
 
 
-    if (stun_message_init(msg, STUN_ERROR,
-                          stun_message_get_method(request), id))
+    if (stun_message_init(msg, STUN_ERROR, stun_message_get_method(request), id))
     {
-
-        if ((agent->compatibility == STUN_COMPATIBILITY_RFC5389 ||
-                agent->compatibility == STUN_COMPATIBILITY_WLM2009) &&
-                (agent->software_attribute != NULL ||
-                 agent->usage_flags & STUN_AGENT_USAGE_ADD_SOFTWARE))
-        {
-            stun_message_append_software(msg, agent->software_attribute);
-        }
         if (stun_message_append_error(msg, err) == STUN_MESSAGE_RETURN_SUCCESS)
         {
             return TRUE;
@@ -287,11 +274,9 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
     unsigned counter;
     uint16_t ids[STUN_AGENT_MAX_UNKNOWN_ATTRIBUTES];
 
-    counter = stun_agent_find_unknowns(agent, request,
-                                       ids, STUN_AGENT_MAX_UNKNOWN_ATTRIBUTES);
+    counter = stun_agent_find_unknowns(agent, request, ids, STUN_AGENT_MAX_UNKNOWN_ATTRIBUTES);
 
-    if (stun_agent_init_error(agent, msg, buffer, buffer_len,
-                              request, STUN_ERROR_UNKNOWN_ATTRIBUTE) == FALSE)
+    if (stun_agent_init_error(agent, msg, buffer, buffer_len, request, STUN_ERROR_UNKNOWN_ATTRIBUTE) == FALSE)
     {
         return 0;
     }
@@ -311,8 +296,7 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
 }
 
 
-size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg,
-                                 const uint8_t * key, size_t key_len)
+size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uint8_t * key, size_t key_len)
 {
     uint8_t * ptr;
     uint32_t fpr;
@@ -411,13 +395,9 @@ static bool stun_agent_is_unknown(StunAgent * agent, uint16_t type)
     }
 
     return TRUE;
-
 }
 
-
-static unsigned
-stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg,
-                         uint16_t * list, unsigned max)
+static uint32_t stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg, uint16_t * list, unsigned max)
 {
     unsigned count = 0;
     uint16_t len = stun_message_length(msg);
@@ -432,8 +412,7 @@ stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg,
 
         if (!stun_optional(atype) && stun_agent_is_unknown(agent, atype))
         {
-            stun_debug("STUN unknown: attribute 0x%04x(%u bytes)",
-                       (unsigned)atype, (unsigned)alen);
+            stun_debug("STUN unknown: attribute 0x%04x(%u bytes)", (unsigned)atype, (unsigned)alen);
             list[count++] = htons(atype);
         }
 
@@ -445,9 +424,4 @@ stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg,
 
     stun_debug("STUN unknown: %u mandatory attribute(s)!", count);
     return count;
-}
-
-void stun_agent_set_software(StunAgent * agent, const char * software)
-{
-    agent->software_attribute = software;
 }

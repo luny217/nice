@@ -125,8 +125,7 @@ static void * example_thread(void *data)
 
   // Attach to the component to receive the data
   // Without this call, candidates cannot be gathered
-  nice_agent_attach_recv(agent, stream_id, 1,
-      g_main_loop_get_context (gloop), cb_nice_recv, NULL);
+  nice_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context (gloop), cb_nice_recv, NULL);
 
   nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
   //nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_TCP);

@@ -3,6 +3,7 @@
 #ifndef _NICE_COMPONENT_H
 #define _NICE_COMPONENT_H
 
+#include <stdint.h>
 #include <glib.h>
 
 typedef struct _Component Component;
@@ -31,8 +32,8 @@ struct _CandidatePairKeepalive
 {
     NiceAgent * agent;
     GSource * tick_source;
-    guint stream_id;
-    guint component_id;
+    uint32_t stream_id;
+    uint32_t component_id;
     StunTimer timer;
     uint8_t stun_buffer[STUN_MAX_MESSAGE_SIZE_IPV6];
     StunMessage stun_message;
@@ -42,7 +43,7 @@ struct _CandidatePair
 {
     NiceCandidate * local;
     NiceCandidate * remote;
-    guint64 priority;           /* candidate pair priority */
+    uint32_t priority;           /* candidate pair priority */
     CandidatePairKeepalive keepalive;
 };
 
@@ -50,7 +51,7 @@ struct _IncomingCheck
 {
     NiceAddress from;
     NiceSocket * local_socket;
-    guint32 priority;
+    uint32_t priority;
     gboolean use_candidate;
     uint8_t * username;
     uint16_t username_len;
@@ -88,9 +89,9 @@ typedef struct
  * @offset is guaranteed to be smaller than @buf_len. */
 typedef struct
 {
-    guint8 * buf; /* owned */
-    gsize buf_len;
-    gsize offset;
+    uint8_t * buf; /* owned */
+	uint32_t buf_len;
+	uint32_t offset;
 } IOCallbackData;
 
 IOCallbackData * io_callback_data_new(const guint8 * buf, gsize buf_len);
@@ -100,12 +101,12 @@ void io_callback_data_free(IOCallbackData * data);
 struct _Component
 {
     NiceComponentType type;
-    guint id;                    /* component id */
+	uint32_t id;                    /* component id */
     NiceComponentState state;
     GSList * local_candidates;   /* list of NiceCandidate objs */
     GSList * remote_candidates;  /* list of NiceCandidate objs */
     GSList * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
-    guint socket_sources_age;    /* incremented when socket_sources changes */
+	uint32_t socket_sources_age;    /* incremented when socket_sources changes */
     GSList * incoming_checks;    /* list of IncomingCheck objs */
     GList * turn_servers;            /* List of TurnServer objs */
     CandidatePair selected_pair; /* independent from checklists,
@@ -131,14 +132,14 @@ struct _Component
                                          in an I/O callback or recv() call yet.
                                          each element is an owned
                                          IOCallbackData */
-    guint io_callback_id;             /* GSource ID of the I/O callback */
+	uint32_t io_callback_id;             /* GSource ID of the I/O callback */
 
     GMainContext * own_ctx;            /* own context for GSources for this
                                        component */
     GMainContext * ctx;                /* context for GSources for this
                                        component (possibly set from the app) */
     NiceInputMessage * recv_messages; /* unowned messages for receiving into */
-    guint n_recv_messages;            /* length of recv_messages */
+	uint32_t n_recv_messages;            /* length of recv_messages */
     NiceInputMessageIter recv_messages_iter; /* current write position in
                                                 recv_messages */
     GError ** recv_buf_error;         /* error information about failed reads */
@@ -156,14 +157,14 @@ struct _Component
 
     PseudoTcpSocket * tcp;
     GSource * tcp_clock;
-    guint64 last_clock_timeout;
+    uint64_t last_clock_timeout;
     gboolean tcp_readable;
     GCancellable * tcp_writable_cancellable;
 
     GIOStream * iostream;
 
-    guint min_port;
-    guint max_port;
+	uint32_t min_port;
+	uint32_t max_port;
 
     /* Queue of messages received before a selected socket was available to send
      * ACKs on. The messages are dequeued to the pseudo-TCP socket once a selected
@@ -185,16 +186,16 @@ void component_detach_all_sockets(Component * component);
 void component_free_socket_sources(Component * component);
 
 GSource * component_input_source_new(NiceAgent * agent, guint stream_id,
-                                     guint component_id, GPollableInputStream * pollable_istream, GCancellable * cancellable);
+                                     uint32_t component_id, GPollableInputStream * pollable_istream, GCancellable * cancellable);
 
 GMainContext * component_dup_io_context(Component * component);
 void component_set_io_context(Component * component, GMainContext * context);
 void component_set_io_callback(Component * component,  NiceAgentRecvFunc func, gpointer user_data,
                                NiceInputMessage * recv_messages, guint n_recv_messages, GError ** error);
-void component_emit_io_callback(Component * component, const guint8 * buf, gsize buf_len);
-gboolean component_has_io_callback(Component * component);
+void component_emit_io_callback(Component * component, const guint8 * buf, uint32_t buf_len);
+int component_has_io_callback(Component * component);
 void component_clean_turn_servers(Component * component);
-TurnServer * turn_server_new(const gchar * server_ip, guint server_port, const gchar * username, const gchar * password, NiceRelayType type);
+TurnServer * turn_server_new(const gchar * server_ip, guint server_port, const char * username, const char * password, NiceRelayType type);
 TurnServer * turn_server_ref(TurnServer * turn);
 void turn_server_unref(TurnServer * turn);
 

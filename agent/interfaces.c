@@ -313,7 +313,7 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
     {
         IP_ADAPTER_UNICAST_ADDRESS * unicast;
 
-        nice_debug("Interface ?%S?:", a->FriendlyName);
+        nice_debug("Interface: %S", a->FriendlyName);
 
         /* Various conditions for ignoring the interface. */
         if (a->Flags & IP_ADAPTER_RECEIVE_ONLY ||
@@ -325,10 +325,9 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
             continue;
         }
 
-        if (!include_loopback &&
-                a->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
+        if (!include_loopback && a->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
         {
-            nice_debug("Rejecting loopback interface:", a->FriendlyName);
+            nice_debug("Rejecting loopback interface:%S", a->FriendlyName);
             continue;
         }
 

@@ -1154,9 +1154,7 @@ priv_binding_timeout(gpointer data)
     return FALSE;
 }
 
-guint
-nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_sock,
-                                        NiceInputMessage * message)
+uint32_t nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_sock, NiceInputMessage * message)
 {
     /* TODO: Speed this up in the common reliable case of having a 24-byte header
      * buffer to begin with, followed by one or more massive buffers. */

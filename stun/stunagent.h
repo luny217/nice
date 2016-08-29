@@ -455,34 +455,4 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg,
  * Returns: %TRUE if the transaction was found, %FALSE otherwise
  */
 bool stun_agent_forget_transaction(StunAgent * agent, StunTransactionId id);
-
-
-/**
- * stun_agent_set_software:
- * @agent: The #StunAgent
- * @software: The value of the SOFTWARE attribute to add.
- *
- * This function will set the value of the SOFTWARE attribute to be added to
- * STUN requests, responses and error responses.
- * <para>
- * Calling this function will automatically enable the addition of the SOFTWARE
- * attribute for RFC5389 and WLM2009 compatibility modes.
- *
- * </para>
- * <note>
-     <para>
-       The @software argument must be in UTF-8 encoding and only the first
-       128 characters will be sent.
-     </para>
-     <para>
-       The value of the @software argument must stay valid throughout the life of
-       the StunAgent's life. Do not free its content.
-     </para>
-   </note>
- *
- * Since: 0.0.10
- *
- */
-void stun_agent_set_software(StunAgent * agent, const char * software);
-
 #endif /* _STUN_AGENT_H */
