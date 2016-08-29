@@ -129,7 +129,7 @@ static void * example_thread(void *data)
 
   nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
   //nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_TCP);
-
+   
   // Start gathering local candidates
   if (!nice_agent_gather_candidates(agent, stream_id))
     g_error("Failed to start candidate gathering");
