@@ -4,7 +4,7 @@
  * (C) 2006, 2007 Collabora Ltd.
  *  Contact: Dafydd Harries
  * (C) 2006, 2007 Nokia Corporation. All rights reserved.
- *  Contact: Rémi Denis-Courmont
+ *  Contact: R?mi Denis-Courmont
  *
  * The contents of this file are subject to the Mozilla Public License Version
  * 1.1 (the "License"); you may not use this file except in compliance with
@@ -22,7 +22,7 @@
  * Corporation. All Rights Reserved.
  *
  * Contributors:
- *   Rémi Denis-Courmont, Nokia
+ *   R?mi Denis-Courmont, Nokia
  *
  * Alternatively, the contents of this file may be used under the terms of the
  * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which

@@ -1,44 +1,7 @@
-
-/*
- * This file is part of the Nice GLib ICE library.
- *
- * (C) 2008-2009 Collabora Ltd.
- *  Contact: Youness Alaoui
- * (C) 2007-2009 Nokia Corporation. All rights reserved.
- *  Contact: Rémi Denis-Courmont
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is the Nice GLib ICE library.
- *
- * The Initial Developers of the Original Code are Collabora Ltd and Nokia
- * Corporation. All Rights Reserved.
- *
- * Contributors:
- *   Youness Alaoui, Collabora Ltd.
- *   Rémi Denis-Courmont, Nokia
- *
- * Alternatively, the contents of this file may be used under the terms of the
- * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which
- * case the provisions of LGPL are applicable instead of those above. If you
- * wish to allow use of your version of this file only under the terms of the
- * LGPL and not to allow others to use your version of this file under the
- * MPL, indicate your decision by deleting the provisions above and replace
- * them with the notice and other provisions required by the LGPL. If you do
- * not delete the provisions above, a recipient may use your version of this
- * file under either the MPL or the LGPL.
- */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifndef STUN_CONNCHECK_H
-# define STUN_CONNCHECK_H 1
+#define STUN_CONNCHECK_H 1
 
 /**
  * SECTION:ice
@@ -52,11 +15,7 @@
  * to an incoming connectivity check request.
  */
 
-# include "stun/stunagent.h"
-
-# ifdef __cplusplus
-extern "C" {
-# endif
+#include "stun/stunagent.h"
 
 /**
  * StunUsageIceCompatibility:
@@ -76,12 +35,13 @@ extern "C" {
  * represents the same compatibility as @STUN_USAGE_ICE_COMPATIBILITY_RFC5245
  * </warning>
  */
-typedef enum {
-  STUN_USAGE_ICE_COMPATIBILITY_RFC5245,
-  STUN_USAGE_ICE_COMPATIBILITY_GOOGLE,
-  STUN_USAGE_ICE_COMPATIBILITY_MSN,
-  STUN_USAGE_ICE_COMPATIBILITY_WLM2009,
-  STUN_USAGE_ICE_COMPATIBILITY_DRAFT19 = STUN_USAGE_ICE_COMPATIBILITY_RFC5245,
+typedef enum
+{
+    STUN_USAGE_ICE_COMPATIBILITY_RFC5245,
+    STUN_USAGE_ICE_COMPATIBILITY_GOOGLE,
+    STUN_USAGE_ICE_COMPATIBILITY_MSN,
+    STUN_USAGE_ICE_COMPATIBILITY_WLM2009,
+    STUN_USAGE_ICE_COMPATIBILITY_DRAFT19 = STUN_USAGE_ICE_COMPATIBILITY_RFC5245,
 } StunUsageIceCompatibility;
 
 
@@ -104,16 +64,17 @@ typedef enum {
  * stun_usage_ice_conncheck_create_reply() which allows you to see what
  * status the function call returned.
  */
-typedef enum {
-  STUN_USAGE_ICE_RETURN_SUCCESS,
-  STUN_USAGE_ICE_RETURN_ERROR,
-  STUN_USAGE_ICE_RETURN_INVALID,
-  STUN_USAGE_ICE_RETURN_ROLE_CONFLICT,
-  STUN_USAGE_ICE_RETURN_INVALID_REQUEST,
-  STUN_USAGE_ICE_RETURN_INVALID_METHOD,
-  STUN_USAGE_ICE_RETURN_MEMORY_ERROR,
-  STUN_USAGE_ICE_RETURN_INVALID_ADDRESS,
-  STUN_USAGE_ICE_RETURN_NO_MAPPED_ADDRESS,
+typedef enum
+{
+    STUN_USAGE_ICE_RETURN_SUCCESS,
+    STUN_USAGE_ICE_RETURN_ERROR,
+    STUN_USAGE_ICE_RETURN_INVALID,
+    STUN_USAGE_ICE_RETURN_ROLE_CONFLICT,
+    STUN_USAGE_ICE_RETURN_INVALID_REQUEST,
+    STUN_USAGE_ICE_RETURN_INVALID_METHOD,
+    STUN_USAGE_ICE_RETURN_MEMORY_ERROR,
+    STUN_USAGE_ICE_RETURN_INVALID_ADDRESS,
+    STUN_USAGE_ICE_RETURN_NO_MAPPED_ADDRESS,
 } StunUsageIceReturn;
 
 
@@ -146,13 +107,13 @@ typedef enum {
  * Returns: The length of the message built.
  */
 size_t
-stun_usage_ice_conncheck_create (StunAgent *agent, StunMessage *msg,
-    uint8_t *buffer, size_t buffer_len,
-    const uint8_t *username, const size_t username_len,
-    const uint8_t *password, const size_t password_len,
-    bool cand_use, bool controlling, uint32_t priority,
-    uint64_t tie, const char *candidate_identifier,
-    StunUsageIceCompatibility compatibility);
+stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
+                                uint8_t * buffer, size_t buffer_len,
+                                const uint8_t * username, const size_t username_len,
+                                const uint8_t * password, const size_t password_len,
+                                bool cand_use, bool controlling, uint32_t priority,
+                                uint64_t tie, const char * candidate_identifier,
+                                StunUsageIceCompatibility compatibility);
 
 
 /**
@@ -170,9 +131,9 @@ stun_usage_ice_conncheck_create (StunAgent *agent, StunMessage *msg,
  * stun_usage_ice_conncheck_use_candidate() </para>
  * Returns: A #StunUsageIceReturn value
  */
-StunUsageIceReturn stun_usage_ice_conncheck_process (StunMessage *msg,
-    struct sockaddr_storage *addr, socklen_t *addrlen,
-    StunUsageIceCompatibility compatibility);
+StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg,
+        struct sockaddr_storage * addr, socklen_t * addrlen,
+        StunUsageIceCompatibility compatibility);
 
 /**
  * stun_usage_ice_conncheck_create_reply:
@@ -205,11 +166,11 @@ StunUsageIceReturn stun_usage_ice_conncheck_process (StunMessage *msg,
  * Returns: A #StunUsageIceReturn value
  */
 StunUsageIceReturn
-stun_usage_ice_conncheck_create_reply (StunAgent *agent, StunMessage *req,
-    StunMessage *msg, uint8_t *buf, size_t *plen,
-    const struct sockaddr_storage *src, socklen_t srclen,
-    bool *control, uint64_t tie,
-    StunUsageIceCompatibility compatibility);
+stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
+                                      StunMessage * msg, uint8_t * buf, size_t * plen,
+                                      const struct sockaddr_storage * src, socklen_t srclen,
+                                      bool * control, uint64_t tie,
+                                      StunUsageIceCompatibility compatibility);
 
 /**
  * stun_usage_ice_conncheck_priority:
@@ -218,7 +179,7 @@ stun_usage_ice_conncheck_create_reply (StunAgent *agent, StunMessage *req,
  * Extracts the priority from a STUN message.
  * Returns: host byte order priority, or 0 if not specified.
  */
-uint32_t stun_usage_ice_conncheck_priority (const StunMessage *msg);
+uint32_t stun_usage_ice_conncheck_priority(const StunMessage * msg);
 
 /**
  * stun_usage_ice_conncheck_use_candidate:
@@ -227,10 +188,6 @@ uint32_t stun_usage_ice_conncheck_priority (const StunMessage *msg);
  * Extracts the USE-CANDIDATE attribute flag from a STUN message.
  * Returns: %TRUE if the flag is set, %FALSE if not.
  */
-bool stun_usage_ice_conncheck_use_candidate (const StunMessage *msg);
-
-# ifdef __cplusplus
-}
-# endif
+bool stun_usage_ice_conncheck_use_candidate(const StunMessage * msg);
 
 #endif

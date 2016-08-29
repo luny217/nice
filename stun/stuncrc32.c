@@ -4,7 +4,7 @@
  * (C) 2008-2009 Collabora Ltd.
  *  Contact: Youness Alaoui
  * (C) 2007-2009 Nokia Corporation. All rights reserved.
- *  Contact: Rémi Denis-Courmont
+ *  Contact: R?mi Denis-Courmont
  * COPYRIGHT (C) 1986 Gary S. Brown
  *  See documentation of the function crc32() below.
  *
@@ -25,7 +25,7 @@
  *
  * Contributors:
  *   Youness Alaoui, Collabora Ltd.
- *   Rémi Denis-Courmont, Nokia
+ *   R?mi Denis-Courmont, Nokia
  *   Gary S. Brown
  *
  * Alternatively, the contents of this file may be used under the terms of the
@@ -44,7 +44,7 @@
  *  code or tables extracted from it, as desired without restriction.
  *
  *  Extracted from FreeBSD CVS (src/sys/libkern/crc32.c)
- *  and adapted by Rémi Denis-Courmont, 2007.
+ *  and adapted by R?mi Denis-Courmont, 2007.
  */
 
 /*

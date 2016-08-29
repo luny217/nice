@@ -173,7 +173,7 @@ socket_recv_messages (NiceSocket *sock,
 
   switch (priv->state) {
     case SOCKS_STATE_CONNECTED:
-      /* Common case: fast pass-through to the base socket once we’re
+      /* Common case: fast pass-through to the base socket once we?re
        * connected. */
       if (priv->base_socket) {
         ret = nice_socket_recv_messages (priv->base_socket,

@@ -1,39 +1,4 @@
-/*
- * This file is part of the Nice GLib ICE library.
- *
- * (C) 2010, 2014 Collabora Ltd.
- *  Contact: Philip Withnall
-
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is the Nice GLib ICE library.
- *
- * The Initial Developers of the Original Code are Collabora Ltd and Nokia
- * Corporation. All Rights Reserved.
- *
- * Contributors:
- *   Youness Alaoui, Collabora Ltd.
- *   Philip Withnall, Collabora Ltd.
- *
- * Alternatively, the contents of this file may be used under the terms of the
- * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which
- * case the provisions of LGPL are applicable instead of those above. If you
- * wish to allow use of your version of this file only under the terms of the
- * LGPL and not to allow others to use your version of this file under the
- * MPL, indicate your decision by deleting the provisions above and replace
- * them with the notice and other provisions required by the LGPL. If you do
- * not delete the provisions above, a recipient may use your version of this
- * file under either the MPL or the LGPL.
- */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifndef __LIBNICE_PSEUDOTCP_H__
 #define __LIBNICE_PSEUDOTCP_H__
@@ -59,19 +24,15 @@
 
 #include <glib-object.h>
 
-#ifndef __GTK_DOC_IGNORE__
 #ifdef G_OS_WIN32
-#  include <winsock2.h>
+#include <winsock2.h>
 //#  define ECONNABORTED WSAECONNABORTED
 //#  define ENOTCONN WSAENOTCONN
 //#  define EWOULDBLOCK WSAEWOULDBLOCK
 //#  define ECONNRESET WSAECONNRESET
 #endif
-#endif
 
 #include "agent.h"
-
-//G_BEGIN_DECLS
 
 /**
  * PseudoTcpSocket:
@@ -346,7 +307,7 @@ gint pseudo_tcp_socket_send(PseudoTcpSocket * self, const char * buffer,
  * will discard pending data and close the connection immediately (sending a TCP
  * RST segment).
  *
- * The socket will be closed in both directions ¨C sending and receiving ¨C and
+ * The socket will be closed in both directions ?C sending and receiving ?C and
  * any pending received data must be read before calling this function, by
  * calling pseudo_tcp_socket_recv() until it blocks. If any pending data is in
  * the receive buffer when pseudo_tcp_socket_close() is called, a TCP RST
@@ -484,7 +445,7 @@ gboolean pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self,
  * @message: A #NiceInputMessage containing the received data.
  *
  * Notify the #PseudoTcpSocket that a new message has arrived, and enqueue the
- * data in its buffers to the #PseudoTcpSocket¡¯s receive buffer.
+ * data in its buffers to the #PseudoTcpSocket??s receive buffer.
  *
  * Returns: %TRUE if the packet was processed successfully, %FALSE otherwise
  *
@@ -579,7 +540,7 @@ gboolean pseudo_tcp_socket_is_closed(PseudoTcpSocket * self);
  * pseudo_tcp_socket_is_closed_remotely:
  * @self: The #PseudoTcpSocket object.
  *
- * Gets whether the socket has been closed on the remote peer¡¯s side of the
+ * Gets whether the socket has been closed on the remote peer??s side of the
  * connection (i.e. whether pseudo_tcp_socket_close() has been called there).
  * This is guaranteed to return %TRUE if pseudo_tcp_socket_is_closed() returns
  * %TRUE. It will not return %TRUE after pseudo_tcp_socket_close() is called
@@ -590,8 +551,6 @@ gboolean pseudo_tcp_socket_is_closed(PseudoTcpSocket * self);
  * Since: 0.1.8
  */
 gboolean pseudo_tcp_socket_is_closed_remotely(PseudoTcpSocket * self);
-
-//G_END_DECLS
 
 #endif /* __LIBNICE_PSEUDOTCP_H__ */
 

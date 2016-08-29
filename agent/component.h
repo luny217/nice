@@ -1,41 +1,4 @@
-/*
- * This file is part of the Nice GLib ICE library.
- *
- * (C) 2006-2010 Collabora Ltd.
- *  Contact: Youness Alaoui
- * (C) 2006-2010 Nokia Corporation. All rights reserved.
- *  Contact: Kai Vehmanen
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is the Nice GLib ICE library.
- *
- * The Initial Developers of the Original Code are Collabora Ltd and Nokia
- * Corporation. All Rights Reserved.
- *
- * Contributors:
- *   Dafydd Harries, Collabora Ltd.
- *   Youness Alaoui, Collabora Ltd.
- *   Kai Vehmanen, Nokia
- *
- * Alternatively, the contents of this file may be used under the terms of the
- * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which
- * case the provisions of LGPL are applicable instead of those above. If you
- * wish to allow use of your version of this file only under the terms of the
- * LGPL and not to allow others to use your version of this file under the
- * MPL, indicate your decision by deleting the provisions above and replace
- * them with the notice and other provisions required by the LGPL. If you do
- * not delete the provisions above, a recipient may use your version of this
- * file under either the MPL or the LGPL.
- */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifndef _NICE_COMPONENT_H
 #define _NICE_COMPONENT_H
@@ -53,10 +16,7 @@ typedef struct _Component Component;
 #include "stream.h"
 #include "socket.h"
 
-G_BEGIN_DECLS
-
-
-/* (ICE §4.1.1.1, ID-19)
+/* (ICE 4.1.1.1, ID-19)
  * ""For RTP-based media streams, the RTP itself has a component
  * ID of 1, and RTCP a component ID of 2.  If an agent is using RTCP it MUST
  * obtain a candidate for it.  If an agent is using both RTP and RTCP, it
@@ -96,8 +56,7 @@ struct _IncomingCheck
     uint16_t username_len;
 };
 
-void
-incoming_check_free(IncomingCheck * icheck);
+void incoming_check_free(IncomingCheck * icheck);
 
 /* A pair of a socket and the GSource which polls it from the main loop. All
  * GSources in a Component must be attached to the same main context:
@@ -117,7 +76,7 @@ typedef struct
 
 /* A message which has been received and processed (so is guaranteed not
  * to be a STUN packet, or to contain pseudo-TCP header bytes, for example), but
- * which hasn’t yet been sent to the client in an I/O callback. This could be
+ * which hasn?t yet been sent to the client in an I/O callback. This could be
  * due to the main context not being run, or due to the I/O callback being
  * detached.
  *
@@ -134,10 +93,8 @@ typedef struct
     gsize offset;
 } IOCallbackData;
 
-IOCallbackData *
-io_callback_data_new(const guint8 * buf, gsize buf_len);
-void
-io_callback_data_free(IOCallbackData * data);
+IOCallbackData * io_callback_data_new(const guint8 * buf, gsize buf_len);
+void io_callback_data_free(IOCallbackData * data);
 
 
 struct _Component
@@ -214,77 +171,32 @@ struct _Component
     GQueue queued_tcp_packets;
 };
 
-Component *
-component_new(guint component_id, NiceAgent * agent, Stream * stream);
+Component * component_new(guint component_id, NiceAgent * agent, Stream * stream);
+void component_close(Component * cmp);
+void component_free(Component * cmp);
+gboolean component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
+void component_restart(Component * cmp);
+void component_update_selected_pair(Component * component, const CandidatePair * pair);
+NiceCandidate * component_find_remote_candidate(const Component * component, const NiceAddress * addr, NiceCandidateTransport transport);
+NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Component * component, NiceCandidate * candidate);
+void component_attach_socket(Component * component, NiceSocket * nsocket);
+void component_detach_socket(Component * component, NiceSocket * nsocket);
+void component_detach_all_sockets(Component * component);
+void component_free_socket_sources(Component * component);
 
-void
-component_close(Component * cmp);
+GSource * component_input_source_new(NiceAgent * agent, guint stream_id,
+                                     guint component_id, GPollableInputStream * pollable_istream, GCancellable * cancellable);
 
-void
-component_free(Component * cmp);
-
-gboolean
-component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
-
-void
-component_restart(Component * cmp);
-
-void
-component_update_selected_pair(Component * component, const CandidatePair * pair);
-
-NiceCandidate *
-component_find_remote_candidate(const Component * component, const NiceAddress * addr, NiceCandidateTransport transport);
-
-NiceCandidate *
-component_set_selected_remote_candidate(NiceAgent * agent, Component * component,
-                                        NiceCandidate * candidate);
-
-void
-component_attach_socket(Component * component, NiceSocket * nsocket);
-void
-component_detach_socket(Component * component, NiceSocket * nsocket);
-void
-component_detach_all_sockets(Component * component);
-void
-component_free_socket_sources(Component * component);
-
-GSource *
-component_input_source_new(NiceAgent * agent, guint stream_id,
-                           guint component_id, GPollableInputStream * pollable_istream,
-                           GCancellable * cancellable);
-
-GMainContext *
-component_dup_io_context(Component * component);
-void
-component_set_io_context(Component * component, GMainContext * context);
-void
-component_set_io_callback(Component * component,
-                          NiceAgentRecvFunc func, gpointer user_data,
-                          NiceInputMessage * recv_messages, guint n_recv_messages,
-                          GError ** error);
-void
-component_emit_io_callback(Component * component,
-                           const guint8 * buf, gsize buf_len);
-
-gboolean
-component_has_io_callback(Component * component);
-
-void
-component_clean_turn_servers(Component * component);
-
-
-TurnServer *
-turn_server_new(const gchar * server_ip, guint server_port,
-                const gchar * username, const gchar * password, NiceRelayType type);
-
-TurnServer *
-turn_server_ref(TurnServer * turn);
-
-void
-turn_server_unref(TurnServer * turn);
-
-
-G_END_DECLS
+GMainContext * component_dup_io_context(Component * component);
+void component_set_io_context(Component * component, GMainContext * context);
+void component_set_io_callback(Component * component,  NiceAgentRecvFunc func, gpointer user_data,
+                               NiceInputMessage * recv_messages, guint n_recv_messages, GError ** error);
+void component_emit_io_callback(Component * component, const guint8 * buf, gsize buf_len);
+gboolean component_has_io_callback(Component * component);
+void component_clean_turn_servers(Component * component);
+TurnServer * turn_server_new(const gchar * server_ip, guint server_port, const gchar * username, const gchar * password, NiceRelayType type);
+TurnServer * turn_server_ref(TurnServer * turn);
+void turn_server_unref(TurnServer * turn);
 
 #endif /* _NICE_COMPONENT_H */
 

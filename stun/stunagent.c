@@ -1,9 +1,6 @@
 /* This file is part of the Nice GLib ICE library. */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
+#include <config.h>
 #include "stunmessage.h"
 #include "stunagent.h"
 #include "stunhmac.h"

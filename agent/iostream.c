@@ -141,8 +141,8 @@ nice_io_stream_class_init (NiceIOStreamClass *klass)
   g_object_class_install_property (gobject_class, PROP_STREAM_ID,
       g_param_spec_uint (
           "stream-id",
-          "Agent’s stream ID",
-          "The ID of the agent’s stream to wrap.",
+          "Agent?s stream ID",
+          "The ID of the agent?s stream to wrap.",
           0, G_MAXUINT,
           0,
           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -157,8 +157,8 @@ nice_io_stream_class_init (NiceIOStreamClass *klass)
   g_object_class_install_property (gobject_class, PROP_COMPONENT_ID,
       g_param_spec_uint (
           "component-id",
-          "Agent’s component ID",
-          "The ID of the agent’s component to wrap.",
+          "Agent?s component ID",
+          "The ID of the agent?s component to wrap.",
           0, G_MAXUINT,
           0,
           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -184,7 +184,7 @@ nice_io_stream_dispose (GObject *object)
   NiceAgent *agent;
 
   /* Ensure the stream is closed before continuing. Otherwise, if the input or
-   * output streams haven’t yet been lazily created, closing the stream in
+   * output streams haven?t yet been lazily created, closing the stream in
    * g_io_stream_dispose() will lazily create them, but NiceAgent will be NULL
    * by that point and things will explode. */
   if (!g_io_stream_is_closed (G_IO_STREAM (object)))
@@ -264,8 +264,8 @@ nice_io_stream_set_property (GObject *object, guint prop_id,
 /***
  * nice_io_stream_new:
  * @agent: A #NiceAgent
- * @stream_id: The ID of the agent’s stream to wrap
- * @component_id: The ID of the agent’s component to wrap
+ * @stream_id: The ID of the agent?s stream to wrap
+ * @component_id: The ID of the agent?s component to wrap
  *
  * Create a new #NiceIOStream wrapping the given stream/component from @agent,
  * which must be a reliable #NiceAgent.

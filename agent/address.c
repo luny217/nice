@@ -39,7 +39,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #else
-#define NICEAPI_EXPORT
+#define 
 #endif
 
 #include <string.h>
@@ -128,14 +128,14 @@ inet_pton_win32(int af, const char * src, void * dst)
 
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_init(NiceAddress * addr)
 {
     addr->s.addr.sa_family = AF_UNSPEC;
     memset(&addr->s, 0, sizeof(addr->s));
 }
 
-NICEAPI_EXPORT NiceAddress *
+ NiceAddress *
 nice_address_new(void)
 {
     NiceAddress * addr = g_slice_new0(NiceAddress);
@@ -144,7 +144,7 @@ nice_address_new(void)
 }
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_set_ipv4(NiceAddress * addr, guint32 addr_ipv4)
 {
     addr->s.ip4.sin_family = AF_INET;
@@ -156,7 +156,7 @@ nice_address_set_ipv4(NiceAddress * addr, guint32 addr_ipv4)
 }
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_set_ipv6(NiceAddress * addr, const guchar * addr_ipv6)
 {
     addr->s.ip6.sin6_family = AF_INET6;
@@ -169,7 +169,7 @@ nice_address_set_ipv6(NiceAddress * addr, const guchar * addr_ipv6)
 }
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_set_port(NiceAddress * addr, guint port)
 {
     g_assert(addr);
@@ -206,7 +206,7 @@ nice_address_get_port(const NiceAddress * addr)
 }
 
 
-NICEAPI_EXPORT gboolean
+ gboolean
 nice_address_set_from_string(NiceAddress * addr, const gchar * str)
 {
     struct addrinfo hints;
@@ -229,7 +229,7 @@ nice_address_set_from_string(NiceAddress * addr, const gchar * str)
 }
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_set_from_sockaddr(NiceAddress * addr,
                                const struct sockaddr * sa)
 {
@@ -247,7 +247,7 @@ nice_address_set_from_sockaddr(NiceAddress * addr,
 }
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_copy_to_sockaddr(const NiceAddress * addr,
                               struct sockaddr * _sa)
 {
@@ -275,7 +275,7 @@ nice_address_copy_to_sockaddr(const NiceAddress * addr,
     }
 }
 
-NICEAPI_EXPORT void
+ void
 nice_address_to_string(const NiceAddress * addr, gchar * dst)
 {
     switch (addr->s.addr.sa_family)
@@ -292,7 +292,7 @@ nice_address_to_string(const NiceAddress * addr, gchar * dst)
 }
 
 
-NICEAPI_EXPORT gboolean
+ gboolean
 nice_address_equal(const NiceAddress * a, const NiceAddress * b)
 {
     if (a->s.addr.sa_family != b->s.addr.sa_family)
@@ -315,7 +315,7 @@ nice_address_equal(const NiceAddress * a, const NiceAddress * b)
 }
 
 
-NICEAPI_EXPORT NiceAddress *
+ NiceAddress *
 nice_address_dup(const NiceAddress * a)
 {
     NiceAddress * dup = g_slice_new0(NiceAddress);
@@ -325,7 +325,7 @@ nice_address_dup(const NiceAddress * a)
 }
 
 
-NICEAPI_EXPORT void
+ void
 nice_address_free(NiceAddress * addr)
 {
     g_slice_free(NiceAddress, addr);
@@ -367,7 +367,7 @@ ipv6_address_is_private(const guchar * addr)
 }
 
 
-NICEAPI_EXPORT gboolean
+ gboolean
 nice_address_is_private(const NiceAddress * a)
 {
     switch (a->s.addr.sa_family)
@@ -382,7 +382,7 @@ nice_address_is_private(const NiceAddress * a)
 }
 
 
-NICEAPI_EXPORT gboolean
+ gboolean
 nice_address_is_valid(const NiceAddress * a)
 {
     switch (a->s.addr.sa_family)
@@ -395,7 +395,7 @@ nice_address_is_valid(const NiceAddress * a)
     }
 }
 
-NICEAPI_EXPORT int
+ int
 nice_address_ip_version(const NiceAddress * addr)
 {
     switch (addr->s.addr.sa_family)
@@ -409,7 +409,7 @@ nice_address_ip_version(const NiceAddress * addr)
     }
 }
 
-NICEAPI_EXPORT gboolean
+ gboolean
 nice_address_equal_no_port(const NiceAddress * a, const NiceAddress * b)
 {
     if (a->s.addr.sa_family != b->s.addr.sa_family)

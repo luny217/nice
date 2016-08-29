@@ -1,26 +1,4 @@
-/*
- * interfaces.h - Source for interface discovery code
- *
- * Farsight Helper functions
- * Copyright (C) 2006 Youness Alaoui <kakaroto@kakaroto.homelinux.net>
- * Copyright (C) 2008-2009 Collabora, Nokia
- *  Contact: Youness Alaoui
- * Copyright (C) 2008-2009 Nokia Corporation. All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
- */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifndef __LIBNICE_INTERFACES_H__
 #define __LIBNICE_INTERFACES_H__
@@ -37,9 +15,6 @@
  */
 
 #include <glib.h>
-
-G_BEGIN_DECLS
-
 
 /**
  * nice_interfaces_get_ip_for_interface:
@@ -76,7 +51,5 @@ GList * nice_interfaces_get_local_ips (gboolean include_loopback);
  * strings. The caller must free it.
  */
 GList * nice_interfaces_get_local_interfaces (void);
-
-G_END_DECLS
 
 #endif /* __LIBNICE_INTERFACES_H__ */

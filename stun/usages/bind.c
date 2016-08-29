@@ -1,4 +1,4 @@
-﻿/* This file is part of the Nice GLib ICE library. */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>

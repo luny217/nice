@@ -1,4 +1,4 @@
-﻿/* This file is part of the Nice GLib ICE library. */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifndef _STUN_MESSAGE_H
 #define _STUN_MESSAGE_H
@@ -876,11 +876,11 @@ typedef struct
  * @has_padding: %TRUE if attributes should be padded to 4-byte boundaries
  *
  * Quickly validate whether the message in the given @buffers is potentially a
- * valid STUN message, an incomplete STUN message, or if it’s definitely not one
+ * valid STUN message, an incomplete STUN message, or if it?s definitely not one
  * at all.
  *
  * This is designed as a first-pass validation only, and does not check the
- * message’s attributes for validity. If this function returns success, the
+ * message?s attributes for validity. If this function returns success, the
  * buffers can be compacted and a more thorough validation can be performed
  * using stun_message_validate_buffer_length(). If it fails, the buffers
  * definitely do not contain a complete, valid STUN message.

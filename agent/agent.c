@@ -1,50 +1,6 @@
-/*
- * This file is part of the Nice GLib ICE library.
- *
- * (C) 2006-2010, 2013 Collabora Ltd.
- *  Contact: Youness Alaoui
- * (C) 2006-2010 Nokia Corporation. All rights reserved.
- *  Contact: Kai Vehmanen
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is the Nice GLib ICE library.
- *
- * The Initial Developers of the Original Code are Collabora Ltd and Nokia
- * Corporation. All Rights Reserved.
- *
- * Contributors:
- *   Dafydd Harries, Collabora Ltd.
- *   Youness Alaoui, Collabora Ltd.
- *   Kai Vehmanen, Nokia
- *   Philip Withnall, Collabora Ltd.
- *
- * Alternatively, the contents of this file may be used under the terms of the
- * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which
- * case the provisions of LGPL are applicable instead of those above. If you
- * wish to allow use of your version of this file only under the terms of the
- * LGPL and not to allow others to use your version of this file under the
- * MPL, indicate your decision by deleting the provisions above and replace
- * them with the notice and other provisions required by the LGPL. If you do
- * not delete the provisions above, a recipient may use your version of this
- * file under either the MPL or the LGPL.
- */
+/* This file is part of the Nice GLib ICE library. */
 
-
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#else
-#define NICEAPI_EXPORT
-#endif
-
+#include <config.h>
 #include <glib.h>
 #include <gobject/gvaluecollector.h>
 
@@ -58,7 +14,6 @@
 #endif
 
 #include "debug.h"
-
 #include "socket.h"
 #include "stun/usages/turn.h"
 #include "candidate.h"
@@ -68,13 +23,11 @@
 #include "agent.h"
 #include "agent-priv.h"
 #include "iostream.h"
-
 #include "stream.h"
 #include "interfaces.h"
-
 #include "pseudotcp.h"
 
-/* Maximum size of a UDP packet¡¯s payload, as the packet¡¯s length field is 16b
+/* Maximum size of a UDP packet??s payload, as the packet??s length field is 16b
  * wide. */
 #define MAX_BUFFER_SIZE ((1 << 16) - 1)  /* 65535 */
 
@@ -83,9 +36,7 @@
 
 #define MAX_TCP_MTU 1400 /* Use 1400 because of VPNs and we assume IEE 802.3 */
 
-static void
-nice_debug_input_message_composition(const NiceInputMessage * messages,
-                                     guint n_messages);
+static void nice_debug_input_message_composition(const NiceInputMessage * messages,  uint32_t n_messages);
 
 G_DEFINE_TYPE(NiceAgent, nice_agent, G_TYPE_OBJECT);
 
@@ -113,7 +64,6 @@ enum
     PROP_KEEPALIVE_CONNCHECK
 };
 
-
 enum
 {
     SIGNAL_COMPONENT_STATE_CHANGED,
@@ -131,13 +81,9 @@ enum
     N_SIGNALS,
 };
 
-static guint signals[N_SIGNALS];
+static uint32_t signals[N_SIGNALS];
 
-#if GLIB_CHECK_VERSION(2,31,8)
 static GMutex agent_mutex;    /* Mutex used for thread-safe lib */
-#else
-static GStaticMutex agent_mutex = G_STATIC_MUTEX_INIT;
-#endif
 
 static void priv_stop_upnp(NiceAgent * agent);
 
@@ -148,10 +94,9 @@ static void pseudo_tcp_socket_closed(PseudoTcpSocket * sock, guint32 err, gpoint
 static PseudoTcpWriteResult pseudo_tcp_socket_write_packet(PseudoTcpSocket * sock, const gchar * buffer, guint32 len, gpointer user_data);
 static void adjust_tcp_clock(NiceAgent * agent, Stream * stream, Component * component);
 static void nice_agent_dispose(GObject * object);
-static void nice_agent_get_property(GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
-static void nice_agent_set_property(GObject * object, guint property_id, const GValue * value, GParamSpec * pspec);
+static void nice_agent_get_property(GObject * object, uint32_t property_id, GValue * value, GParamSpec * pspec);
+static void nice_agent_set_property(GObject * object, uint32_t property_id, const GValue * value, GParamSpec * pspec);
 
-#if GLIB_CHECK_VERSION(2,31,8)
 void agent_lock(void)
 {
     g_mutex_lock(&agent_mutex);
@@ -162,19 +107,6 @@ void agent_unlock(void)
     g_mutex_unlock(&agent_mutex);
 }
 
-#else
-void agent_lock(void)
-{
-    g_static_mutex_lock(&agent_mutex);
-}
-
-void agent_unlock(void)
-{
-    g_static_mutex_unlock(&agent_mutex);
-}
-
-#endif
-
 static GType _nice_agent_stream_ids_get_type(void);
 
 G_DEFINE_POINTER_TYPE(_NiceAgentStreamIds, _nice_agent_stream_ids);
@@ -183,16 +115,15 @@ G_DEFINE_POINTER_TYPE(_NiceAgentStreamIds, _nice_agent_stream_ids);
 
 typedef struct
 {
-    guint signal_id;
+    uint32_t signal_id;
     GSignalQuery query;
     GValue * params;
 } QueuedSignal;
 
 
-static void
-free_queued_signal(QueuedSignal * sig)
+static void free_queued_signal(QueuedSignal * sig)
 {
-    guint i;
+    uint32_t i;
 
     g_value_unset(&sig->params[0]);
 
@@ -207,8 +138,7 @@ free_queued_signal(QueuedSignal * sig)
     g_slice_free(QueuedSignal, sig);
 }
 
-void
-agent_unlock_and_emit(NiceAgent * agent)
+void agent_unlock_and_emit(NiceAgent * agent)
 {
     GQueue queue = G_QUEUE_INIT;
     QueuedSignal * sig;
@@ -226,11 +156,10 @@ agent_unlock_and_emit(NiceAgent * agent)
     }
 }
 
-static void
-agent_queue_signal(NiceAgent * agent, guint signal_id, ...)
+static void agent_queue_signal(NiceAgent * agent, uint32_t signal_id, ...)
 {
     QueuedSignal * sig;
-    guint i;
+    uint32_t i;
     gchar * error = NULL;
     va_list var_args;
 
@@ -265,8 +194,7 @@ agent_queue_signal(NiceAgent * agent, guint signal_id, ...)
 }
 
 
-StunUsageIceCompatibility
-agent_to_ice_compatibility(NiceAgent * agent)
+StunUsageIceCompatibility agent_to_ice_compatibility(NiceAgent * agent)
 {
     return agent->compatibility == NICE_COMPATIBILITY_GOOGLE ?
            STUN_USAGE_ICE_COMPATIBILITY_GOOGLE :
@@ -282,8 +210,7 @@ agent_to_ice_compatibility(NiceAgent * agent)
 }
 
 
-StunUsageTurnCompatibility
-agent_to_turn_compatibility(NiceAgent * agent)
+StunUsageTurnCompatibility agent_to_turn_compatibility(NiceAgent * agent)
 {
     return agent->compatibility == NICE_COMPATIBILITY_GOOGLE ?
            STUN_USAGE_TURN_COMPATIBILITY_GOOGLE :
@@ -298,8 +225,7 @@ agent_to_turn_compatibility(NiceAgent * agent)
            STUN_USAGE_TURN_COMPATIBILITY_RFC5766;
 }
 
-NiceTurnSocketCompatibility
-agent_to_turn_socket_compatibility(NiceAgent * agent)
+NiceTurnSocketCompatibility agent_to_turn_socket_compatibility(NiceAgent * agent)
 {
     return agent->compatibility == NICE_COMPATIBILITY_GOOGLE ?
            NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE :
@@ -314,7 +240,7 @@ agent_to_turn_socket_compatibility(NiceAgent * agent)
            NICE_TURN_SOCKET_COMPATIBILITY_RFC5766;
 }
 
-Stream * agent_find_stream(NiceAgent * agent, guint stream_id)
+Stream * agent_find_stream(NiceAgent * agent, uint32_t stream_id)
 {
     GSList * i;
 
@@ -329,14 +255,7 @@ Stream * agent_find_stream(NiceAgent * agent, guint stream_id)
     return NULL;
 }
 
-
-gboolean
-agent_find_component(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    Stream ** stream,
-    Component ** component)
+int32_t agent_find_component( NiceAgent * agent, uint32_t stream_id, uint32_t component_id, Stream ** stream, Component ** component)
 {
     Stream * s;
     Component * c;
@@ -360,8 +279,7 @@ agent_find_component(
     return TRUE;
 }
 
-static void
-nice_agent_class_init(NiceAgentClass * klass)
+static void nice_agent_class_init(NiceAgentClass * klass)
 {
     GObjectClass * gobject_class = G_OBJECT_CLASS(klass);
 
@@ -451,85 +369,7 @@ nice_agent_class_init(NiceAgentClass * klass)
                                         0, 0xffffffff,
                                         0, /* default set in init */
                                         G_PARAM_READWRITE));
-
-    /**
-     * NiceAgent:proxy-ip:
-     *
-     * The proxy server IP used to bypass a proxy firewall
-     *
-     * Since: 0.0.4
-     */
-    g_object_class_install_property(gobject_class, PROP_PROXY_IP,
-                                    g_param_spec_string(
-                                        "proxy-ip",
-                                        "Proxy server IP",
-                                        "The proxy server IP used to bypass a proxy firewall",
-                                        NULL,
-                                        G_PARAM_READWRITE));
-
-    /**
-     * NiceAgent:proxy-port:
-     *
-     * The proxy server port used to bypass a proxy firewall
-     *
-     * Since: 0.0.4
-     */
-    g_object_class_install_property(gobject_class, PROP_PROXY_PORT,
-                                    g_param_spec_uint(
-                                        "proxy-port",
-                                        "Proxy server port",
-                                        "The Proxy server port used to bypass a proxy firewall",
-                                        1, 65536,
-                                        1,
-                                        G_PARAM_READWRITE));
-
-    /**
-     * NiceAgent:proxy-type:
-     *
-     * The type of proxy set in the proxy-ip property
-     *
-     * Since: 0.0.4
-     */
-    g_object_class_install_property(gobject_class, PROP_PROXY_TYPE,
-                                    g_param_spec_uint(
-                                        "proxy-type",
-                                        "Type of proxy to use",
-                                        "The type of proxy set in the proxy-ip property",
-                                        NICE_PROXY_TYPE_NONE, NICE_PROXY_TYPE_LAST,
-                                        NICE_PROXY_TYPE_NONE,
-                                        G_PARAM_READWRITE));
-
-    /**
-     * NiceAgent:proxy-username:
-     *
-     * The username used to authenticate with the proxy
-     *
-     * Since: 0.0.4
-     */
-    g_object_class_install_property(gobject_class, PROP_PROXY_USERNAME,
-                                    g_param_spec_string(
-                                        "proxy-username",
-                                        "Proxy server username",
-                                        "The username used to authenticate with the proxy",
-                                        NULL,
-                                        G_PARAM_READWRITE));
-
-    /**
-     * NiceAgent:proxy-password:
-     *
-     * The password used to authenticate with the proxy
-     *
-     * Since: 0.0.4
-     */
-    g_object_class_install_property(gobject_class, PROP_PROXY_PASSWORD,
-                                    g_param_spec_string(
-                                        "proxy-password",
-                                        "Proxy server password",
-                                        "The password used to authenticate with the proxy",
-                                        NULL,
-                                        G_PARAM_READWRITE));
-
-    /**
+	/**
      * NiceAgent:upnp:
      *
      * Whether the agent should use UPnP to open a port in the router and
@@ -1039,8 +879,7 @@ static void nice_agent_init(NiceAgent * agent)
 }
 
 
-NICEAPI_EXPORT NiceAgent *
-nice_agent_new(GMainContext * ctx, NiceCompatibility compat)
+NiceAgent * nice_agent_new(GMainContext * ctx, NiceCompatibility compat)
 {
     NiceAgent * agent = g_object_new(NICE_TYPE_AGENT,
                                      "compatibility", compat,
@@ -1052,8 +891,7 @@ nice_agent_new(GMainContext * ctx, NiceCompatibility compat)
 }
 
 
-NICEAPI_EXPORT NiceAgent *
-nice_agent_new_reliable(GMainContext * ctx, NiceCompatibility compat)
+NiceAgent * nice_agent_new_reliable(GMainContext * ctx, NiceCompatibility compat)
 {
     NiceAgent * agent = g_object_new(NICE_TYPE_AGENT,
                                      "compatibility", compat,
@@ -1065,12 +903,7 @@ nice_agent_new_reliable(GMainContext * ctx, NiceCompatibility compat)
 }
 
 
-static void
-nice_agent_get_property(
-    GObject * object,
-    guint property_id,
-    GValue * value,
-    GParamSpec * pspec)
+static void nice_agent_get_property(GObject * object, uint32_t property_id,GValue * value, GParamSpec * pspec)
 {
     NiceAgent * agent = NICE_AGENT(object);
 
@@ -1109,26 +942,6 @@ nice_agent_get_property(
         case PROP_MAX_CONNECTIVITY_CHECKS:
             g_value_set_uint(value, agent->max_conn_checks);
             /* XXX: should we prune the list of already existing checks? */
-            break;
-
-        case PROP_PROXY_IP:
-            g_value_set_string(value, agent->proxy_ip);
-            break;
-
-        case PROP_PROXY_PORT:
-            g_value_set_uint(value, agent->proxy_port);
-            break;
-
-        case PROP_PROXY_TYPE:
-            g_value_set_uint(value, agent->proxy_type);
-            break;
-
-        case PROP_PROXY_USERNAME:
-            g_value_set_string(value, agent->proxy_username);
-            break;
-
-        case PROP_PROXY_PASSWORD:
-            g_value_set_string(value, agent->proxy_password);
             break;
 
         case PROP_UPNP:
@@ -1193,7 +1006,7 @@ void nice_agent_init_stun_agent(NiceAgent * agent, StunAgent * stun_agent)
 }
 
 static void
-nice_agent_reset_all_stun_agents(NiceAgent * agent, gboolean only_software)
+nice_agent_reset_all_stun_agents(NiceAgent * agent, int32_t only_software)
 {
     GSList * stream_item, *component_item;
 
@@ -1216,7 +1029,7 @@ nice_agent_reset_all_stun_agents(NiceAgent * agent, gboolean only_software)
     }
 }
 
-static void nice_agent_set_property(GObject * object, guint property_id, const GValue * value, GParamSpec * pspec)
+static void nice_agent_set_property(GObject * object, uint32_t property_id, const GValue * value, GParamSpec * pspec)
 {
     NiceAgent * agent = NICE_AGENT(object);
 
@@ -1263,29 +1076,6 @@ static void nice_agent_set_property(GObject * object, guint property_id, const G
 
         case PROP_MAX_CONNECTIVITY_CHECKS:
             agent->max_conn_checks = g_value_get_uint(value);
-            break;
-
-        case PROP_PROXY_IP:
-            g_free(agent->proxy_ip);
-            agent->proxy_ip = g_value_dup_string(value);
-            break;
-
-        case PROP_PROXY_PORT:
-            agent->proxy_port = g_value_get_uint(value);
-            break;
-
-        case PROP_PROXY_TYPE:
-            agent->proxy_type = g_value_get_uint(value);
-            break;
-
-        case PROP_PROXY_USERNAME:
-            g_free(agent->proxy_username);
-            agent->proxy_username = g_value_dup_string(value);
-            break;
-
-        case PROP_PROXY_PASSWORD:
-            g_free(agent->proxy_password);
-            agent->proxy_password = g_value_dup_string(value);
             break;
 
         case PROP_UPNP_TIMEOUT:
@@ -1407,23 +1197,23 @@ pseudo_tcp_socket_opened(PseudoTcpSocket * sock, gpointer user_data)
  * a negative number on error. If "allow_partial" is TRUE, then it returns
  * the number of bytes sent
  */
-static gint
+static int32_t
 pseudo_tcp_socket_send_messages(PseudoTcpSocket * self,
-                                const NiceOutputMessage * messages, guint n_messages, gboolean allow_partial,
+                                const NiceOutputMessage * messages, uint32_t n_messages, int32_t allow_partial,
                                 GError ** error)
 {
-    guint i;
-    gint bytes_sent = 0;
+    uint32_t i;
+    int32_t bytes_sent = 0;
 
     for (i = 0; i < n_messages; i++)
     {
         const NiceOutputMessage * message = &messages[i];
-        guint j;
+        uint32_t j;
 
-        /* If allow_partial is FALSE and there¡¯s not enough space for the
-         * entire message, bail now before queuing anything. This doesn¡¯t
+        /* If allow_partial is FALSE and there??s not enough space for the
+         * entire message, bail now before queuing anything. This doesn??t
          * gel with the fact this function is only used in reliable mode,
-         * and there is no concept of a ¡®message¡¯, but is necessary
+         * and there is no concept of a ??message??, but is necessary
          * because the calling API has no way of returning to the client
          * and indicating that a message was partially sent. */
         if (!allow_partial &&
@@ -1434,12 +1224,12 @@ pseudo_tcp_socket_send_messages(PseudoTcpSocket * self,
         }
 
         for (j = 0;
-                (message->n_buffers >= 0 && j < (guint) message->n_buffers) ||
+                (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
                 (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
                 j++)
         {
             const GOutputVector * buffer = &message->buffers[j];
-            gssize ret;
+            int32_t ret;
 
             /* Send on the pseudo-TCP socket. */
             ret = pseudo_tcp_socket_send(self, buffer->buffer, buffer->size);
@@ -1469,7 +1259,7 @@ pseudo_tcp_socket_send_messages(PseudoTcpSocket * self,
 
 out:
 
-    return allow_partial ? bytes_sent : (gint) i;
+    return allow_partial ? bytes_sent : (int32_t) i;
 }
 
 /* Will fill up @messages from the first free byte onwards (as determined using
@@ -1483,9 +1273,9 @@ out:
  * zero if no data is pending and the peer has disconnected), or a negative
  * number on error (including if the request would have blocked returning no
  * messages). */
-static gint
+static int32_t
 pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
-                                NiceInputMessage * messages, guint n_messages, NiceInputMessageIter * iter,
+                                NiceInputMessage * messages, uint32_t n_messages, NiceInputMessageIter * iter,
                                 GError ** error)
 {
     for (; iter->message < n_messages; iter->message++)
@@ -1498,7 +1288,7 @@ pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
         }
 
         for (;
-                (message->n_buffers >= 0 && iter->buffer < (guint) message->n_buffers) ||
+                (message->n_buffers >= 0 && iter->buffer < (uint32_t) message->n_buffers) ||
                 (message->n_buffers < 0 && message->buffers[iter->buffer].buffer != NULL);
                 iter->buffer++)
         {
@@ -1506,7 +1296,7 @@ pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
 
             do
             {
-                gssize len;
+                int32_t len;
 
                 len = pseudo_tcp_socket_recv(self,
                                              (gchar *) buffer->buffer + iter->offset,
@@ -1525,7 +1315,7 @@ pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
                 else if (len < 0 &&
                          pseudo_tcp_socket_get_error(self) == EWOULDBLOCK)
                 {
-                    /* EWOULDBLOCK. If we¡¯ve already received something, return that;
+                    /* EWOULDBLOCK. If we??ve already received something, return that;
                      * otherwise, error. */
                     if (nice_input_message_iter_get_n_valid_messages(iter) > 0)
                     {
@@ -1573,9 +1363,9 @@ pseudo_tcp_socket_readable(PseudoTcpSocket * sock, gpointer user_data)
     Component * component = user_data;
     NiceAgent * agent = component->agent;
     Stream * stream = component->stream;
-    gboolean has_io_callback;
-    guint stream_id = stream->id;
-    guint component_id = component->id;
+    int32_t has_io_callback;
+    uint32_t stream_id = stream->id;
+    uint32_t component_id = component->id;
 
     g_object_ref(agent);
 
@@ -1588,16 +1378,16 @@ pseudo_tcp_socket_readable(PseudoTcpSocket * sock, gpointer user_data)
 
     /* Only dequeue pseudo-TCP data if we can reliably inform the client. The
      * agent lock is held here, so has_io_callback can only change during
-     * component_emit_io_callback(), after which it¡¯s re-queried. This ensures
+     * component_emit_io_callback(), after which it??s re-queried. This ensures
      * no data loss of packets already received and dequeued. */
     if (has_io_callback)
     {
         do
         {
             guint8 buf[MAX_BUFFER_SIZE];
-            gssize len;
+            int32_t len;
 
-            /* FIXME: Why copy into a temporary buffer here? Why can¡¯t the I/O
+            /* FIXME: Why copy into a temporary buffer here? Why can??t the I/O
              * callbacks be emitted directly from the pseudo-TCP receive buffer? */
             len = pseudo_tcp_socket_recv(sock, (gchar *) buf, sizeof(buf));
 
@@ -1658,11 +1448,11 @@ pseudo_tcp_socket_readable(PseudoTcpSocket * sock, gpointer user_data)
     }
     else if (component->recv_messages != NULL)
     {
-        gint n_valid_messages;
+        int32_t n_valid_messages;
         GError * child_error = NULL;
 
         /* Fill up every buffer in every message until the connection closes or an
-         * error occurs. Copy the data directly into the client¡¯s receive message
+         * error occurs. Copy the data directly into the client??s receive message
          * array without making any callbacks. Update component->recv_messages_iter
          * as we go. */
         n_valid_messages = pseudo_tcp_socket_recv_messages(sock,
@@ -1789,7 +1579,7 @@ pseudo_tcp_socket_write_packet(PseudoTcpSocket * psocket,
 }
 
 
-static gboolean
+static int32_t
 notify_pseudo_tcp_socket_clock(gpointer user_data)
 {
     Component * component = user_data;
@@ -1989,7 +1779,7 @@ void agent_signal_initial_binding_request_received(NiceAgent * agent, Stream * s
 }
 
 /* If the Component now has a selected_pair, and has pending TCP packets which
- * it couldn¡¯t receive before due to not being able to send out ACKs (or
+ * it couldn??t receive before due to not being able to send out ACKs (or
  * SYNACKs, for the initial SYN packet), handle them now.
  *
  * Must be called with the agent lock held. */
@@ -1998,8 +1788,8 @@ process_queued_tcp_packets(NiceAgent * agent, Stream * stream,
                            Component * component)
 {
     GOutputVector * vec;
-    guint stream_id = stream->id;
-    guint component_id = component->id;
+    uint32_t stream_id = stream->id;
+    uint32_t component_id = component->id;
 
     g_assert(agent->reliable);
 
@@ -2015,7 +1805,7 @@ process_queued_tcp_packets(NiceAgent * agent, Stream * stream,
 
     while ((vec = g_queue_peek_head(&component->queued_tcp_packets)) != NULL)
     {
-        gboolean retval;
+        int32_t retval;
 
         nice_debug("%s: Sending %" G_GSIZE_FORMAT " bytes.", G_STRFUNC, vec->size);
         retval =
@@ -2050,8 +1840,8 @@ process_queued_tcp_packets(NiceAgent * agent, Stream * stream,
     }
 }
 
-void agent_signal_new_selected_pair(NiceAgent * agent, guint stream_id,
-                                    guint component_id, NiceCandidate * lcandidate, NiceCandidate * rcandidate)
+void agent_signal_new_selected_pair(NiceAgent * agent, uint32_t stream_id,
+                                    uint32_t component_id, NiceCandidate * lcandidate, NiceCandidate * rcandidate)
 {
     Component * component;
     Stream * stream;
@@ -2079,7 +1869,7 @@ void agent_signal_new_selected_pair(NiceAgent * agent, guint stream_id,
     if (nice_debug_is_enabled())
     {
         gchar ip[100];
-        guint port;
+        uint32_t port;
 
         port = nice_address_get_port(&lcandidate->addr);
         nice_address_to_string(&lcandidate->addr, ip);
@@ -2145,7 +1935,7 @@ void agent_signal_new_remote_candidate(NiceAgent * agent, NiceCandidate * candid
                        candidate->stream_id, candidate->component_id, candidate->foundation);
 }
 
-NICEAPI_EXPORT const gchar *
+ const gchar *
 nice_component_state_to_string(NiceComponentState state)
 {
     switch (state)
@@ -2168,7 +1958,7 @@ nice_component_state_to_string(NiceComponentState state)
     }
 }
 
-void agent_signal_component_state_change(NiceAgent * agent, guint stream_id, guint component_id, NiceComponentState state)
+void agent_signal_component_state_change(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceComponentState state)
 {
     Component * component;
     Stream * stream;
@@ -2205,7 +1995,7 @@ agent_candidate_pair_priority(NiceAgent * agent, NiceCandidate * local, NiceCand
 static void
 priv_add_new_candidate_discovery_stun(NiceAgent * agent,
                                       NiceSocket * nicesock, NiceAddress server,
-                                      Stream * stream, guint component_id)
+                                      Stream * stream, uint32_t component_id)
 {
     CandidateDiscovery * cdisco;
 
@@ -2230,7 +2020,7 @@ priv_add_new_candidate_discovery_stun(NiceAgent * agent,
 
 static void priv_add_new_candidate_discovery_turn(NiceAgent * agent,
                                       NiceSocket * nicesock, TurnServer * turn,
-                                      Stream * stream, guint component_id, gboolean turn_tcp)
+                                      Stream * stream, uint32_t component_id, int32_t turn_tcp)
 {
     CandidateDiscovery * cdisco;
     Component * component = stream_find_component_by_id(stream, component_id);
@@ -2254,8 +2044,8 @@ static void priv_add_new_candidate_discovery_turn(NiceAgent * agent,
     }
     else
     {
-        NiceAddress proxy_server;
-        gboolean reliable_tcp = FALSE;
+        //NiceAddress proxy_server;
+        int32_t reliable_tcp = FALSE;
 
         /* MS-TURN will allocate a transport with the same protocol it received
          * the allocate request. So if we are connecting in TCP, then the candidate
@@ -2323,11 +2113,11 @@ static void priv_add_new_candidate_discovery_turn(NiceAgent * agent,
     ++agent->discovery_unsched_items;
 }
 
-guint nice_agent_add_stream( NiceAgent * agent, guint n_components)
+uint32_t nice_agent_add_stream( NiceAgent * agent, uint32_t n_components)
 {
     Stream * stream;
-    guint ret = 0;
-    guint i;
+    uint32_t ret = 0;
+    uint32_t i;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), 0);
     g_return_val_if_fail(n_components >= 1, 0);
@@ -2364,17 +2154,17 @@ guint nice_agent_add_stream( NiceAgent * agent, guint n_components)
 }
 
 
-NICEAPI_EXPORT gboolean
+ int32_t
 nice_agent_set_relay_info(NiceAgent * agent,
-                          guint stream_id, guint component_id,
-                          const gchar * server_ip, guint server_port,
+                          uint32_t stream_id, uint32_t component_id,
+                          const gchar * server_ip, uint32_t server_port,
                           const gchar * username, const gchar * password,
                           NiceRelayType type)
 {
 
     Component * component = NULL;
     Stream * stream = NULL;
-    gboolean ret = TRUE;
+    int32_t ret = TRUE;
     TurnServer * turn;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
@@ -2440,7 +2230,7 @@ done:
 
 static void agent_check_upnp_gathering_done(NiceAgent * agent);
 
-static gboolean priv_upnp_timeout_cb(gpointer user_data)
+static int32_t priv_upnp_timeout_cb(gpointer user_data)
 {
     NiceAgent * agent = (NiceAgent *)user_data;
 
@@ -2489,8 +2279,8 @@ static void agent_check_upnp_gathering_done(NiceAgent * agent)
 }
 
 static void _upnp_mapped_external_port(GUPnPSimpleIgd * self, gchar * proto,
-                                       gchar * external_ip, gchar * replaces_external_ip, guint external_port,
-                                       gchar * local_ip, guint local_port, gchar * description, gpointer user_data)
+                                       gchar * external_ip, gchar * replaces_external_ip, uint32_t external_port,
+                                       gchar * local_ip, uint32_t local_port, gchar * description, gpointer user_data)
 {
     NiceAgent * agent = (NiceAgent *)user_data;
     NiceAddress localaddr;
@@ -2563,7 +2353,7 @@ end:
 }
 
 static void _upnp_error_mapping_port(GUPnPSimpleIgd * self, GError * error,
-                                     gchar * proto, guint external_port, gchar * local_ip, guint local_port,
+                                     gchar * proto, uint32_t external_port, gchar * local_ip, uint32_t local_port,
                                      gchar * description, gpointer user_data)
 {
     NiceAgent * agent = (NiceAgent *)user_data;
@@ -2597,16 +2387,16 @@ static void _upnp_error_mapping_port(GUPnPSimpleIgd * self, GError * error,
 
 #endif
 
-NICEAPI_EXPORT gboolean
+ int32_t
 nice_agent_gather_candidates(
     NiceAgent * agent,
-    guint stream_id)
+    uint32_t stream_id)
 {
-    guint cid;
+    uint32_t cid;
     GSList * i;
     Stream * stream;
     GSList * local_addresses = NULL;
-    gboolean ret = TRUE;
+    int32_t ret = TRUE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -2675,7 +2465,7 @@ nice_agent_gather_candidates(
             }
             else
             {
-                nice_debug("Error: Failed to parse local address ¡®%s¡¯.", addr_string);
+                nice_debug("Error: Failed to parse local address ??%s??.", addr_string);
                 nice_address_free(addr);
             }
         }
@@ -2723,8 +2513,8 @@ nice_agent_gather_candidates(
             for (add_type = ADD_HOST_MIN; add_type <= ADD_HOST_MAX; add_type++)
             {
                 NiceCandidateTransport transport;
-                guint current_port;
-                guint start_port;
+                uint32_t current_port;
+                uint32_t start_port;
                 HostCandidateResult res = HOST_CANDIDATE_CANT_CREATE_SOCKET;
 
                 if ((agent->use_ice_udp == FALSE && add_type == ADD_HOST_UDP) ||
@@ -2816,24 +2606,18 @@ nice_agent_gather_candidates(
 #endif
 
                 /* TODO: Add server-reflexive support for TCP candidates */
-                if (agent->full_mode && agent->stun_server_ip &&
-                        transport == NICE_CANDIDATE_TRANSPORT_UDP)
+                if (agent->full_mode && agent->stun_server_ip &&  transport == NICE_CANDIDATE_TRANSPORT_UDP)
                 {
                     NiceAddress stun_server;
                     if (nice_address_set_from_string(&stun_server, agent->stun_server_ip))
                     {
                         nice_address_set_port(&stun_server, agent->stun_server_port);
 
-                        priv_add_new_candidate_discovery_stun(agent,
-                                                              host_candidate->sockptr,
-                                                              stun_server,
-                                                              stream,
-                                                              cid);
+                        priv_add_new_candidate_discovery_stun(agent, host_candidate->sockptr, stun_server, stream, cid);
                     }
                 }
 
-                if (agent->full_mode && component &&
-                        transport != NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE)
+                if (agent->full_mode && component && transport != NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE)
                 {
                     GList * item;
 
@@ -2841,11 +2625,7 @@ nice_agent_gather_candidates(
                     {
                         TurnServer * turn = item->data;
 
-                        priv_add_new_candidate_discovery_turn(agent,
-                                                              host_candidate->sockptr,
-                                                              turn,
-                                                              stream,
-                                                              cid,
+                        priv_add_new_candidate_discovery_turn(agent, host_candidate->sockptr, turn, stream, cid,
                                                               host_candidate->transport != NICE_CANDIDATE_TRANSPORT_UDP);
                     }
                 }
@@ -2877,8 +2657,7 @@ nice_agent_gather_candidates(
             TRUE)
     {
 #endif
-        nice_debug("Agent %p: Candidate gathering FINISHED, no scheduled items.",
-                   agent);
+        nice_debug("Agent %p: Candidate gathering FINISHED, no scheduled items.",  agent);
         agent_gathering_done(agent);
     }
     else if (agent->discovery_unsched_items)
@@ -2967,12 +2746,9 @@ static void priv_remove_keepalive_timer(NiceAgent * agent)
     }
 }
 
-NICEAPI_EXPORT void
-nice_agent_remove_stream(
-    NiceAgent * agent,
-    guint stream_id)
+void nice_agent_remove_stream( NiceAgent * agent, uint32_t stream_id)
 {
-    guint stream_ids[] = { stream_id, 0 };
+    uint32_t stream_ids[] = { stream_id, 0 };
 
     /* note that streams/candidates can be in use by other threads */
 
@@ -3015,9 +2791,7 @@ nice_agent_remove_stream(
     return;
 }
 
-NICEAPI_EXPORT void
-nice_agent_set_port_range(NiceAgent * agent, guint stream_id, guint component_id,
-                          guint min_port, guint max_port)
+void nice_agent_set_port_range(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t min_port, uint32_t max_port)
 {
     Stream * stream;
     Component * component;
@@ -3028,8 +2802,7 @@ nice_agent_set_port_range(NiceAgent * agent, guint stream_id, guint component_id
 
     agent_lock();
 
-    if (agent_find_component(agent, stream_id, component_id, &stream,
-                             &component))
+    if (agent_find_component(agent, stream_id, component_id, &stream, &component))
     {
         if (stream->gathering_started)
         {
@@ -3045,8 +2818,7 @@ nice_agent_set_port_range(NiceAgent * agent, guint stream_id, guint component_id
     agent_unlock_and_emit(agent);
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_add_local_address(NiceAgent * agent, NiceAddress * addr)
+ int32_t nice_agent_add_local_address(NiceAgent * agent, NiceAddress * addr)
 {
     NiceAddress * dupaddr;
 
@@ -3063,10 +2835,10 @@ nice_agent_add_local_address(NiceAgent * agent, NiceAddress * addr)
     return TRUE;
 }
 
-static gboolean priv_add_remote_candidate(
+static int32_t priv_add_remote_candidate(
     NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
+    uint32_t stream_id,
+    uint32_t component_id,
     NiceCandidateType type,
     const NiceAddress * addr,
     const NiceAddress * base_addr,
@@ -3134,8 +2906,7 @@ static gboolean priv_add_remote_candidate(
             return FALSE;
         }
         candidate = nice_candidate_new(type);
-        component->remote_candidates = g_slist_append(component->remote_candidates,
-                                       candidate);
+        component->remote_candidates = g_slist_append(component->remote_candidates, candidate);
 
         candidate->stream_id = stream_id;
         candidate->component_id = component_id;
@@ -3181,14 +2952,10 @@ errors:
     return FALSE;
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_set_remote_credentials(
-    NiceAgent * agent,
-    guint stream_id,
-    const gchar * ufrag, const gchar * pwd)
+ int32_t nice_agent_set_remote_credentials( NiceAgent * agent, uint32_t stream_id, const gchar * ufrag, const gchar * pwd)
 {
     Stream * stream;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -3212,15 +2979,10 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_set_local_credentials(
-    NiceAgent * agent,
-    guint stream_id,
-    const gchar * ufrag,
-    const gchar * pwd)
+ int32_t nice_agent_set_local_credentials(NiceAgent * agent, uint32_t stream_id, const gchar * ufrag, const gchar * pwd)
 {
     Stream * stream;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -3245,14 +3007,10 @@ done:
 }
 
 
-NICEAPI_EXPORT gboolean
-nice_agent_get_local_credentials(
-    NiceAgent * agent,
-    guint stream_id,
-    gchar ** ufrag, gchar ** pwd)
+ int32_t nice_agent_get_local_credentials(NiceAgent * agent, uint32_t stream_id, gchar ** ufrag, gchar ** pwd)
 {
     Stream * stream;
-    gboolean ret = TRUE;
+    int32_t ret = TRUE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -3280,12 +3038,10 @@ done:
     return ret;
 }
 
-static int
-_set_remote_candidates_locked(NiceAgent * agent, Stream * stream,
-                              Component * component, const GSList * candidates)
+static int32_t _set_remote_candidates_locked(NiceAgent * agent, Stream * stream, Component * component, const GSList * candidates)
 {
     const GSList * i;
-    int added = 0;
+    int32_t added = 0;
 
     for (i = candidates; i && added >= 0; i = i->next)
     {
@@ -3293,7 +3049,7 @@ _set_remote_candidates_locked(NiceAgent * agent, Stream * stream,
 
         if (nice_address_is_valid(&d->addr) == TRUE)
         {
-            gboolean res =
+            int32_t res =
                 priv_add_remote_candidate(agent,
                                           stream->id,
                                           component->id,
@@ -3314,7 +3070,7 @@ _set_remote_candidates_locked(NiceAgent * agent, Stream * stream,
 
     if (added > 0)
     {
-        gboolean res = conn_check_schedule_next(agent);
+        int32_t res = conn_check_schedule_next(agent);
         if (res != TRUE)
             nice_debug("Agent %p : Warning: unable to schedule any conn checks!", agent);
     }
@@ -3323,10 +3079,9 @@ _set_remote_candidates_locked(NiceAgent * agent, Stream * stream,
 }
 
 
-NICEAPI_EXPORT int
-nice_agent_set_remote_candidates(NiceAgent * agent, guint stream_id, guint component_id, const GSList * candidates)
+int32_t nice_agent_set_remote_candidates(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, const GSList * candidates)
 {
-    int added = 0;
+    int32_t added = 0;
     Stream * stream;
     Component * component;
 
@@ -3338,8 +3093,7 @@ nice_agent_set_remote_candidates(NiceAgent * agent, guint stream_id, guint compo
 
     agent_lock();
 
-    if (!agent_find_component(agent, stream_id, component_id,
-                              &stream, &component))
+    if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
     {
         g_warning("Could not find component %u in stream %u", component_id,
                   stream_id);
@@ -3379,24 +3133,18 @@ typedef enum
  * @message contains enough buffers to provide at least 65536 bytes of buffer
  * space, but the buffers may be split as the caller sees fit.
  *
- * This must be called with the agent¡¯s lock held.
+ * This must be called with the agent??s lock held.
  *
  * Returns: number of valid messages received on success (i.e. %RECV_SUCCESS or
  * 1), %RECV_OOB if data was successfully received but was handled out-of-band
  * (e.g. due to being a STUN control packet), %RECV_WOULD_BLOCK if no data is
  * available and the call would block, or %RECV_ERROR on error
  */
-static RecvStatus
-agent_recv_message_unlocked(
-    NiceAgent * agent,
-    Stream * stream,
-    Component * component,
-    NiceSocket * nicesock,
-    NiceInputMessage * message)
+static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * nicesock, NiceInputMessage * message)
 {
     NiceAddress from;
     GList * item;
-    gint retval;
+    int32_t retval;
 
     /* We need an address for packet parsing, below. */
     if (message->from == NULL)
@@ -3410,15 +3158,14 @@ agent_recv_message_unlocked(
         /* In the case of OC2007 and OC2007R2 which uses UDP TURN for TCP-ACTIVE
          * and TCP-PASSIVE candidates, the recv_messages will be packetized and
          * always return an entire frame, so we must read it as is */
-        if (nicesock->type == NICE_SOCKET_TYPE_UDP_TURN_OVER_TCP ||
-                nicesock->type == NICE_SOCKET_TYPE_UDP_TURN)
+        if (nicesock->type == NICE_SOCKET_TYPE_UDP_TURN_OVER_TCP || nicesock->type == NICE_SOCKET_TYPE_UDP_TURN)
         {
             GSList * cand_i;
             GInputVector * local_bufs;
             NiceInputMessage local_message;
-            guint n_bufs = 0;
+            uint32_t n_bufs = 0;
             guint16 rfc4571_frame;
-            guint i;
+            uint32_t i;
 
             /* In case of ICE-TCP on UDP-TURN (OC2007 compat), we need to do the recv
              * on the UDP_TURN socket, but it's possible we receive the source event
@@ -3494,7 +3241,7 @@ agent_recv_message_unlocked(
                 /* In the case of a real ICE-TCP connection, we can use the socket as a
                  * bytestream and do the read here with caching of data being read
                  */
-                gssize available = g_socket_get_available_bytes(nicesock->fileno);
+                int32_t available = g_socket_get_available_bytes(nicesock->fileno);
 
                 /* TODO: Support bytestream reads */
                 message->length = 0;
@@ -3519,7 +3266,7 @@ agent_recv_message_unlocked(
                     }
                     else
                     {
-                        gint flags = G_SOCKET_MSG_PEEK;
+                        int32_t flags = G_SOCKET_MSG_PEEK;
 
                         /* If available bytes are 0, but the socket is still considered
                          * connected, then either we're just trying to see if there's more
@@ -3535,7 +3282,7 @@ agent_recv_message_unlocked(
                 }
                 else if (agent->rfc4571_expecting_length == 0)
                 {
-                    if ((gsize) available >= sizeof(guint16))
+                    if ((uint32_t) available >= sizeof(guint16))
                     {
                         guint16 rfc4571_frame;
                         GInputVector local_buf = { &rfc4571_frame, sizeof(guint16)};
@@ -3554,9 +3301,9 @@ agent_recv_message_unlocked(
                 {
                     GInputVector * local_bufs;
                     NiceInputMessage local_message;
-                    gsize off;
-                    guint n_bufs = 0;
-                    guint i;
+                    uint32_t off;
+                    uint32_t n_bufs = 0;
+                    uint32_t i;
 
                     /* Count the number of buffers. */
                     if (message->n_buffers == -1)
@@ -3675,16 +3422,16 @@ agent_recv_message_unlocked(
 
     agent->media_after_tick = TRUE;
 
-    /* If the message¡¯s stated length is equal to its actual length, it¡¯s probably
-     * a STUN message; otherwise it¡¯s probably data. */
+    /* If the message??s stated length is equal to its actual length, it??s probably
+     * a STUN message; otherwise it??s probably data. */
     if (stun_message_validate_buffer_length_fast((StunInputVector *) message->buffers, message->n_buffers, message->length, 1) == (ssize_t) message->length)
     {
-        /* Slow path: If this message isn¡¯t obviously *not* a STUN packet, compact
+        /* Slow path: If this message isn??t obviously *not* a STUN packet, compact
          * its buffers
          * into a single monolithic one and parse the packet properly. */
         guint8 * big_buf;
-        gsize big_buf_len;
-        int validated_len;
+        uint32_t big_buf_len;
+        int32_t validated_len;
 
         big_buf = compact_input_message(message, &big_buf_len);
 
@@ -3692,9 +3439,9 @@ agent_recv_message_unlocked(
                         (agent->compatibility != NICE_COMPATIBILITY_OC2007 &&
                          agent->compatibility != NICE_COMPATIBILITY_OC2007R2));
 
-        if (validated_len == (gint) big_buf_len)
+        if (validated_len == (int32_t) big_buf_len)
         {
-            gboolean handled;
+            int32_t handled;
 
             handled =
                 conn_check_handle_inbound_stun(agent, stream, component, nicesock,
@@ -3722,10 +3469,10 @@ agent_recv_message_unlocked(
         if (!nice_socket_is_reliable(nicesock) &&
                 !pseudo_tcp_socket_is_closed(component->tcp))
         {
-            /* If we don¡¯t yet have an underlying selected socket, queue up the
-             * incoming data to handle later. This is because we can¡¯t send ACKs (or,
+            /* If we don??t yet have an underlying selected socket, queue up the
+             * incoming data to handle later. This is because we can??t send ACKs (or,
              * more importantly for the first few packets, SYNACKs) without an
-             * underlying socket. We¡¯d rather wait a little longer for a pair to be
+             * underlying socket. We??d rather wait a little longer for a pair to be
              * selected, then process the incoming packets and send out ACKs, than try
              * to process them now, fail to send the ACKs, and incur a timeout in our
              * pseudo-TCP state machine. */
@@ -3777,11 +3524,9 @@ done:
 
 /* Print the composition of an array of messages. No-op if debugging is
  * disabled. */
-static void
-nice_debug_input_message_composition(const NiceInputMessage * messages,
-                                     guint n_messages)
+static void nice_debug_input_message_composition(const NiceInputMessage * messages, uint32_t n_messages)
 {
-    guint i;
+    uint32_t i;
 
     if (!nice_debug_is_enabled())
         return;
@@ -3789,13 +3534,13 @@ nice_debug_input_message_composition(const NiceInputMessage * messages,
     for (i = 0; i < n_messages; i++)
     {
         const NiceInputMessage * message = &messages[i];
-        guint j;
+        uint32_t j;
 
         nice_debug("Message %p (from: %p, length: %" G_GSIZE_FORMAT ")", message,
                    message->from, message->length);
 
         for (j = 0;
-                (message->n_buffers >= 0 && j < (guint) message->n_buffers) ||
+                (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
                 (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
                 j++)
         {
@@ -3807,21 +3552,20 @@ nice_debug_input_message_composition(const NiceInputMessage * messages,
     }
 }
 
-static guint8 *
-compact_message(const NiceOutputMessage * message, gsize buffer_length)
+static guint8 * compact_message(const NiceOutputMessage * message, uint32_t buffer_length)
 {
     guint8 * buffer;
-    gsize offset = 0;
-    guint i;
+    uint32_t offset = 0;
+    uint32_t i;
 
     buffer = g_malloc(buffer_length);
 
     for (i = 0;
-            (message->n_buffers >= 0 && i < (guint) message->n_buffers) ||
+            (message->n_buffers >= 0 && i < (uint32_t) message->n_buffers) ||
             (message->n_buffers < 0 && message->buffers[i].buffer != NULL);
             i++)
     {
-        gsize len = MIN(buffer_length - offset, message->buffers[i].size);
+        uint32_t len = MIN(buffer_length - offset, message->buffers[i].size);
         memcpy(buffer + offset, message->buffers[i].buffer, len);
         offset += len;
     }
@@ -3835,8 +3579,7 @@ compact_message(const NiceOutputMessage * message, gsize buffer_length)
  * @recv_message.
  *
  * The return value must be freed with g_free(). */
-guint8 *
-compact_input_message(const NiceInputMessage * message, gsize * buffer_length)
+guint8 * compact_input_message(const NiceInputMessage * message, uint32_t * buffer_length)
 {
     nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
     nice_debug_input_message_composition(message, 1);
@@ -3849,12 +3592,10 @@ compact_input_message(const NiceInputMessage * message, gsize * buffer_length)
 }
 
 /* Returns the number of bytes copied. Silently drops any data from @buffer
- * which doesn¡¯t fit in @message. */
-gsize
-memcpy_buffer_to_input_message(NiceInputMessage * message,
-                               const guint8 * buffer, gsize buffer_length)
+ * which doesn??t fit in @message. */
+uint32_t memcpy_buffer_to_input_message(NiceInputMessage * message, const guint8 * buffer, uint32_t buffer_length)
 {
-    guint i;
+    uint32_t i;
 
     nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
 
@@ -3862,11 +3603,11 @@ memcpy_buffer_to_input_message(NiceInputMessage * message,
 
     for (i = 0;
             buffer_length > 0 &&
-            ((message->n_buffers >= 0 && i < (guint) message->n_buffers) ||
+            ((message->n_buffers >= 0 && i < (uint32_t) message->n_buffers) ||
              (message->n_buffers < 0 && message->buffers[i].buffer != NULL));
             i++)
     {
-        gsize len;
+        uint32_t len;
 
         len = MIN(message->buffers[i].size, buffer_length);
         memcpy(message->buffers[i].buffer, buffer, len);
@@ -3896,8 +3637,7 @@ memcpy_buffer_to_input_message(NiceInputMessage * message,
  * @recv_message.
  *
  * The return value must be freed with g_free(). */
-guint8 *
-compact_output_message(const NiceOutputMessage * message, gsize * buffer_length)
+guint8 * compact_output_message(const NiceOutputMessage * message, uint32_t * buffer_length)
 {
     nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
 
@@ -3906,15 +3646,14 @@ compact_output_message(const NiceOutputMessage * message, gsize * buffer_length)
     return compact_message(message, *buffer_length);
 }
 
-gsize
-output_message_get_size(const NiceOutputMessage * message)
+uint32_t output_message_get_size(const NiceOutputMessage * message)
 {
-    guint i;
-    gsize message_len = 0;
+    uint32_t i;
+    uint32_t message_len = 0;
 
     /* Find the total size of the message */
     for (i = 0;
-            (message->n_buffers >= 0 && i < (guint) message->n_buffers) ||
+            (message->n_buffers >= 0 && i < (uint32_t) message->n_buffers) ||
             (message->n_buffers < 0 && message->buffers[i].buffer != NULL);
             i++)
         message_len += message->buffers[i].size;
@@ -3922,15 +3661,14 @@ output_message_get_size(const NiceOutputMessage * message)
     return message_len;
 }
 
-static gsize
-input_message_get_size(const NiceInputMessage * message)
+static uint32_t input_message_get_size(const NiceInputMessage * message)
 {
-    guint i;
-    gsize message_len = 0;
+    uint32_t i;
+    uint32_t message_len = 0;
 
     /* Find the total size of the message */
     for (i = 0;
-            (message->n_buffers >= 0 && i < (guint) message->n_buffers) ||
+            (message->n_buffers >= 0 && i < (uint32_t) message->n_buffers) ||
             (message->n_buffers < 0 && message->buffers[i].buffer != NULL);
             i++)
         message_len += message->buffers[i].size;
@@ -3947,8 +3685,7 @@ input_message_get_size(const NiceInputMessage * message)
  *
  * Since: 0.1.5
  */
-void
-nice_input_message_iter_reset(NiceInputMessageIter * iter)
+void nice_input_message_iter_reset(NiceInputMessageIter * iter)
 {
     iter->message = 0;
     iter->buffer = 0;
@@ -3965,16 +3702,13 @@ nice_input_message_iter_reset(NiceInputMessageIter * iter)
  * does, the array is full: every buffer in every message is full of valid
  * bytes.
  *
- * Returns: %TRUE if the messages¡¯ buffers are full, %FALSE otherwise
+ * Returns: %TRUE if the messages?? buffers are full, %FALSE otherwise
  *
  * Since: 0.1.5
  */
-gboolean
-nice_input_message_iter_is_at_end(NiceInputMessageIter * iter,
-                                  NiceInputMessage * messages, guint n_messages)
+int32_t nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, NiceInputMessage * messages, uint32_t n_messages)
 {
-    return (iter->message == n_messages &&
-            iter->buffer == 0 && iter->offset == 0);
+    return (iter->message == n_messages && iter->buffer == 0 && iter->offset == 0);
 }
 
 /*
@@ -3988,8 +3722,7 @@ nice_input_message_iter_is_at_end(NiceInputMessageIter * iter,
  *
  * Since: 0.1.5
  */
-guint
-nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter)
+uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter)
 {
     if (iter->buffer == 0 && iter->offset == 0)
         return iter->message;
@@ -4009,9 +3742,7 @@ nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter)
  *
  * Since: 0.1.5
  */
-gboolean
-nice_input_message_iter_compare(const NiceInputMessageIter * a,
-                                const NiceInputMessageIter * b)
+int32_t nice_input_message_iter_compare(const NiceInputMessageIter * a, const NiceInputMessageIter * b)
 {
     return (a->message == b->message && a->buffer == b->buffer && a->offset == b->offset);
 }
@@ -4027,11 +3758,10 @@ nice_input_message_iter_compare(const NiceInputMessageIter * a,
  * zero if reading into the first buffer of the message would have blocked).
  *
  * Must be called with the io_mutex held. */
-static gint
-pending_io_messages_recv_messages(Component * component, gboolean reliable,
-                                  NiceInputMessage * messages, guint n_messages, NiceInputMessageIter * iter)
+static int32_t pending_io_messages_recv_messages(Component * component, int32_t reliable,
+                                  NiceInputMessage * messages, uint32_t n_messages, NiceInputMessageIter * iter)
 {
-    gsize len;
+    uint32_t len;
     IOCallbackData * data;
     NiceInputMessage * message = &messages[iter->message];
 
@@ -4047,7 +3777,7 @@ pending_io_messages_recv_messages(Component * component, gboolean reliable,
     }
 
     for (;
-            (message->n_buffers >= 0 && iter->buffer < (guint) message->n_buffers) ||
+            (message->n_buffers >= 0 && iter->buffer < (uint32_t) message->n_buffers) ||
             (message->n_buffers < 0 && message->buffers[iter->buffer].buffer != NULL);
             iter->buffer++)
     {
@@ -4056,8 +3786,7 @@ pending_io_messages_recv_messages(Component * component, gboolean reliable,
         do
         {
             len = MIN(data->buf_len - data->offset, buffer->size - iter->offset);
-            memcpy((guint8 *) buffer->buffer + iter->offset,
-                   data->buf + data->offset, len);
+            memcpy((guint8 *) buffer->buffer + iter->offset, data->buf + data->offset, len);
 
             nice_debug("%s: Unbuffered %" G_GSIZE_FORMAT " bytes into "
                        "buffer %p (offset %" G_GSIZE_FORMAT ", length %" G_GSIZE_FORMAT
@@ -4073,13 +3802,13 @@ pending_io_messages_recv_messages(Component * component, gboolean reliable,
     }
 
     /* Only if we managed to consume the whole buffer should it be popped off the
-     * queue; otherwise we¡¯ll have another go at it later. */
+     * queue; otherwise we??ll have another go at it later. */
     if (data->offset == data->buf_len)
     {
         g_queue_pop_head(&component->pending_io_messages);
         io_callback_data_free(data);
 
-        /* If we¡¯ve consumed an entire message from pending_io_messages, and
+        /* If we??ve consumed an entire message from pending_io_messages, and
          * are in non-reliable mode, move on to the next message in
          * @messages. */
         if (!reliable)
@@ -4094,37 +3823,34 @@ done:
     return nice_input_message_iter_get_n_valid_messages(iter);
 }
 
-static gboolean
-nice_agent_recv_cancelled_cb(GCancellable * cancellable, gpointer user_data)
+static int32_t nice_agent_recv_cancelled_cb(GCancellable * cancellable, gpointer user_data)
 {
     GError ** error = user_data;
     return !g_cancellable_set_error_if_cancelled(cancellable, error);
 }
 
-static gint
-nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
-        guint stream_id, guint component_id, gboolean blocking,
-        NiceInputMessage * messages, guint n_messages,
+static int32_t nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
+        uint32_t stream_id, uint32_t component_id, int32_t blocking,
+        NiceInputMessage * messages, uint32_t n_messages,
         GCancellable * cancellable, GError ** error)
 {
     GMainContext * context;
     Stream * stream;
     Component * component;
-    gint n_valid_messages = -1;
+    int32_t n_valid_messages = -1;
     GSource * cancellable_source = NULL;
-    gboolean received_enough = FALSE, error_reported = FALSE;
-    gboolean all_sockets_would_block = FALSE;
-    gboolean reached_eos = FALSE;
+    int32_t received_enough = FALSE, error_reported = FALSE;
+    int32_t all_sockets_would_block = FALSE;
+    int32_t reached_eos = FALSE;
     GError * child_error = NULL;
     NiceInputMessage * messages_orig = NULL;
-    guint i;
+    uint32_t i;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
     g_return_val_if_fail(stream_id >= 1, -1);
     g_return_val_if_fail(component_id >= 1, -1);
     g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
-    g_return_val_if_fail(
-        cancellable == NULL || G_IS_CANCELLABLE(cancellable), -1);
+    g_return_val_if_fail(cancellable == NULL || G_IS_CANCELLABLE(cancellable), -1);
     g_return_val_if_fail(error == NULL || *error == NULL, -1);
 
     if (n_messages == 0)
@@ -4160,26 +3886,21 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
 
     agent_lock();
 
-    if (!agent_find_component(agent, stream_id, component_id,
-                              &stream, &component))
+    if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
     {
-        g_set_error(&child_error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE,
-                    "Invalid stream/component.");
+        g_set_error(&child_error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE,  "Invalid stream/component.");
         goto done;
     }
 
-    nice_debug("%s: %p: (%s):", G_STRFUNC, agent,
-               blocking ? "blocking" : "non-blocking");
+    nice_debug("%s: %p: (%s):", G_STRFUNC, agent,  blocking ? "blocking" : "non-blocking");
     nice_debug_input_message_composition(messages, n_messages);
 
     /* Disallow re-entrant reads. */
-    g_assert(component->n_recv_messages == 0 &&
-             component->recv_messages == NULL);
+    g_assert(component->n_recv_messages == 0 && component->recv_messages == NULL);
 
-    /* Set the component¡¯s receive buffer. */
+    /* Set the component??s receive buffer. */
     context = component_dup_io_context(component);
-    component_set_io_callback(component, NULL, NULL, messages, n_messages,
-                              &child_error);
+    component_set_io_callback(component, NULL, NULL, messages, n_messages, &child_error);
 
     /* Add the cancellable as a source. */
     if (cancellable != NULL)
@@ -4196,20 +3917,16 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
      * supported. */
     g_mutex_lock(&component->io_mutex);
 
-    while (!received_enough &&
-            !g_queue_is_empty(&component->pending_io_messages))
+    while (!received_enough && !g_queue_is_empty(&component->pending_io_messages))
     {
         pending_io_messages_recv_messages(component, agent->reliable,
                                           component->recv_messages, component->n_recv_messages,
                                           &component->recv_messages_iter);
 
         nice_debug("%s: %p: Received %d valid messages from pending I/O buffer.",
-                   G_STRFUNC, agent,
-                   nice_input_message_iter_get_n_valid_messages(
-                       &component->recv_messages_iter));
+                   G_STRFUNC, agent, nice_input_message_iter_get_n_valid_messages(&component->recv_messages_iter));
 
-        received_enough =
-            nice_input_message_iter_is_at_end(&component->recv_messages_iter,
+        received_enough = nice_input_message_iter_is_at_end(&component->recv_messages_iter,
                                               component->recv_messages, component->n_recv_messages);
     }
 
@@ -4217,8 +3934,7 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
 
     /* For a reliable stream, grab any data from the pseudo-TCP input buffer
      * before trying the sockets. */
-    if (agent->reliable &&
-            pseudo_tcp_socket_get_available_bytes(component->tcp) > 0)
+    if (agent->reliable && pseudo_tcp_socket_get_available_bytes(component->tcp) > 0)
     {
         pseudo_tcp_socket_recv_messages(component->tcp,
                                         component->recv_messages, component->n_recv_messages,
@@ -4227,17 +3943,15 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
 
         nice_debug("%s: %p: Received %d valid messages from pseudo-TCP read "
                    "buffer.", G_STRFUNC, agent,
-                   nice_input_message_iter_get_n_valid_messages(
-                       &component->recv_messages_iter));
+                   nice_input_message_iter_get_n_valid_messages(&component->recv_messages_iter));
 
-        received_enough =
-            nice_input_message_iter_is_at_end(&component->recv_messages_iter,
+        received_enough = nice_input_message_iter_is_at_end(&component->recv_messages_iter,
                                               component->recv_messages, component->n_recv_messages);
         error_reported = (child_error != NULL);
     }
 
     /* Each iteration of the main context will either receive some data, a
-     * cancellation error or a socket error. In non-reliable mode, the iter¡¯s
+     * cancellation error or a socket error. In non-reliable mode, the iter??s
      * @message counter will be incremented after each read.
      *
      * In blocking, reliable mode, iterate the loop enough to fill exactly
@@ -4247,8 +3961,7 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
      * if no data was received for an iteration; in which case @child_error will
      * be set to %G_IO_ERROR_WOULD_BLOCK).
      */
-    while (!received_enough && !error_reported && !all_sockets_would_block &&
-            !reached_eos)
+    while (!received_enough && !error_reported && !all_sockets_would_block && !reached_eos)
     {
         NiceInputMessageIter prev_recv_messages_iter;
 
@@ -4260,12 +3973,10 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
         g_main_context_iteration(context, blocking);
         agent_lock();
 
-        if (!agent_find_component(agent, stream_id, component_id,
-                                  &stream, &component))
+        if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         {
             g_clear_error(&child_error);
-            g_set_error(&child_error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE,
-                        "Component removed during call.");
+            g_set_error(&child_error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE, "Component removed during call.");
 
             component = NULL;
             error_reported = TRUE;
@@ -4273,23 +3984,16 @@ nice_agent_recv_messages_blocking_or_nonblocking(NiceAgent * agent,
             goto recv_error;
         }
 
-        received_enough =
-            nice_input_message_iter_is_at_end(&component->recv_messages_iter,
-                                              component->recv_messages, component->n_recv_messages);
-        error_reported = (child_error != NULL &&
-                          !g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK));
+        received_enough = nice_input_message_iter_is_at_end(&component->recv_messages_iter, component->recv_messages, component->n_recv_messages);
+        error_reported = (child_error != NULL && !g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK));
         reached_eos = (agent->reliable &&
                        pseudo_tcp_socket_is_closed_remotely(component->tcp) &&
-                       nice_input_message_iter_compare(&prev_recv_messages_iter,
-                               &component->recv_messages_iter));
-        all_sockets_would_block = (!blocking && !reached_eos &&
-                                   nice_input_message_iter_compare(&prev_recv_messages_iter,
+                       nice_input_message_iter_compare(&prev_recv_messages_iter, &component->recv_messages_iter));
+        all_sockets_would_block = (!blocking && !reached_eos && nice_input_message_iter_compare(&prev_recv_messages_iter,
                                            &component->recv_messages_iter));
     }
 
-    n_valid_messages =
-        nice_input_message_iter_get_n_valid_messages(
-            &component->recv_messages_iter);  /* grab before resetting the iter */
+    n_valid_messages = nice_input_message_iter_get_n_valid_messages(&component->recv_messages_iter);  /* grab before resetting the iter */
 
     component_set_io_callback(component, NULL, NULL, NULL, 0, NULL);
 
@@ -4315,12 +4019,11 @@ recv_error:
         n_valid_messages = -1;
     }
 
-    nice_debug("%s: %p: n_valid_messages: %d, n_messages: %u", G_STRFUNC, agent,
-               n_valid_messages, n_messages);
+    nice_debug("%s: %p: n_valid_messages: %d, n_messages: %u", G_STRFUNC, agent, n_valid_messages, n_messages);
 
 done:
     g_assert((child_error != NULL) == (n_valid_messages == -1));
-    g_assert(n_valid_messages < 0 || (guint) n_valid_messages <= n_messages);
+    g_assert(n_valid_messages < 0 || (uint32_t) n_valid_messages <= n_messages);
     g_assert(n_valid_messages != 0 || reached_eos);
 
     if (child_error != NULL)
@@ -4352,20 +4055,18 @@ done:
     return n_valid_messages;
 }
 
-NICEAPI_EXPORT gint
-nice_agent_recv_messages(NiceAgent * agent, guint stream_id, guint component_id,
-                         NiceInputMessage * messages, guint n_messages, GCancellable * cancellable,
+ int32_t
+nice_agent_recv_messages(NiceAgent * agent, uint32_t stream_id, uint32_t component_id,
+                         NiceInputMessage * messages, uint32_t n_messages, GCancellable * cancellable,
                          GError ** error)
 {
     return nice_agent_recv_messages_blocking_or_nonblocking(agent, stream_id,
             component_id, TRUE, messages, n_messages, cancellable, error);
 }
 
-NICEAPI_EXPORT gssize
-nice_agent_recv(NiceAgent * agent, guint stream_id, guint component_id,
-                guint8 * buf, gsize buf_len, GCancellable * cancellable, GError ** error)
+int32_t nice_agent_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, guint8 * buf, uint32_t buf_len, GCancellable * cancellable, GError ** error)
 {
-    gint n_valid_messages;
+    int32_t n_valid_messages;
     GInputVector local_bufs = { buf, buf_len };
     NiceInputMessage local_messages = { &local_bufs, 1, NULL, 0 };
 
@@ -4393,21 +4094,17 @@ nice_agent_recv(NiceAgent * agent, guint stream_id, guint component_id,
     return local_messages.length;
 }
 
-NICEAPI_EXPORT gint
-nice_agent_recv_messages_nonblocking(NiceAgent * agent, guint stream_id,
-                                     guint component_id, NiceInputMessage * messages, guint n_messages,
-                                     GCancellable * cancellable, GError ** error)
+int32_t  nice_agent_recv_messages_nonblocking(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, 
+																		NiceInputMessage * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
 {
     return nice_agent_recv_messages_blocking_or_nonblocking(agent, stream_id,
             component_id, FALSE, messages, n_messages, cancellable, error);
 }
 
-NICEAPI_EXPORT gssize
-nice_agent_recv_nonblocking(NiceAgent * agent, guint stream_id,
-                            guint component_id, guint8 * buf, gsize buf_len, GCancellable * cancellable,
-                            GError ** error)
+int32_t nice_agent_recv_nonblocking(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, 
+														guint8 * buf, uint32_t buf_len, GCancellable * cancellable, GError ** error)
 {
-    gint n_valid_messages;
+    int32_t n_valid_messages;
     GInputVector local_bufs = { buf, buf_len };
     NiceInputMessage local_messages = { &local_bufs, 1, NULL, 0 };
 
@@ -4441,20 +4138,18 @@ nice_agent_recv_nonblocking(NiceAgent * agent, guint stream_id,
  * of messages otherwise.
  */
 
-static gint
-nice_agent_send_messages_nonblocking_internal(
+static int32_t nice_agent_send_messages_nonblocking_internal(
     NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
+    uint32_t stream_id,
+    uint32_t component_id,
     const NiceOutputMessage * messages,
-    guint n_messages,
-    gboolean allow_partial,
+    uint32_t n_messages,
+    int32_t allow_partial,
     GError ** error)
 {
     Stream * stream;
     Component * component;
-    gint n_sent = -1; /* is in bytes if allow_partial is TRUE,
-                       otherwise in messages */
+    int32_t n_sent = -1; /* is in bytes if allow_partial is TRUE, otherwise in messages */
     GError * child_error = NULL;
 
     g_assert(n_messages == 1 || !allow_partial);
@@ -4469,7 +4164,7 @@ nice_agent_send_messages_nonblocking_internal(
         goto done;
     }
 
-    /* FIXME: Cancellation isn¡¯t yet supported, but it doesn¡¯t matter because
+    /* FIXME: Cancellation isn??t yet supported, but it doesn??t matter because
      * we only deal with non-blocking writes. */
     if (component->selected_pair.local != NULL)
     {
@@ -4518,22 +4213,22 @@ nice_agent_send_messages_nonblocking_internal(
 
             if (nice_socket_is_reliable(sock))
             {
-                guint i;
+                uint32_t i;
 
                 /* ICE-TCP requires that all packets be framed with RFC4571 */
                 n_sent = 0;
                 for (i = 0; i < n_messages; i++)
                 {
                     const NiceOutputMessage * message = &messages[i];
-                    gsize message_len = output_message_get_size(message);
-                    gsize offset = 0;
-                    gsize current_offset = 0;
-                    gsize offset_in_buffer = 0;
-                    gint n_sent_framed;
+                    uint32_t message_len = output_message_get_size(message);
+                    uint32_t offset = 0;
+                    uint32_t current_offset = 0;
+                    uint32_t offset_in_buffer = 0;
+                    int32_t n_sent_framed;
                     GOutputVector * local_bufs;
                     NiceOutputMessage local_message;
-                    guint j;
-                    guint n_bufs = 0;
+                    uint32_t j;
+                    uint32_t n_bufs = 0;
 
                     /* Count the number of buffers. */
                     if (message->n_buffers == -1)
@@ -4642,7 +4337,7 @@ nice_agent_send_messages_nonblocking_internal(
     }
     else
     {
-        /* Socket isn¡¯t properly open yet. */
+        /* Socket isn??t properly open yet. */
         n_sent = 0;  /* EWOULDBLOCK */
     }
 
@@ -4661,9 +4356,9 @@ done:
     g_assert((child_error != NULL) == (n_sent == -1));
     g_assert(n_sent != 0);
     g_assert(n_sent < 0 ||
-             (!allow_partial && (guint) n_sent <= n_messages) ||
+             (!allow_partial && (uint32_t) n_sent <= n_messages) ||
              (allow_partial && n_messages == 1 &&
-              (gsize) n_sent <= output_message_get_size(&messages[0])));
+              (uint32_t) n_sent <= output_message_get_size(&messages[0])));
 
     if (child_error != NULL)
         g_propagate_error(error, child_error);
@@ -4673,15 +4368,8 @@ done:
     return n_sent;
 }
 
-NICEAPI_EXPORT gint
-nice_agent_send_messages_nonblocking(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    const NiceOutputMessage * messages,
-    guint n_messages,
-    GCancellable * cancellable,
-    GError ** error)
+int32_t nice_agent_send_messages_nonblocking(NiceAgent * agent, uint32_t stream_id, uint32_t component_id,
+	const NiceOutputMessage * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
 {
     g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
     g_return_val_if_fail(stream_id >= 1, -1);
@@ -4698,17 +4386,11 @@ nice_agent_send_messages_nonblocking(
             component_id, messages, n_messages, FALSE, error);
 }
 
-NICEAPI_EXPORT gint
-nice_agent_send(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    guint len,
-    const gchar * buf)
+int32_t nice_agent_send(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, const gchar * buf)
 {
     GOutputVector local_buf = { buf, len };
     NiceOutputMessage local_message = { &local_buf, 1 };
-    gint n_sent_bytes;
+    int32_t n_sent_bytes;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
     g_return_val_if_fail(stream_id >= 1, -1);
@@ -4721,11 +4403,7 @@ nice_agent_send(
     return n_sent_bytes;
 }
 
-NICEAPI_EXPORT GSList *
-nice_agent_get_local_candidates(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id)
+GSList * nice_agent_get_local_candidates(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     Component * component;
     GSList * ret = NULL;
@@ -4751,11 +4429,7 @@ done:
 }
 
 
-NICEAPI_EXPORT GSList *
-nice_agent_get_remote_candidates(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id)
+GSList * nice_agent_get_remote_candidates(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     Component * component;
     GSList * ret = NULL, *item = NULL;
@@ -4778,9 +4452,7 @@ done:
     return ret;
 }
 
-gboolean
-nice_agent_restart(
-    NiceAgent * agent)
+int32_t nice_agent_restart(NiceAgent * agent)
 {
     GSList * i;
 
@@ -4802,12 +4474,9 @@ nice_agent_restart(
     return TRUE;
 }
 
-gboolean
-nice_agent_restart_stream(
-    NiceAgent * agent,
-    guint stream_id)
+int32_t nice_agent_restart_stream(NiceAgent * agent, uint32_t stream_id)
 {
-    gboolean res = FALSE;
+    int32_t res = FALSE;
     Stream * stream;
 
     agent_lock();
@@ -4830,8 +4499,7 @@ done:
 }
 
 
-static void
-nice_agent_dispose(GObject * object)
+static void nice_agent_dispose(GObject * object)
 {
     GSList * i;
     QueuedSignal * sig;
@@ -4877,13 +4545,6 @@ nice_agent_dispose(GObject * object)
     g_free(agent->stun_server_ip);
     agent->stun_server_ip = NULL;
 
-    g_free(agent->proxy_ip);
-    agent->proxy_ip = NULL;
-    g_free(agent->proxy_username);
-    agent->proxy_username = NULL;
-    g_free(agent->proxy_password);
-    agent->proxy_password = NULL;
-
     nice_rng_free(agent->rng);
     agent->rng = NULL;
 
@@ -4909,15 +4570,14 @@ nice_agent_dispose(GObject * object)
 
 }
 
-gboolean
-component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
+int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
 {
     SocketSource * socket_source = user_data;
     Component * component;
     NiceAgent * agent;
     Stream * stream;
-    gboolean has_io_callback;
-    gboolean remove_source = FALSE;
+    int32_t has_io_callback;
+    int32_t remove_source = FALSE;
 
     agent_lock();
 
@@ -4945,10 +4605,8 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
                 component->selected_pair.local->sockptr == socket_source->socket &&
                 component->state == NICE_COMPONENT_STATE_READY)
         {
-            nice_debug("Agent %p: Selected pair socket %p has HUP, declaring failed",
-                       agent, socket_source->socket);
-            agent_signal_component_state_change(agent,
-                                                stream->id, component->id, NICE_COMPONENT_STATE_FAILED);
+            nice_debug("Agent %p: Selected pair socket %p has HUP, declaring failed", agent, socket_source->socket);
+            agent_signal_component_state_change(agent, stream->id, component->id, NICE_COMPONENT_STATE_FAILED);
         }
 
         component_detach_socket(component, socket_source->socket);
@@ -4958,13 +4616,13 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
 
     has_io_callback = component_has_io_callback(component);
 
-    /* Choose which receive buffer to use. If we¡¯re reading for
-     * nice_agent_attach_recv(), use a local static buffer. If we¡¯re reading for
+    /* Choose which receive buffer to use. If we??re reading for
+     * nice_agent_attach_recv(), use a local static buffer. If we??re reading for
      * nice_agent_recv_messages(), use the buffer provided by the client.
      *
      * has_io_callback cannot change throughout this function, as we operate
      * entirely with the agent lock held, and component_set_io_callback() would
-     * need to take the agent lock to change the Component¡¯s io_callback. */
+     * need to take the agent lock to change the Component??s io_callback. */
     g_assert(!has_io_callback || component->recv_messages == NULL);
 
     if (agent->reliable && !nice_socket_is_reliable(socket_source->socket))
@@ -4979,7 +4637,7 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
          * is out-of-order (which we can only know after parsing its header), the
          * data will need to be moved in the buffer. If the packet *is* in order,
          * however, the only memcpy() then needed is from the pseudo-TCP receive
-         * buffer to the client¡¯s message buffers.
+         * buffer to the client??s message buffers.
          *
          * In fact, in the case of a reliable agent with I/O callbacks, zero
          * memcpy()s can be achieved (for in-order packet delivery) by emittin the
@@ -5013,13 +4671,12 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
              * @local_bufs then, for pseudo-TCP, emit I/O callbacks or copy it into
              * component->recv_messages in pseudo_tcp_socket_readable(). STUN packets
              * will be parsed in-place. */
-            retval = agent_recv_message_unlocked(agent, stream, component,
-                                                 socket_source->socket, &local_message);
+            retval = agent_recv_message_unlocked(agent, stream, component, socket_source->socket, &local_message);
 
             nice_debug("%s: %p: received %d valid messages with %" G_GSSIZE_FORMAT
                        " bytes", G_STRFUNC, agent, retval, local_message.length);
 
-            /* Don¡¯t expect any valid messages to escape pseudo_tcp_socket_readable()
+            /* Don??t expect any valid messages to escape pseudo_tcp_socket_readable()
              * when in reliable mode. */
             g_assert_cmpint(retval, != , RECV_SUCCESS);
 
@@ -5083,7 +4740,7 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
     {
         RecvStatus retval;
 
-        /* Don¡¯t want to trample over partially-valid buffers. */
+        /* Don??t want to trample over partially-valid buffers. */
         g_assert(component->recv_messages_iter.buffer == 0);
         g_assert(component->recv_messages_iter.offset == 0);
 
@@ -5091,8 +4748,8 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
                 component->recv_messages, component->n_recv_messages))
         {
             /* Receive a single message. This will receive it into the given
-             * user-provided #NiceInputMessage, which it¡¯s the user¡¯s responsibility
-             * to ensure is big enough to avoid data loss (since we¡¯re in non-reliable
+             * user-provided #NiceInputMessage, which it??s the user??s responsibility
+             * to ensure is big enough to avoid data loss (since we??re in non-reliable
              * mode). Iterate to receive as many messages as possible.
              *
              * STUN packets will be parsed in-place. */
@@ -5100,8 +4757,7 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
                                                  socket_source->socket,
                                                  &component->recv_messages[component->recv_messages_iter.message]);
 
-            nice_debug("%s: %p: received %d valid messages", G_STRFUNC, agent,
-                       retval);
+            nice_debug("%s: %p: received %d valid messages", G_STRFUNC, agent, retval);
 
             if (retval == RECV_SUCCESS)
             {
@@ -5131,7 +4787,7 @@ component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer user_data)
     }
 
 done:
-    /* If we¡¯re in the middle of a read, don¡¯t emit any signals, or we could cause
+    /* If we??re in the middle of a read, don??t emit any signals, or we could cause
      * re-entrancy by (e.g.) emitting component-state-changed and having the
      * client perform a read. */
     if (component->n_recv_messages == 0 && component->recv_messages == NULL)
@@ -5153,18 +4809,11 @@ out:
     return G_SOURCE_REMOVE;
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_attach_recv(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    GMainContext * ctx,
-    NiceAgentRecvFunc func,
-    gpointer data)
+int32_t nice_agent_attach_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, GMainContext * ctx, NiceAgentRecvFunc func, gpointer data)
 {
     Component * component = NULL;
     Stream * stream = NULL;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -5185,7 +4834,7 @@ nice_agent_attach_recv(
     if (ctx == NULL)
         ctx = g_main_context_default();
 
-    /* Set the component¡¯s I/O context. */
+    /* Set the component??s I/O context. */
     component_set_io_context(component, ctx);
     component_set_io_callback(component, func, data, NULL, 0, NULL);
     ret = TRUE;
@@ -5198,8 +4847,7 @@ nice_agent_attach_recv(
          * next incoming data.
          * but only do this if we know we're already readable, otherwise we might
          * trigger an error in the initial, pre-connection attach. */
-        if (agent->reliable && !pseudo_tcp_socket_is_closed(component->tcp) &&
-                component->tcp_readable)
+        if (agent->reliable && !pseudo_tcp_socket_is_closed(component->tcp) && component->tcp_readable)
             pseudo_tcp_socket_readable(component->tcp, component);
     }
 
@@ -5208,18 +4856,12 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_set_selected_pair(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    const gchar * lfoundation,
-    const gchar * rfoundation)
+int32_t nice_agent_set_selected_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, const gchar * lfoundation, const gchar * rfoundation)
 {
     Component * component;
     Stream * stream;
     CandidatePair pair;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -5257,8 +4899,7 @@ nice_agent_set_selected_pair(
 
     /* step: set the selected pair */
     component_update_selected_pair(component, &pair);
-    agent_signal_new_selected_pair(agent, stream_id, component_id,
-                                   pair.local, pair.remote);
+    agent_signal_new_selected_pair(agent, stream_id, component_id, pair.local, pair.remote);
 
     ret = TRUE;
 
@@ -5267,13 +4908,11 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_get_selected_pair(NiceAgent * agent, guint stream_id,
-                             guint component_id, NiceCandidate ** local, NiceCandidate ** remote)
+int32_t nice_agent_get_selected_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceCandidate ** local, NiceCandidate ** remote)
 {
     Component * component;
     Stream * stream;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -5301,9 +4940,9 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT GSocket *
-nice_agent_get_selected_socket(NiceAgent * agent, guint stream_id,
-                               guint component_id)
+ GSocket *
+nice_agent_get_selected_socket(NiceAgent * agent, uint32_t stream_id,
+                               uint32_t component_id)
 {
     Component * component;
     Stream * stream;
@@ -5349,10 +4988,9 @@ done:
  * @function and @data, and assign it to @out, destroying and freeing any
  * existing #GSource in @out first.
  *
- * This guarantees that a timer won¡¯t be overwritten without being destroyed.
+ * This guarantees that a timer won??t be overwritten without being destroyed.
  */
-void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out,
-                                    const gchar * name, guint interval, GSourceFunc function, gpointer data)
+void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out, const gchar * name, uint32_t interval, GSourceFunc function, gpointer data)
 {
     GSource * source;
 
@@ -5379,17 +5017,12 @@ void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out,
 }
 
 
-NICEAPI_EXPORT gboolean
-nice_agent_set_selected_remote_candidate(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    NiceCandidate * candidate)
+int32_t nice_agent_set_selected_remote_candidate(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceCandidate * candidate)
 {
     Component * component;
     Stream * stream;
     NiceCandidate * lcandidate = NULL;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
     NiceCandidate * local = NULL, *remote = NULL;
     guint64 priority;
 
@@ -5420,12 +5053,10 @@ nice_agent_set_selected_remote_candidate(
     if (!lcandidate)
         goto done;
 
-    if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr) &&
-            pseudo_tcp_socket_is_closed(component->tcp))
+    if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr) &&  pseudo_tcp_socket_is_closed(component->tcp))
     {
         nice_debug("Agent %p: not setting selected remote candidate s%d:%d because"
-                   " pseudo tcp socket does not exist in reliable mode", agent,
-                   stream->id, component->id);
+                   " pseudo tcp socket does not exist in reliable mode", agent,  stream->id, component->id);
         /* Revert back to previous selected pair */
         /* FIXME: by doing this, we lose the keepalive tick */
         component->selected_pair.local = local;
@@ -5436,9 +5067,7 @@ nice_agent_set_selected_remote_candidate(
 
     /* step: change component state */
     agent_signal_component_state_change(agent, stream_id, component_id, NICE_COMPONENT_STATE_READY);
-
-    agent_signal_new_selected_pair(agent, stream_id, component_id,
-                                   lcandidate, candidate);
+    agent_signal_new_selected_pair(agent, stream_id, component_id, lcandidate, candidate);
 
     ret = TRUE;
 
@@ -5447,32 +5076,19 @@ done:
     return ret;
 }
 
-void
-_priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, gint tos)
+void _priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, int32_t tos)
 {
     if (sock->fileno == NULL)
         return;
 
-    if (setsockopt(g_socket_get_fd(sock->fileno), IPPROTO_IP,
-                   IP_TOS, (const char *) &tos, sizeof(tos)) < 0)
+    if (setsockopt(g_socket_get_fd(sock->fileno), IPPROTO_IP, IP_TOS, (const char *) &tos, sizeof(tos)) < 0)
     {
-        nice_debug("Agent %p: Could not set socket ToS: %s", agent,
-                   g_strerror(errno));
+        nice_debug("Agent %p: Could not set socket ToS: %s", agent, g_strerror(errno));
     }
-#if 0 //def IPV6_TCLASS
-    if (setsockopt(g_socket_get_fd(sock->fileno), IPPROTO_IPV6,
-                   IPV6_TCLASS, (const char *) &tos, sizeof(tos)) < 0)
-    {
-        nice_debug("Agent %p: Could not set IPV6 socket ToS: %s", agent,
-                   g_strerror(errno));
-    }
-#endif
 }
 
 
-NICEAPI_EXPORT void
-nice_agent_set_stream_tos(NiceAgent * agent,
-                          guint stream_id, gint tos)
+void nice_agent_set_stream_tos(NiceAgent * agent, uint32_t stream_id, int32_t tos)
 {
     GSList * i, *j;
     Stream * stream;
@@ -5503,8 +5119,7 @@ done:
     agent_unlock_and_emit(agent);
 }
 
-NICEAPI_EXPORT void
-nice_agent_set_software(NiceAgent * agent, const gchar * software)
+void nice_agent_set_software(NiceAgent * agent, const gchar * software)
 {
     g_return_if_fail(NICE_IS_AGENT(agent));
 
@@ -5512,21 +5127,18 @@ nice_agent_set_software(NiceAgent * agent, const gchar * software)
 
     g_free(agent->software_attribute);
     if (software)
-        agent->software_attribute = g_strdup_printf("%s/%s",
-                                    software, PACKAGE_STRING);
+        agent->software_attribute = g_strdup_printf("%s/%s", software, PACKAGE_STRING);
 
     nice_agent_reset_all_stun_agents(agent, TRUE);
 
     agent_unlock_and_emit(agent);
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_set_stream_name(NiceAgent * agent, guint stream_id,
-                           const gchar * name)
+int32_t nice_agent_set_stream_name(NiceAgent * agent, uint32_t stream_id, const gchar * name)
 {
     Stream * stream_to_name = NULL;
     GSList * i;
-    gboolean ret = FALSE;
+    int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -5552,8 +5164,7 @@ nice_agent_set_stream_name(NiceAgent * agent, guint stream_id,
         {
             Stream * stream = i->data;
 
-            if (stream->id != stream_id &&
-                    g_strcmp0(stream->name, name) == 0)
+            if (stream->id != stream_id && g_strcmp0(stream->name, name) == 0)
                 goto done;
             else if (stream->id == stream_id)
                 stream_to_name = stream;
@@ -5574,8 +5185,7 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT const gchar *
-nice_agent_get_stream_name(NiceAgent * agent, guint stream_id)
+const gchar * nice_agent_get_stream_name(NiceAgent * agent, uint32_t stream_id)
 {
     Stream * stream;
     gchar * name = NULL;
@@ -5596,9 +5206,7 @@ done:
     return name;
 }
 
-static NiceCandidate *
-_get_default_local_candidate_locked(NiceAgent * agent,
-                                    Stream * stream,  Component * component)
+static NiceCandidate * _get_default_local_candidate_locked(NiceAgent * agent, Stream * stream,  Component * component)
 {
     GSList * i;
     NiceCandidate * default_candidate = NULL;
@@ -5608,8 +5216,7 @@ _get_default_local_candidate_locked(NiceAgent * agent,
     {
         Component * rtp_component;
 
-        if (!agent_find_component(agent, stream->id, NICE_COMPONENT_TYPE_RTP,
-                                  NULL, &rtp_component))
+        if (!agent_find_component(agent, stream->id, NICE_COMPONENT_TYPE_RTP, NULL, &rtp_component))
             goto done;
 
         default_rtp_candidate = _get_default_local_candidate_locked(agent, stream,
@@ -5647,9 +5254,7 @@ done:
     return default_candidate;
 }
 
-NICEAPI_EXPORT NiceCandidate *
-nice_agent_get_default_local_candidate(NiceAgent * agent,
-                                       guint stream_id,  guint component_id)
+NiceCandidate * nice_agent_get_default_local_candidate(NiceAgent * agent, uint32_t stream_id,  uint32_t component_id)
 {
     Stream * stream = NULL;
     Component * component = NULL;
@@ -5662,8 +5267,7 @@ nice_agent_get_default_local_candidate(NiceAgent * agent,
     agent_lock();
 
     /* step: check if the component exists*/
-    if (!agent_find_component(agent, stream_id, component_id,
-                              &stream, &component))
+    if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         goto done;
 
     default_candidate = _get_default_local_candidate_locked(agent, stream,
@@ -5677,8 +5281,7 @@ done:
     return default_candidate;
 }
 
-static const gchar *
-_cand_type_to_sdp(NiceCandidateType type)
+static const gchar * _cand_type_to_sdp(NiceCandidateType type)
 {
     switch (type)
     {
@@ -5694,8 +5297,7 @@ _cand_type_to_sdp(NiceCandidateType type)
     }
 }
 
-static const gchar *
-_transport_to_sdp(NiceCandidateTransport type)
+static const gchar * _transport_to_sdp(NiceCandidateTransport type)
 {
     switch (type)
     {
@@ -5710,8 +5312,7 @@ _transport_to_sdp(NiceCandidateTransport type)
     }
 }
 
-static const gchar *
-_transport_to_sdp_tcptype(NiceCandidateTransport type)
+static const gchar * _transport_to_sdp_tcptype(NiceCandidateTransport type)
 {
     switch (type)
     {
@@ -5728,9 +5329,7 @@ _transport_to_sdp_tcptype(NiceCandidateTransport type)
     }
 }
 
-static void
-_generate_candidate_sdp(NiceAgent * agent,
-                        NiceCandidate * candidate, GString * sdp)
+static void _generate_candidate_sdp(NiceAgent * agent, NiceCandidate * candidate, GString * sdp)
 {
     gchar ip4[INET6_ADDRSTRLEN];
     guint16 port;
@@ -5739,28 +5338,22 @@ _generate_candidate_sdp(NiceAgent * agent,
     port = nice_address_get_port(&candidate->addr);
     g_string_append_printf(sdp, "a=candidate:%.*s %d %s %d %s %d",
                            NICE_CANDIDATE_MAX_FOUNDATION, candidate->foundation,
-                           candidate->component_id,
-                           _transport_to_sdp(candidate->transport),
+                           candidate->component_id, _transport_to_sdp(candidate->transport),
                            candidate->priority, ip4, port == 0 ? 9 : port);
     g_string_append_printf(sdp, " typ %s", _cand_type_to_sdp(candidate->type));
-    if (nice_address_is_valid(&candidate->base_addr) &&
-            !nice_address_equal(&candidate->addr, &candidate->base_addr))
+    if (nice_address_is_valid(&candidate->base_addr) && !nice_address_equal(&candidate->addr, &candidate->base_addr))
     {
         port = nice_address_get_port(&candidate->addr);
         nice_address_to_string(&candidate->base_addr, ip4);
-        g_string_append_printf(sdp, " raddr %s rport %d", ip4,
-                               port == 0 ? 9 : port);
+        g_string_append_printf(sdp, " raddr %s rport %d", ip4,  port == 0 ? 9 : port);
     }
     if (candidate->transport != NICE_CANDIDATE_TRANSPORT_UDP)
     {
-        g_string_append_printf(sdp, " tcptype %s",
-                               _transport_to_sdp_tcptype(candidate->transport));
+        g_string_append_printf(sdp, " tcptype %s",  _transport_to_sdp_tcptype(candidate->transport));
     }
 }
 
-static void
-_generate_stream_sdp(NiceAgent * agent, Stream * stream,
-                     GString * sdp, gboolean include_non_ice)
+static void _generate_stream_sdp(NiceAgent * agent, Stream * stream, GString * sdp, int32_t include_non_ice)
 {
     GSList * i, *j;
 
@@ -5782,27 +5375,23 @@ _generate_stream_sdp(NiceAgent * agent, Stream * stream,
 
             if (component->id == NICE_COMPONENT_TYPE_RTP)
             {
-                default_candidate = _get_default_local_candidate_locked(agent, stream,
-                                    component);
+                default_candidate = _get_default_local_candidate_locked(agent, stream, component);
                 if (default_candidate)
                     rtp = default_candidate->addr;
             }
             else if (component->id == NICE_COMPONENT_TYPE_RTCP)
             {
-                default_candidate = _get_default_local_candidate_locked(agent, stream,
-                                    component);
+                default_candidate = _get_default_local_candidate_locked(agent, stream, component);
                 if (default_candidate)
                     rtcp = default_candidate->addr;
             }
         }
 
         nice_address_to_string(&rtp, ip4);
-        g_string_append_printf(sdp, "m=%s %d ICE/SDP\n",
-                               stream->name ? stream->name : "-", nice_address_get_port(&rtp));
+        g_string_append_printf(sdp, "m=%s %d ICE/SDP\n", stream->name ? stream->name : "-", nice_address_get_port(&rtp));
         g_string_append_printf(sdp, "c=IN IP4 %s\n", ip4);
         if (nice_address_get_port(&rtcp) != 0)
-            g_string_append_printf(sdp, "a=rtcp:%d\n",
-                                   nice_address_get_port(&rtcp));
+            g_string_append_printf(sdp, "a=rtcp:%d\n", nice_address_get_port(&rtcp));
     }
 
     g_string_append_printf(sdp, "a=ice-ufrag:%s\n", stream->local_ufrag);
@@ -5822,8 +5411,7 @@ _generate_stream_sdp(NiceAgent * agent, Stream * stream,
     }
 }
 
-NICEAPI_EXPORT gchar *
-nice_agent_generate_local_sdp(NiceAgent * agent)
+gchar * nice_agent_generate_local_sdp(NiceAgent * agent)
 {
     GString * sdp = g_string_new(NULL);
     GSList * i;
@@ -5844,9 +5432,7 @@ nice_agent_generate_local_sdp(NiceAgent * agent)
     return g_string_free(sdp, FALSE);
 }
 
-NICEAPI_EXPORT gchar *
-nice_agent_generate_local_stream_sdp(NiceAgent * agent, guint stream_id,
-                                     gboolean include_non_ice)
+gchar * nice_agent_generate_local_stream_sdp(NiceAgent * agent, uint32_t stream_id, int32_t include_non_ice)
 {
     GString * sdp = NULL;
     gchar * ret = NULL;
@@ -5871,9 +5457,7 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT gchar *
-nice_agent_generate_local_candidate_sdp(NiceAgent * agent,
-                                        NiceCandidate * candidate)
+gchar * nice_agent_generate_local_candidate_sdp(NiceAgent * agent, NiceCandidate * candidate)
 {
     GString * sdp = NULL;
 
@@ -5890,14 +5474,13 @@ nice_agent_generate_local_candidate_sdp(NiceAgent * agent,
     return g_string_free(sdp, FALSE);
 }
 
-NICEAPI_EXPORT gint
-nice_agent_parse_remote_sdp(NiceAgent * agent, const gchar * sdp)
+int32_t nice_agent_parse_remote_sdp(NiceAgent * agent, const gchar * sdp)
 {
     Stream * current_stream = NULL;
     gchar ** sdp_lines = NULL;
     GSList * l, *stream_item = NULL;
-    gint i;
-    gint ret = 0;
+    int32_t i;
+    int32_t ret = 0;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
     g_return_val_if_fail(sdp != NULL, -1);
@@ -5957,7 +5540,7 @@ nice_agent_parse_remote_sdp(NiceAgent * agent, const gchar * sdp)
             NiceCandidate * candidate = NULL;
             Component * component = NULL;
             GSList * cands = NULL;
-            gint added;
+            int32_t added;
 
             if (current_stream == NULL)
             {
@@ -5997,14 +5580,12 @@ done:
     return ret;
 }
 
-NICEAPI_EXPORT GSList *
-nice_agent_parse_remote_stream_sdp(NiceAgent * agent, guint stream_id,
-                                   const gchar * sdp, gchar ** ufrag, gchar ** pwd)
+GSList * nice_agent_parse_remote_stream_sdp(NiceAgent * agent, uint32_t stream_id, const gchar * sdp, gchar ** ufrag, gchar ** pwd)
 {
     Stream * stream = NULL;
     gchar ** sdp_lines = NULL;
     GSList * candidates = NULL;
-    gint i;
+    int32_t i;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
     g_return_val_if_fail(stream_id >= 1, NULL);
@@ -6054,15 +5635,13 @@ done:
     return candidates;
 }
 
-NICEAPI_EXPORT NiceCandidate *
-nice_agent_parse_remote_candidate_sdp(NiceAgent * agent, guint stream_id,
-                                      const gchar * sdp)
+NiceCandidate * nice_agent_parse_remote_candidate_sdp(NiceAgent * agent, uint32_t stream_id, const gchar * sdp)
 {
     NiceCandidate * candidate = NULL;
-    int ntype = -1;
+    int32_t ntype = -1;
     gchar ** tokens = NULL;
     const gchar * foundation = NULL;
-    guint component_id = 0;
+    uint32_t component_id = 0;
     const gchar * transport = NULL;
     guint32 priority = 0;
     const gchar * addr = NULL;
@@ -6073,7 +5652,7 @@ nice_agent_parse_remote_candidate_sdp(NiceAgent * agent, guint stream_id,
     guint16 rport = 0;
     static const gchar * type_names[] = {"host", "srflx", "prflx", "relay"};
     NiceCandidateTransport ctransport;
-    guint i;
+    uint32_t i;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
     g_return_val_if_fail(stream_id >= 1, NULL);
@@ -6091,7 +5670,7 @@ nice_agent_parse_remote_candidate_sdp(NiceAgent * agent, guint stream_id,
                 foundation = tokens[i];
                 break;
             case 1:
-                component_id = (guint) g_ascii_strtoull(tokens[i], NULL, 10);
+                component_id = (uint32_t) g_ascii_strtoull(tokens[i], NULL, 10);
                 break;
             case 2:
                 transport = tokens[i];
@@ -6200,9 +5779,7 @@ done:
 }
 
 
-NICEAPI_EXPORT GIOStream *
-nice_agent_get_io_stream(NiceAgent * agent, guint stream_id,
-                         guint component_id)
+GIOStream * nice_agent_get_io_stream(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     GIOStream * iostream = NULL;
     Component * component;
@@ -6229,11 +5806,10 @@ done:
     return iostream;
 }
 
-NICEAPI_EXPORT gboolean
-nice_agent_forget_relays(NiceAgent * agent, guint stream_id, guint component_id)
+ int32_t nice_agent_forget_relays(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     Component * component;
-    gboolean ret = TRUE;
+    int32_t ret = TRUE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
@@ -6267,16 +5843,14 @@ done:
  * socket layer can queue the message and send it once a connection is
  * established.
  */
-gssize
-agent_socket_send(NiceSocket * sock, const NiceAddress * addr, gsize len,
-                  const gchar * buf)
+int32_t agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len, const gchar * buf)
 {
     if (nice_socket_is_reliable(sock))
     {
         guint16 rfc4571_frame = htons(len);
         GOutputVector local_buf[2] = {{&rfc4571_frame, 2}, { buf, len }};
         NiceOutputMessage local_message = { local_buf, 2};
-        gint ret;
+        int32_t ret;
 
         /* ICE-TCP requires that all packets be framed with RFC4571 */
         ret = nice_socket_send_messages_reliable(sock, addr, &local_message, 1);
@@ -6286,16 +5860,14 @@ agent_socket_send(NiceSocket * sock, const NiceAddress * addr, gsize len,
     }
     else
     {
-        gssize ret = nice_socket_send_reliable(sock, addr, len, buf);
+        int32_t ret = nice_socket_send_reliable(sock, addr, len, buf);
         if (ret < 0)
             ret = nice_socket_send(sock, addr, len, buf);
         return ret;
     }
 }
 
-NiceComponentState
-nice_agent_get_component_state(NiceAgent * agent,
-                               guint stream_id, guint component_id)
+NiceComponentState nice_agent_get_component_state(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     NiceComponentState state = NICE_COMPONENT_STATE_FAILED;
     Component * component;

@@ -1,4 +1,4 @@
-﻿/* This file is part of the Nice GLib ICE library. */
+/* This file is part of the Nice GLib ICE library. */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -502,7 +502,7 @@ stun_message_append_error(StunMessage * msg, StunError code)
 /* Fast validity check for a potential STUN packet. Examines the type and
  * length, but none of the attributes. Designed to allow vectored I/O on all
  * incoming packets, filtering packets for closer inspection as to whether
- * they’re STUN packets. If they look like they might be, their buffers are
+ * they?re STUN packets. If they look like they might be, their buffers are
  * compacted to allow a more thorough check. */
 ssize_t stun_message_validate_buffer_length_fast(StunInputVector * buffers, int n_buffers, size_t total_length, int has_padding)
 {
@@ -547,7 +547,7 @@ ssize_t stun_message_validate_buffer_length_fast(StunInputVector * buffers, int 
                 break;
         }
 
-        /* Read bytes. May be split over two buffers. We’ve already checked that
+        /* Read bytes. May be split over two buffers. We?ve already checked that
          * @total_length is long enough, so @n_buffers should be too. */
         if (buffers[i].size - skip_remaining > 1)
         {

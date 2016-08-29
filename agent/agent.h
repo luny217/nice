@@ -17,7 +17,7 @@
  *
  * A #NiceAgent must always be used with a #GMainLoop running the #GMainContext
  * passed into nice_agent_new() (or nice_agent_new_reliable()). Without the
- * #GMainContext being iterated, the agent’s timers will not fire, etc.
+ * #GMainContext being iterated, the agent?s timers will not fire, etc.
  *
  * Streams and their components are referenced by integer IDs (with respect to a
  * given #NiceAgent). These IDs are guaranteed to be positive (i.e. non-zero)
@@ -37,7 +37,7 @@
  * nice_agent_attach_recv() or nice_agent_recv_messages() (and the derived
  * #NiceInputStream and #NiceIOStream classes accessible using
  * nice_agent_get_io_stream()). nice_agent_attach_recv() is non-blocking: it
- * takes a user-provided callback function and attaches the stream’s socket to
+ * takes a user-provided callback function and attaches the stream?s socket to
  * the provided #GMainContext, invoking the callback in that context for every
  * packet received. nice_agent_recv_messages() instead blocks on receiving a
  * packet, and writes it directly into a user-provided buffer. This reduces the
@@ -948,7 +948,7 @@ nice_agent_recv(
  * message (65536 bytes), or any excess data may be silently dropped.
  *
  * For each received message, #NiceInputMessage::length will be set to the
- * number of valid bytes stored in the message’s buffers. The bytes are stored
+ * number of valid bytes stored in the message?s buffers. The bytes are stored
  * sequentially in the buffers; there are no gaps apart from at the end of the
  * buffer array (in non-reliable mode). If non-%NULL on input,
  * #NiceInputMessage::from will have the address of the sending peer stored in
@@ -958,8 +958,8 @@ nice_agent_recv(
  * This must not be used in combination with nice_agent_attach_recv() on the
  * same stream/component pair.
  *
- * If the stream/component pair doesn’t exist, or if a suitable candidate socket
- * hasn’t yet been selected for it, a %G_IO_ERROR_BROKEN_PIPE error will be
+ * If the stream/component pair doesn?t exist, or if a suitable candidate socket
+ * hasn?t yet been selected for it, a %G_IO_ERROR_BROKEN_PIPE error will be
  * returned. A %G_IO_ERROR_CANCELLED error will be returned if the operation was
  * cancelled. %G_IO_ERROR_FAILED will be returned for other errors.
  *
