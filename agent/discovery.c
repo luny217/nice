@@ -742,12 +742,8 @@ NiceCandidate * discovery_learn_remote_peer_reflexive_candidate(
     else if (local)
         candidate->transport = conn_check_match_transport(local->transport);
     else
-    {
-        if (nicesock->type == NICE_SOCKET_TYPE_UDP_BSD ||
-                nicesock->type == NICE_SOCKET_TYPE_UDP_TURN)
-            candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;
-        else
-            candidate->transport = NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE;
+    {       
+		candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;        
     }
     candidate->sockptr = nicesock;
     candidate->stream_id = stream->id;
@@ -792,7 +788,7 @@ NiceCandidate * discovery_learn_remote_peer_reflexive_candidate(
  *
  * @return will return FALSE when no more pending timers.
  */
-static int priv_discovery_tick_unlocked(gpointer pointer)
+static int priv_discovery_tick_unlocked(void * pointer)
 {
     CandidateDiscovery * candidate;
     NiceAgent * agent = pointer;

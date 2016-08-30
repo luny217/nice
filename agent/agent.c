@@ -1532,13 +1532,7 @@ static const char * _transport_to_string(NiceCandidateTransport type)
     switch (type)
     {
         case NICE_CANDIDATE_TRANSPORT_UDP:
-            return "UDP";
-        case NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE:
-            return "TCP-ACT";
-        case NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE:
-            return "TCP-PASS";
-        case NICE_CANDIDATE_TRANSPORT_TCP_SO:
-            return "TCP-SO";
+			return "UDP";
         default:
             return "???";
     }
@@ -1590,16 +1584,8 @@ void agent_gathering_done(NiceAgent * agent)
         }
     }
 
-#ifdef HAVE_GUPNP
-    if (agent->discovery_timer_source == NULL &&
-            agent->upnp_timer_source == NULL)
-    {
-        agent_signal_gathering_done(agent);
-    }
-#else
     if (agent->discovery_timer_source == NULL)
         agent_signal_gathering_done(agent);
-#endif
 }
 
 void agent_signal_gathering_done(NiceAgent * agent)
@@ -1612,8 +1598,7 @@ void agent_signal_gathering_done(NiceAgent * agent)
         if (stream->gathering)
         {
             stream->gathering = FALSE;
-            agent_queue_signal(agent, signals[SIGNAL_CANDIDATE_GATHERING_DONE],
-                               stream->id);
+            agent_queue_signal(agent, signals[SIGNAL_CANDIDATE_GATHERING_DONE], stream->id);
         }
     }
 }
@@ -1623,19 +1608,16 @@ void agent_signal_initial_binding_request_received(NiceAgent * agent, Stream * s
     if (stream->initial_binding_request_received != TRUE)
     {
         stream->initial_binding_request_received = TRUE;
-        agent_queue_signal(agent, signals[SIGNAL_INITIAL_BINDING_REQUEST_RECEIVED],
-                           stream->id);
+        agent_queue_signal(agent, signals[SIGNAL_INITIAL_BINDING_REQUEST_RECEIVED], stream->id);
     }
 }
 
 /* If the Component now has a selected_pair, and has pending TCP packets which
- * it couldn??t receive before due to not being able to send out ACKs (or
+ * it couldn't receive before due to not being able to send out ACKs (or
  * SYNACKs, for the initial SYN packet), handle them now.
  *
  * Must be called with the agent lock held. */
-static void
-process_queued_tcp_packets(NiceAgent * agent, Stream * stream,
-                           Component * component)
+static void process_queued_tcp_packets(NiceAgent * agent, Stream * stream, Component * component)
 {
     GOutputVector * vec;
     uint32_t stream_id = stream->id;
@@ -1650,29 +1632,24 @@ process_queued_tcp_packets(NiceAgent * agent, Stream * stream,
         return;
     }
 
-    nice_debug("%s: Sending outstanding packets for agent %p.", G_STRFUNC,
-               agent);
+    nice_debug("%s: Sending outstanding packets for agent %p.", G_STRFUNC, agent);
 
     while ((vec = g_queue_peek_head(&component->queued_tcp_packets)) != NULL)
     {
         int32_t retval;
 
         nice_debug("%s: Sending %" G_GSIZE_FORMAT " bytes.", G_STRFUNC, vec->size);
-        retval =
-            pseudo_tcp_socket_notify_packet(component->tcp, vec->buffer,
-                                            vec->size);
+        retval = pseudo_tcp_socket_notify_packet(component->tcp, vec->buffer, vec->size);
 
         if (!agent_find_component(agent, stream_id, component_id,
                                   &stream, &component))
         {
-            nice_debug("Stream or Component disappeared during "
-                       "pseudo_tcp_socket_notify_packet()");
+            nice_debug("Stream or Component disappeared during " "pseudo_tcp_socket_notify_packet()");
             return;
         }
         if (pseudo_tcp_socket_is_closed(component->tcp))
         {
-            nice_debug("PseudoTCP socket got destroyed in"
-                       " pseudo_tcp_socket_notify_packet()!");
+            nice_debug("PseudoTCP socket got destroyed in" " pseudo_tcp_socket_notify_packet()!");
             return;
         }
 
@@ -1997,166 +1974,6 @@ done:
     return ret;
 }
 
-#if 0 //def HAVE_GUPNP
-
-static void agent_check_upnp_gathering_done(NiceAgent * agent);
-
-static int32_t priv_upnp_timeout_cb(gpointer user_data)
-{
-    NiceAgent * agent = (NiceAgent *)user_data;
-
-    agent_lock();
-
-    /* If the source has been destroyed, we have already freed all mappings. */
-    if (g_source_is_destroyed(g_main_current_source()))
-    {
-        agent_unlock();
-        return FALSE;
-    }
-
-    nice_debug("Agent %p : UPnP port mapping timed out", agent);
-
-    /* We cannot free priv->upnp here as it may be holding mappings open which
-     * we are using (e.g. if some mappings were successful and others errored). */
-    g_slist_free_full(agent->upnp_mapping, (GDestroyNotify) nice_address_free);
-    agent->upnp_mapping = NULL;
-
-    agent_check_upnp_gathering_done(agent);
-
-    agent_unlock_and_emit(agent);
-    return FALSE;
-}
-
-/* Check whether UPnP gathering is done, which is true when the list of pending
- * mappings (upnp_mapping) is empty. When it is empty, we have heard back from
- * gupnp-igd about each of the mappings we added, either successfully or not.
- *
- * Note that upnp_mapping has to be a list, rather than a counter, as the
- * mapped-external-port and error-mapping-port signals could be emitted multiple
- * times for each mapping. */
-static void agent_check_upnp_gathering_done(NiceAgent * agent)
-{
-    if (agent->upnp_mapping != NULL)
-        return;
-
-    if (agent->upnp_timer_source != NULL)
-    {
-        g_source_destroy(agent->upnp_timer_source);
-        g_source_unref(agent->upnp_timer_source);
-        agent->upnp_timer_source = NULL;
-    }
-
-    agent_gathering_done(agent);
-}
-
-static void _upnp_mapped_external_port(GUPnPSimpleIgd * self, gchar * proto,
-                                       gchar * external_ip, gchar * replaces_external_ip, uint32_t external_port,
-                                       gchar * local_ip, uint32_t local_port, gchar * description, gpointer user_data)
-{
-    NiceAgent * agent = (NiceAgent *)user_data;
-    NiceAddress localaddr;
-    NiceAddress externaddr;
-    NiceCandidateTransport transport;
-    GSList * i, *j, *k;
-
-    agent_lock();
-
-    if (agent->upnp_timer_source == NULL)
-        goto end;
-
-    nice_debug("Agent %p : Successfully mapped %s:%d to %s:%d", agent, local_ip,
-               local_port, external_ip, external_port);
-
-    if (!nice_address_set_from_string(&localaddr, local_ip))
-        goto end;
-    nice_address_set_port(&localaddr, local_port);
-
-    if (g_strcmp0(proto, "TCP") == 0)
-        transport = NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE;
-    else
-        transport = NICE_CANDIDATE_TRANSPORT_UDP;
-
-    for (i = agent->upnp_mapping; i; i = i->next)
-    {
-        NiceAddress * addr = i->data;
-        if (nice_address_equal(&localaddr, addr))
-        {
-            agent->upnp_mapping = g_slist_remove(agent->upnp_mapping, addr);
-            nice_address_free(addr);
-            break;
-        }
-    }
-
-    if (!nice_address_set_from_string(&externaddr, external_ip))
-        goto end;
-    nice_address_set_port(&externaddr, external_port);
-
-    for (i = agent->streams; i; i = i->next)
-    {
-        Stream * stream = i->data;
-        for (j = stream->components; j; j = j->next)
-        {
-            Component * component = j->data;
-            for (k = component->local_candidates; k; k = k->next)
-            {
-                NiceCandidate * local_candidate = k->data;
-
-                if (nice_address_equal(&localaddr, &local_candidate->base_addr))
-                {
-                    discovery_add_server_reflexive_candidate(
-                        agent,
-                        stream->id,
-                        component->id,
-                        &externaddr,
-                        transport,
-                        local_candidate->sockptr,
-                        TRUE);
-                    goto end;
-                }
-            }
-        }
-    }
-
-end:
-    agent_check_upnp_gathering_done(agent);
-
-    agent_unlock_and_emit(agent);
-}
-
-static void _upnp_error_mapping_port(GUPnPSimpleIgd * self, GError * error,
-                                     gchar * proto, uint32_t external_port, gchar * local_ip, uint32_t local_port,
-                                     gchar * description, gpointer user_data)
-{
-    NiceAgent * agent = (NiceAgent *)user_data;
-    NiceAddress localaddr;
-    GSList * i;
-
-    agent_lock();
-
-    nice_debug("Agent %p : Error mapping %s:%d to %d (%d) : %s", agent, local_ip, local_port, external_port, error->domain, error->message);
-    if (nice_address_set_from_string(&localaddr, local_ip))
-    {
-        nice_address_set_port(&localaddr, local_port);
-
-        for (i = agent->upnp_mapping; i; i = i->next)
-        {
-            NiceAddress * addr = i->data;
-            if (nice_address_equal(&localaddr, addr))
-            {
-                agent->upnp_mapping = g_slist_remove(agent->upnp_mapping, addr);
-                nice_address_free(addr);
-                break;
-            }
-        }
-
-        agent_check_upnp_gathering_done(agent);
-    }
-
-    agent_unlock_and_emit(agent);
-}
-
-#endif
-
 int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
 {
     uint32_t cid;
@@ -2348,7 +2165,7 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
     stream->gathering_started = TRUE;
 
     /* Only signal the new candidates after we're sure that the gathering was
-     * succesfful. But before sending gathering-done */
+     * successful. But before sending gathering-done */
     for (cid = 1; cid <= stream->n_components; cid++)
     {
         Component * component = stream_find_component_by_id(stream, cid);
@@ -2360,14 +2177,8 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
     }
 
     /* note: no async discoveries pending, signal that we are ready */
-    if (agent->discovery_unsched_items == 0 &&
-#ifdef HAVE_GUPNP
-            agent->upnp_mapping == NULL)
+    if (agent->discovery_unsched_items == 0)
     {
-#else
-            TRUE)
-    {
-#endif
         nice_debug("Agent %p: Candidate gathering FINISHED, no scheduled items.",  agent);
         agent_gathering_done(agent);
     }
