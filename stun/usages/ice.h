@@ -106,15 +106,11 @@ typedef enum
  * @candidate_identifier argument is not used.
  * Returns: The length of the message built.
  */
-size_t
-stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
+size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
                                 uint8_t * buffer, size_t buffer_len,
                                 const uint8_t * username, const size_t username_len,
                                 const uint8_t * password, const size_t password_len,
-                                bool cand_use, bool controlling, uint32_t priority,
-                                uint64_t tie, const char * candidate_identifier,
-                                StunUsageIceCompatibility compatibility);
-
+                                int cand_use, int controlling, uint32_t priority, uint64_t tie);
 
 /**
  * stun_usage_ice_conncheck_process:
@@ -131,9 +127,7 @@ stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
  * stun_usage_ice_conncheck_use_candidate() </para>
  * Returns: A #StunUsageIceReturn value
  */
-StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg,
-        struct sockaddr_storage * addr, socklen_t * addrlen,
-        StunUsageIceCompatibility compatibility);
+StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg, struct sockaddr_storage * addr, socklen_t * addrlen);
 
 /**
  * stun_usage_ice_conncheck_create_reply:
@@ -169,8 +163,7 @@ StunUsageIceReturn
 stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
                                       StunMessage * msg, uint8_t * buf, size_t * plen,
                                       const struct sockaddr_storage * src, socklen_t srclen,
-                                      bool * control, uint64_t tie,
-                                      StunUsageIceCompatibility compatibility);
+                                      int * control, uint64_t tie);
 
 /**
  * stun_usage_ice_conncheck_priority:

@@ -508,7 +508,7 @@ StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
             }
         }
 
-        valid = stun_agent_validate(&agent, &msg, buf, val, NULL, NULL);
+        valid = stun_agent_validate(&agent, &msg, buf, val);
         if (valid == STUN_VALIDATION_UNKNOWN_ATTRIBUTE)
             return STUN_USAGE_BIND_RETURN_ERROR;
 

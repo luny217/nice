@@ -20,16 +20,16 @@
 
 static void priv_update_check_list_failed_components(NiceAgent * agent, Stream * stream);
 static void priv_update_check_list_state_for_ready(NiceAgent * agent, Stream * stream, Component * component);
-static guint priv_prune_pending_checks(Stream * stream, guint component_id);
+static uint32_t priv_prune_pending_checks(Stream * stream, uint32_t component_id);
 static gboolean priv_schedule_triggered_check(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * local_socket, NiceCandidate * remote_cand, gboolean use_candidate);
 static void priv_mark_pair_nominated(NiceAgent * agent, Stream * stream, Component * component, NiceCandidate * remotecand);
 static size_t priv_create_username(NiceAgent * agent, Stream * stream,
-                                   guint component_id, NiceCandidate * remote, NiceCandidate * local,
-                                   uint8_t * dest, guint dest_len, gboolean inbound);
+                                   uint32_t component_id, NiceCandidate * remote, NiceCandidate * local,
+                                   uint8_t * dest, uint32_t dest_len, gboolean inbound);
 static size_t priv_get_password(NiceAgent * agent, Stream * stream,
                                 NiceCandidate * remote, uint8_t ** password);
 static void conn_check_free_item(gpointer data);
-static void priv_conn_check_add_for_candidate_pair_matched(NiceAgent * agent, guint stream_id, Component * component, NiceCandidate * local, NiceCandidate * remote, NiceCheckState initial_state);
+static void priv_conn_check_add_for_candidate_pair_matched(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * local, NiceCandidate * remote, NiceCheckState initial_state);
 
 static int priv_timer_expired(GTimeVal * timer, GTimeVal * now)
 {
@@ -99,7 +99,7 @@ static gboolean priv_conn_check_unfreeze_next(NiceAgent * agent)
      *     priority)
      */
 
-    for (i = agent->streams; i; i = i->next)
+    for (i = agent->streams_list; i; i = i->next)
     {
         Stream * stream = i->data;
         guint64 max_frozen_priority = 0;
@@ -151,7 +151,7 @@ static gboolean priv_conn_check_unfreeze_next(NiceAgent * agent)
 static void priv_conn_check_unfreeze_related(NiceAgent * agent, Stream * stream, CandidateCheckPair * ok_check)
 {
     GSList * i, *j;
-    guint unfrozen = 0;
+    uint32_t unfrozen = 0;
 
     g_assert(ok_check);
     g_assert(ok_check->state == NICE_CHECK_SUCCEEDED);
@@ -181,7 +181,7 @@ static void priv_conn_check_unfreeze_related(NiceAgent * agent, Stream * stream,
     if (stream_all_components_ready(stream))
     {
         /* step: unfreeze checks from other streams */
-        for (i = agent->streams; i ; i = i->next)
+        for (i = agent->streams_list; i ; i = i->next)
         {
             Stream * s = i->data;
             for (j = stream->conncheck_list; j ; j = j->next)
@@ -244,9 +244,9 @@ candidate_check_pair_fail(Stream * stream, NiceAgent * agent, CandidateCheckPair
 static gboolean priv_conn_check_tick_stream(Stream * stream, NiceAgent * agent, GTimeVal * now)
 {
     gboolean keep_timer_going = FALSE;
-    guint s_inprogress = 0, s_succeeded = 0, s_discovered = 0,
+    uint32_t s_inprogress = 0, s_succeeded = 0, s_discovered = 0,
           s_nominated = 0, s_waiting_for_nomination = 0;
-    guint frozen = 0, waiting = 0;
+    uint32_t frozen = 0, waiting = 0;
     GSList * i, *k;
 
     for (i = stream->conncheck_list; i ; i = i->next)
@@ -399,7 +399,7 @@ static gboolean priv_conn_check_tick_unlocked(NiceAgent * agent)
     g_get_current_time(&now);
 
     /* step: find the highest priority waiting check and send it */
-    for (i = agent->streams; i ; i = i->next)
+    for (i = agent->streams_list; i ; i = i->next)
     {
         Stream * stream = i->data;
 
@@ -418,7 +418,7 @@ static gboolean priv_conn_check_tick_unlocked(NiceAgent * agent)
         keep_timer_going = priv_conn_check_unfreeze_next(agent);
     }
 
-    for (j = agent->streams; j; j = j->next)
+    for (j = agent->streams_list; j; j = j->next)
     {
         Stream * stream = j->data;
         gboolean res =
@@ -431,7 +431,7 @@ static gboolean priv_conn_check_tick_unlocked(NiceAgent * agent)
     if (keep_timer_going != TRUE)
     {
         nice_debug("Agent %p : %s: stopping conncheck timer", agent, G_STRFUNC);
-        for (i = agent->streams; i; i = i->next)
+        for (i = agent->streams_list; i; i = i->next)
         {
             Stream * stream = i->data;
             priv_update_check_list_failed_components(agent, stream);
@@ -569,34 +569,15 @@ static gboolean priv_conn_keepalive_retransmissions_tick(gpointer pointer)
     return FALSE;
 }
 
-static guint32 peer_reflexive_candidate_priority(NiceAgent * agent,
-        NiceCandidate * local_candidate)
+static uint32_t peer_reflexive_candidate_priority(NiceAgent * agent, NiceCandidate * local_candidate)
 {
-    NiceCandidate * candidate_priority =
-        nice_candidate_new(NICE_CANDIDATE_TYPE_PEER_REFLEXIVE);
-    guint32 priority;
+    NiceCandidate * candidate_priority = nice_candidate_new(NICE_CANDIDATE_TYPE_PEER_REFLEXIVE);
+    uint32_t priority;
 
     candidate_priority->transport = local_candidate->transport;
     candidate_priority->component_id = local_candidate->component_id;
-    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
-    {
-        priority = nice_candidate_jingle_priority(candidate_priority);
-    }
-    else if (agent->compatibility == NICE_COMPATIBILITY_MSN ||
-             agent->compatibility == NICE_COMPATIBILITY_OC2007)
-    {
-        priority = nice_candidate_msn_priority(candidate_priority);
-    }
-    else if (agent->compatibility == NICE_COMPATIBILITY_OC2007R2)
-    {
-        priority = nice_candidate_ms_ice_priority(candidate_priority,
-                   agent->reliable, FALSE);
-    }
-    else
-    {
-        priority = nice_candidate_ice_priority(candidate_priority,
-                                               agent->reliable, FALSE);
-    }
+
+    priority = nice_candidate_ice_priority(candidate_priority);
     nice_candidate_free(candidate_priority);
 
     return priority;
@@ -621,7 +602,7 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
 
     /* case 1: session established and media flowing
      *         (ref ICE sect 10 "Keepalives" ID-19)  */
-    for (i = agent->streams; i; i = i->next)
+    for (i = agent->streams_list; i; i = i->next)
     {
 
         Stream * stream = i->data;
@@ -636,10 +617,9 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                 if (p->local->transport != NICE_CANDIDATE_TRANSPORT_UDP)
                     continue;
 
-                if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
-                        agent->keepalive_conncheck)
+                if (agent->keepalive_conncheck)
                 {
-                    guint32 priority;
+                    uint32_t priority;
                     uint8_t uname[NICE_STREAM_MAX_UNAME];
                     size_t uname_len =
                         priv_create_username(agent, agent_find_stream(agent, stream->id),
@@ -670,9 +650,7 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                                   sizeof(p->keepalive.stun_buffer),
                                   uname, uname_len, password, password_len,
                                   agent->controlling_mode, agent->controlling_mode, priority,
-                                  agent->tie_breaker,
-                                  NULL,
-                                  agent_to_ice_compatibility(agent));
+                                  agent->tie_breaker);
 
                         nice_debug("Agent %p: conncheck created %zd - %p",
                                    agent, buf_len, p->keepalive.stun_message.buffer);
@@ -714,8 +692,7 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                         agent_socket_send(p->local->sockptr, &p->remote->addr, buf_len,
                                           (gchar *)p->keepalive.stun_buffer);
 
-                        nice_debug("Agent %p : stun_bind_keepalive for pair %p res %d.",
-                                   agent, p, (int) buf_len);
+                        nice_debug("Agent %p : stun_bind_keepalive for pair %p res %d.", agent, p, (int) buf_len);
                     }
                     else
                     {
@@ -728,14 +705,13 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
 
     /* case 2: connectivity establishment ongoing
      *         (ref ICE sect 4.1.1.4 "Keeping Candidates Alive" ID-19)  */
-    for (i = agent->streams; i; i = i->next)
+    for (i = agent->streams_list; i; i = i->next)
     {
         Stream * stream = i->data;
         for (j = stream->components; j; j = j->next)
         {
             Component * component = j->data;
-            if (component->state < NICE_COMPONENT_STATE_READY &&
-                    agent->stun_server_ip)
+            if (component->state < NICE_COMPONENT_STATE_READY && agent->stun_server_ip)
             {
                 NiceAddress stun_server;
                 if (nice_address_set_from_string(&stun_server, agent->stun_server_ip))
@@ -751,11 +727,9 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                      * but the stun agent will not be able to parse it due to an invalid
                      * stun message since RFC3489 will not be compatible, and the response
                      * will be forwarded to the application as user data */
-                    stun_agent_init(&stun_agent, STUN_ALL_KNOWN_ATTRIBUTES,
-                                    STUN_COMPATIBILITY_RFC3489, 0);
+                    stun_agent_init(&stun_agent, STUN_ALL_KNOWN_ATTRIBUTES, STUN_COMPATIBILITY_RFC3489, 0);
 
-                    buffer_len = stun_usage_bind_create(&stun_agent,
-                                                        &stun_message, stun_buffer, sizeof(stun_buffer));
+                    buffer_len = stun_usage_bind_create(&stun_agent, &stun_message, stun_buffer, sizeof(stun_buffer));
 
                     for (k = component->local_candidates; k; k = k->next)
                     {
@@ -764,10 +738,8 @@ static gboolean priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                                 candidate->transport == NICE_CANDIDATE_TRANSPORT_UDP)
                         {
                             /* send the conncheck */
-                            nice_debug("Agent %p : resending STUN on %s to keep the "
-                                       "candidate alive.", agent, candidate->foundation);
-                            agent_socket_send(candidate->sockptr, &stun_server,
-                                              buffer_len, (gchar *)stun_buffer);
+                            nice_debug("Agent %p : resending STUN on %s to keep the " "candidate alive.", agent, candidate->foundation);
+                            agent_socket_send(candidate->sockptr, &stun_server, buffer_len, (gchar *)stun_buffer);
                         }
                     }
                 }
@@ -1071,7 +1043,7 @@ void conn_check_remote_candidates_set(NiceAgent * agent)
 {
     GSList * i, *j, *k, *l, *m, *n;
 
-    for (i = agent->streams; i ; i = i->next)
+    for (i = agent->streams_list; i ; i = i->next)
     {
         Stream * stream = i->data;
         for (j = stream->conncheck_list; j ; j = j->next)
@@ -1112,7 +1084,7 @@ void conn_check_remote_candidates_set(NiceAgent * agent)
                     {
                         /* We need to find which local candidate was used */
                         uint8_t uname[NICE_STREAM_MAX_UNAME];
-                        guint uname_len;
+                        uint32_t uname_len;
 
                         nice_debug("Agent %p: We have a peer-reflexive candidate in a "
                                    "stored pending check", agent);
@@ -1219,10 +1191,10 @@ void conn_check_remote_candidates_set(NiceAgent * agent)
  * in ICE spec section 5.7.3 (ID-19). See also
  * conn_check_add_for_candidate().
  */
-static void priv_limit_conn_check_list_size(GSList * conncheck_list, guint upper_limit)
+static void priv_limit_conn_check_list_size(GSList * conncheck_list, uint32_t upper_limit)
 {
-    guint valid = 0;
-    guint cancelled = 0;
+    uint32_t valid = 0;
+    uint32_t cancelled = 0;
     GSList * item = conncheck_list;
 
     while (item)
@@ -1295,7 +1267,7 @@ static void priv_update_check_list_failed_components(NiceAgent * agent, Stream *
     /* note: emitting a signal might cause the client
      *       to remove the stream, thus the component count
      *       must be fetched before entering the loop*/
-    guint c, components = stream->n_components;
+    uint32_t c, components = stream->n_components;
 
     for (i = agent->discovery_list; i; i = i->next)
     {
@@ -1356,7 +1328,7 @@ static void priv_update_check_list_failed_components(NiceAgent * agent, Stream *
 static void priv_update_check_list_state_for_ready(NiceAgent * agent, Stream * stream, Component * component)
 {
     GSList * i;
-    guint succeeded = 0, nominated = 0;
+    uint32_t succeeded = 0, nominated = 0;
 
     g_assert(component);
 
@@ -1426,7 +1398,8 @@ static void priv_mark_pair_nominated(NiceAgent * agent, Stream * stream, Compone
  * Creates a new connectivity check pair and adds it to
  * the agent's list of checks.
  */
-static void priv_add_new_check_pair(NiceAgent * agent, guint stream_id, Component * component, NiceCandidate * local, NiceCandidate * remote, NiceCheckState initial_state, gboolean use_candidate)
+static void priv_add_new_check_pair(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * local, 
+		NiceCandidate * remote, NiceCheckState initial_state, int use_candidate)
 {
     Stream * stream;
     CandidateCheckPair * pair;
@@ -1454,21 +1427,15 @@ static void priv_add_new_check_pair(NiceAgent * agent, guint stream_id, Componen
     pair->nominated = use_candidate;
     pair->controlling = agent->controlling_mode;
 
-    stream->conncheck_list = g_slist_insert_sorted(stream->conncheck_list, pair,
-                             (GCompareFunc)conn_check_compare);
+    stream->conncheck_list = g_slist_insert_sorted(stream->conncheck_list, pair,  (GCompareFunc)conn_check_compare);
 
     nice_debug("Agent %p : added a new conncheck %p with foundation of '%s' to list %u.", agent, pair, pair->foundation, stream_id);
 
-    /* implement the hard upper limit for number of
-       checks (see sect 5.7.3 ICE ID-19): */
-    if (agent->compatibility == NICE_COMPATIBILITY_RFC5245)
-    {
-        priv_limit_conn_check_list_size(stream->conncheck_list, agent->max_conn_checks);
-    }
+    /* implement the hard upper limit for number of checks (see sect 5.7.3 ICE ID-19): */    
+    priv_limit_conn_check_list_size(stream->conncheck_list, agent->max_conn_checks);
 }
 
-NiceCandidateTransport
-conn_check_match_transport(NiceCandidateTransport transport)
+NiceCandidateTransport conn_check_match_transport(NiceCandidateTransport transport)
 {
     switch (transport)
     {
@@ -1487,13 +1454,12 @@ conn_check_match_transport(NiceCandidateTransport transport)
 }
 
 static void priv_conn_check_add_for_candidate_pair_matched(NiceAgent * agent,
-        guint stream_id, Component * component, NiceCandidate * local,
+        uint32_t stream_id, Component * component, NiceCandidate * local,
         NiceCandidate * remote, NiceCheckState initial_state)
 {
     nice_debug("Agent %p, Adding check pair between %s and %s", agent,
                local->foundation, remote->foundation);
-    priv_add_new_check_pair(agent, stream_id, component, local, remote,
-                            initial_state, FALSE);
+    priv_add_new_check_pair(agent, stream_id, component, local, remote, initial_state, FALSE);
     if (component->state == NICE_COMPONENT_STATE_CONNECTED ||
             component->state == NICE_COMPONENT_STATE_READY)
     {
@@ -1511,35 +1477,24 @@ static void priv_conn_check_add_for_candidate_pair_matched(NiceAgent * agent,
     }
 }
 
-gboolean conn_check_add_for_candidate_pair(NiceAgent * agent,
-        guint stream_id, Component * component, NiceCandidate * local,
+int conn_check_add_for_candidate_pair(NiceAgent * agent,
+        uint32_t stream_id, Component * component, NiceCandidate * local,
         NiceCandidate * remote)
 {
-    gboolean ret = FALSE;
+    int ret = FALSE;
 
     g_assert(local != NULL);
     g_assert(remote != NULL);
 
     /* note: do not create pairs where the local candidate is
      *       a srv-reflexive (ICE 5.7.3. "Pruning the pairs" ID-9) */
-    if ((agent->compatibility == NICE_COMPATIBILITY_RFC5245 ||
-            agent->compatibility == NICE_COMPATIBILITY_WLM2009 ||
-            agent->compatibility == NICE_COMPATIBILITY_OC2007R2) &&
-            local->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE)
+    if (local->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE)
     {
         return FALSE;
-    }
-
-    /* note: do not create pairs where local candidate has TCP passive transport
-     *       (ice-tcp-13 6.2. "Forming the Check Lists") */
-    if (local->transport == NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE)
-    {
-        return FALSE;
-    }
+    } 
 
     /* note: match pairs only if transport and address family are the same */
-    if (local->transport == conn_check_match_transport(remote->transport) &&
-            local->addr.s.addr.sa_family == remote->addr.s.addr.sa_family)
+    if (local->addr.s.addr.sa_family == remote->addr.s.addr.sa_family)
     {
         priv_conn_check_add_for_candidate_pair_matched(agent, stream_id, component,
                 local, remote, NICE_CHECK_FROZEN);
@@ -1561,7 +1516,7 @@ gboolean conn_check_add_for_candidate_pair(NiceAgent * agent,
  *
  * @return number of checks added, negative on fatal errors
  */
-int conn_check_add_for_candidate(NiceAgent * agent, guint stream_id, Component * component, NiceCandidate * remote)
+int conn_check_add_for_candidate(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * remote)
 {
     GSList * i;
     int added = 0;
@@ -1594,7 +1549,7 @@ int conn_check_add_for_candidate(NiceAgent * agent, guint stream_id, Component *
  *
  * @return number of checks added, negative on fatal errors
  */
-int conn_check_add_for_local_candidate(NiceAgent * agent, guint stream_id, Component * component, NiceCandidate * local)
+int conn_check_add_for_local_candidate(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * local)
 {
     GSList * i;
     int added = 0;
@@ -1647,7 +1602,7 @@ conn_check_stop(NiceAgent * agent)
 void conn_check_free(NiceAgent * agent)
 {
     GSList * i;
-    for (i = agent->streams; i; i = i->next)
+    for (i = agent->streams_list; i; i = i->next)
     {
         Stream * stream = i->data;
 
@@ -1682,7 +1637,7 @@ void conn_check_prune_stream(NiceAgent * agent, Stream * stream)
         stream->conncheck_list = NULL;
     }
 
-    for (i = agent->streams; i; i = i->next)
+    for (i = agent->streams_list; i; i = i->next)
     {
         Stream * s = i->data;
         if (s->conncheck_list)
@@ -1702,10 +1657,10 @@ void conn_check_prune_stream(NiceAgent * agent, Stream * stream)
  * NULL) is ever written to the 'dest'.
  */
 static
-size_t priv_gen_username(NiceAgent * agent, guint component_id,
-                         gchar * remote, gchar * local, uint8_t * dest, guint dest_len)
+size_t priv_gen_username(NiceAgent * agent, uint32_t component_id,
+                         gchar * remote, gchar * local, uint8_t * dest, uint32_t dest_len)
 {
-    guint len = 0;
+    uint32_t len = 0;
     gsize remote_len = strlen(remote);
     gsize local_len = strlen(local);
 
@@ -1808,8 +1763,8 @@ size_t priv_gen_username(NiceAgent * agent, guint component_id,
  */
 static
 size_t priv_create_username(NiceAgent * agent, Stream * stream,
-                            guint component_id, NiceCandidate * remote, NiceCandidate * local,
-                            uint8_t * dest, guint dest_len, gboolean inbound)
+                            uint32_t component_id, NiceCandidate * remote, NiceCandidate * local,
+                            uint8_t * dest, uint32_t dest_len, gboolean inbound)
 {
     gchar * local_username = NULL;
     gchar * remote_username = NULL;
@@ -1886,7 +1841,7 @@ static unsigned int priv_compute_conncheck_timer(NiceAgent * agent,
         Stream * stream)
 {
     GSList * item;
-    guint waiting_and_in_progress = 0;
+    uint32_t waiting_and_in_progress = 0;
     unsigned int rto = 0;
 
     for (item = stream->conncheck_list; item; item = item->next)
@@ -1968,8 +1923,7 @@ int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair)
                    pair->foundation, pair->component_id,
                    (unsigned long long)agent->tie_breaker,
                    (int) uname_len, uname, uname_len,
-                   (int) password_len, password, password_len,
-                   priority);
+                   (int) password_len, password, password_len, priority);
 
     }
 
@@ -1982,18 +1936,9 @@ int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair)
                      &pair->stun_message, pair->stun_buffer, sizeof(pair->stun_buffer),
                      uname, uname_len, password, password_len,
                      cand_use, controlling, priority,
-                     agent->tie_breaker,
-                     pair->local->foundation,
-                     agent_to_ice_compatibility(agent));
+                     agent->tie_breaker);
 
-        nice_debug("Agent %p: conncheck created %zd - %p", agent, buffer_len,
-                   pair->stun_message.buffer);
-
-        if (agent->compatibility == NICE_COMPATIBILITY_MSN ||
-                agent->compatibility == NICE_COMPATIBILITY_OC2007)
-        {
-            g_free(password);
-        }
+        nice_debug("Agent %p: conncheck created %zd - %p", agent, buffer_len,  pair->stun_message.buffer);
 
         if (buffer_len > 0)
         {
@@ -2008,32 +1953,8 @@ int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair)
                                  STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
             }
 
-            /* TCP-ACTIVE candidate must create a new socket before sending
-             * by connecting to the peer. The new socket is stored in the candidate
-             * check pair, until we discover a new local peer reflexive */
-            if (pair->sockptr->fileno == NULL &&
-                    pair->local->transport == NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE)
-            {
-                Stream * stream2 = NULL;
-                Component * component2 = NULL;
-                NiceSocket * new_socket;
-
-                if (agent_find_component(agent, pair->stream_id, pair->component_id,
-                                         &stream2, &component2))
-                {
-                    new_socket = nice_tcp_active_socket_connect(pair->sockptr,
-                                 &pair->remote->addr);
-                    if (new_socket)
-                    {
-                        pair->sockptr = new_socket;
-                        _priv_set_socket_tos(agent, pair->sockptr, stream2->tos);
-                        component_attach_socket(component2, new_socket);
-                    }
-                }
-            }
             /* send the conncheck */
-            agent_socket_send(pair->sockptr, &pair->remote->addr,
-                              buffer_len, (gchar *)pair->stun_buffer);
+            agent_socket_send(pair->sockptr, &pair->remote->addr, buffer_len, (gchar *)pair->stun_buffer);
 
             timeout = stun_timer_remainder(&pair->timer);
             /* note: convert from milli to microseconds for g_time_val_add() */
@@ -2065,11 +1986,11 @@ int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair)
  *
  * @see priv_update_check_list_state_failed_components()
  */
-static guint priv_prune_pending_checks(Stream * stream, guint component_id)
+static uint32_t priv_prune_pending_checks(Stream * stream, uint32_t component_id)
 {
     GSList * i;
     guint64 highest_nominated_priority = 0;
-    guint in_progress = 0;
+    uint32_t in_progress = 0;
 
     nice_debug("Agent XXX: Finding highest priority for component %d",
                component_id);
@@ -2165,8 +2086,7 @@ static gboolean priv_schedule_triggered_check(NiceAgent * agent, Stream * stream
 
             nice_debug("Agent %p : Found a matching pair %p for triggered check.", agent, p);
 
-            if (p->state == NICE_CHECK_WAITING ||
-                    p->state == NICE_CHECK_FROZEN)
+            if (p->state == NICE_CHECK_WAITING || p->state == NICE_CHECK_FROZEN)
                 priv_conn_check_initiate(agent, p);
             else if (p->state == NICE_CHECK_IN_PROGRESS)
             {
@@ -2330,7 +2250,7 @@ static int priv_store_pending_check(NiceAgent * agent, Component * component,
  *
  * @return created pair, or NULL on fatal (memory allocation) errors
  */
-static CandidateCheckPair * priv_add_peer_reflexive_pair(NiceAgent * agent, guint stream_id, guint component_id, NiceCandidate * local_cand, CandidateCheckPair * parent_pair)
+static CandidateCheckPair * priv_add_peer_reflexive_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceCandidate * local_cand, CandidateCheckPair * parent_pair)
 {
     CandidateCheckPair * pair = g_slice_new0(CandidateCheckPair);
     Stream * stream = agent_find_stream(agent, stream_id);
@@ -2369,7 +2289,7 @@ static void priv_recalculate_pair_priorities(NiceAgent * agent)
 {
     GSList * i, *j;
 
-    for (i = agent->streams; i; i = i->next)
+    for (i = agent->streams_list; i; i = i->next)
     {
         Stream * stream = i->data;
         for (j = stream->conncheck_list; j; j = j->next)
@@ -2414,7 +2334,8 @@ static void priv_check_for_role_conflict(NiceAgent * agent, gboolean control)
  *
  * @return pointer to a new pair if one was created, otherwise NULL
  */
-static CandidateCheckPair * priv_process_response_check_for_peer_reflexive(NiceAgent * agent, Stream * stream, Component * component, CandidateCheckPair * p, NiceSocket * sockptr, struct sockaddr * mapped_sockaddr, NiceCandidate * local_candidate, NiceCandidate * remote_candidate)
+static CandidateCheckPair * priv_process_response_check_for_peer_reflexive(NiceAgent * agent, Stream * stream, Component * component, CandidateCheckPair * p,
+        NiceSocket * sockptr, struct sockaddr * mapped_sockaddr, NiceCandidate * local_candidate, NiceCandidate * remote_candidate)
 {
     CandidateCheckPair * new_pair = NULL;
     NiceAddress mapped;
@@ -2484,7 +2405,8 @@ static CandidateCheckPair * priv_process_response_check_for_peer_reflexive(NiceA
  *
  * @return TRUE if a matching transaction is found
  */
-static gboolean priv_map_reply_to_conn_check_request(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * sockptr, const NiceAddress * from, NiceCandidate * local_candidate, NiceCandidate * remote_candidate, StunMessage * resp)
+static gboolean priv_map_reply_to_conn_check_request(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * sockptr,
+        const NiceAddress * from, NiceCandidate * local_candidate, NiceCandidate * remote_candidate, StunMessage * resp)
 {
     union
     {
@@ -2509,9 +2431,7 @@ static gboolean priv_map_reply_to_conn_check_request(NiceAgent * agent, Stream *
 
             if (memcmp(discovery_id, response_id, sizeof(StunTransactionId)) == 0)
             {
-                res = stun_usage_ice_conncheck_process(resp,
-                                                       &sockaddr.storage, &socklen,
-                                                       agent_to_ice_compatibility(agent));
+                res = stun_usage_ice_conncheck_process(resp, &sockaddr.storage, &socklen);
                 nice_debug("Agent %p : stun_bind_process/conncheck for %p res %d "
                            "(controlling=%d).", agent, p, (int)res, agent->controlling_mode);
 
@@ -2561,8 +2481,7 @@ static gboolean priv_map_reply_to_conn_check_request(NiceAgent * agent, Stream *
                         /* note: this is same as "adding to VALID LIST" in the spec
                            text */
                         p->state = NICE_CHECK_SUCCEEDED;
-                        nice_debug("Agent %p : Mapped address not found."
-                                   " conncheck %p SUCCEEDED.", agent, p);
+                        nice_debug("Agent %p : Mapped address not found." " conncheck %p SUCCEEDED.", agent, p);
                         priv_conn_check_unfreeze_related(agent, stream, p);
                     }
                     else
@@ -2587,8 +2506,7 @@ static gboolean priv_map_reply_to_conn_check_request(NiceAgent * agent, Stream *
                         {
                             /* step: notify the client of a new component state (must be done
                              *       before the possible check list state update step */
-                            agent_signal_component_state_change(agent,
-                                                                stream->id, component->id, NICE_COMPONENT_STATE_CONNECTED);
+                            agent_signal_component_state_change(agent, stream->id, component->id, NICE_COMPONENT_STATE_CONNECTED);
                         }
                     }
 
@@ -2672,10 +2590,8 @@ static gboolean priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessa
 
             if (memcmp(discovery_id, response_id, sizeof(StunTransactionId)) == 0)
             {
-                res = stun_usage_bind_process(resp, &sockaddr.addr,
-                                              &socklen, &alternate.addr, &alternatelen);
-                nice_debug("Agent %p : stun_bind_process/disc for %p res %d.",
-                           agent, d, (int)res);
+                res = stun_usage_bind_process(resp, &sockaddr.addr, &socklen, &alternate.addr, &alternatelen);
+                nice_debug("Agent %p : stun_bind_process/disc for %p res %d.", agent, d, (int)res);
 
                 if (res == STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER)
                 {
@@ -2691,22 +2607,7 @@ static gboolean priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessa
                     /* case: successful binding discovery, create a new local candidate */
                     NiceAddress niceaddr;
                     nice_address_set_from_sockaddr(&niceaddr, &sockaddr.addr);
-
-                    discovery_add_server_reflexive_candidate(
-                        d->agent,
-                        d->stream->id,
-                        d->component->id,
-                        &niceaddr,
-                        NICE_CANDIDATE_TRANSPORT_UDP,
-                        d->nicesock,
-                        FALSE);
-                    if (d->agent->use_ice_tcp)
-                        discovery_discover_tcp_server_reflexive_candidates(
-                            d->agent,
-                            d->stream->id,
-                            d->component->id,
-                            &niceaddr,
-                            d->nicesock);
+                    discovery_add_server_reflexive_candidate(d->agent, d->stream->id, d->component->id, &niceaddr, d->nicesock);
 
                     d->stun_message.buffer = NULL;
                     d->stun_message.buffer_len = 0;
@@ -2729,9 +2630,7 @@ static gboolean priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessa
 }
 
 
-static CandidateRefresh *
-priv_add_new_turn_refresh(CandidateDiscovery * cdisco, NiceCandidate * relay_cand,
-                          guint lifetime)
+static CandidateRefresh * priv_add_new_turn_refresh(CandidateDiscovery * cdisco, NiceCandidate * relay_cand, uint32_t lifetime)
 {
     CandidateRefresh * cand;
     NiceAgent * agent = cdisco->agent;
@@ -2750,21 +2649,18 @@ priv_add_new_turn_refresh(CandidateDiscovery * cdisco, NiceCandidate * relay_can
     /* Use previous stun response for authentication credentials */
     if (cdisco->stun_resp_msg.buffer != NULL)
     {
-        memcpy(cand->stun_resp_buffer, cdisco->stun_resp_buffer,
-               sizeof(cand->stun_resp_buffer));
+        memcpy(cand->stun_resp_buffer, cdisco->stun_resp_buffer, sizeof(cand->stun_resp_buffer));
         memcpy(&cand->stun_resp_msg, &cdisco->stun_resp_msg, sizeof(StunMessage));
         cand->stun_resp_msg.buffer = cand->stun_resp_buffer;
         cand->stun_resp_msg.agent = NULL;
         cand->stun_resp_msg.key = NULL;
     }
 
-    nice_debug("Agent %p : Adding new refresh candidate %p with timeout %d",
-               agent, cand, (lifetime - 60) * 1000);
+    nice_debug("Agent %p : Adding new refresh candidate %p with timeout %d", agent, cand, (lifetime - 60) * 1000);
 
     /* step: also start the refresh timer */
     /* refresh should be sent 1 minute before it expires */
-    agent_timeout_add_with_context(agent, &cand->timer_source,
-                                   "Candidate TURN refresh",
+    agent_timeout_add_with_context(agent, &cand->timer_source, "Candidate TURN refresh",
                                    (lifetime - 60) * 1000, priv_turn_allocate_refresh_tick, cand);
 
     nice_debug("timer source is : %p", cand->timer_source);
@@ -2778,7 +2674,7 @@ priv_add_new_turn_refresh(CandidateDiscovery * cdisco, NiceCandidate * relay_can
  *
  * @return TRUE if a matching transaction is found
  */
-static gboolean priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage * resp)
+static int priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage * resp)
 {
     union
     {
@@ -2805,7 +2701,7 @@ static gboolean priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage *
     uint32_t bandwidth;
     GSList * i;
     StunUsageTurnReturn res;
-    gboolean trans_found = FALSE;
+    int trans_found = FALSE;
     StunTransactionId discovery_id;
     StunTransactionId response_id;
     stun_message_id(resp, response_id);
@@ -2847,101 +2743,15 @@ static gboolean priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage *
                     if (res == STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS)
                     {
                         /* We also received our mapped address */
-                        nice_address_set_from_sockaddr(&niceaddr, &sockaddr.addr);
-
-                        /* TCP or TLS TURNS means the server-reflexive address was
-                         * on a TCP connection, which cannot be used for server-reflexive
-                         * discovery of candidates.
-                         */
-                        if (d->turn->type == NICE_RELAY_TYPE_TURN_UDP)
-                        {
-                            discovery_add_server_reflexive_candidate(
-                                d->agent,
-                                d->stream->id,
-                                d->component->id,
-                                &niceaddr,
-                                NICE_CANDIDATE_TRANSPORT_UDP,
-                                d->nicesock,
-                                FALSE);
-                        }
-                        if (d->agent->use_ice_tcp)
-                            discovery_discover_tcp_server_reflexive_candidates(
-                                d->agent,
-                                d->stream->id,
-                                d->component->id,
-                                &niceaddr,
-                                d->nicesock);
+                        nice_address_set_from_sockaddr(&niceaddr, &sockaddr.addr);                        
+                        discovery_add_server_reflexive_candidate(d->agent, d->stream->id, d->component->id, &niceaddr, d->nicesock);
                     }
 
                     nice_address_set_from_sockaddr(&niceaddr, &relayaddr.addr);
-                    if (nice_socket_is_reliable(d->nicesock))
-                    {
-                        relay_cand = discovery_add_relay_candidate(
-                                         d->agent,
-                                         d->stream->id,
-                                         d->component->id,
-                                         &niceaddr,
-                                         NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE,
-                                         d->nicesock,
-                                         d->turn);
-
-                        if (relay_cand)
-                        {
-                            if (agent->compatibility == NICE_COMPATIBILITY_OC2007 ||
-                                    agent->compatibility == NICE_COMPATIBILITY_OC2007R2)
-                            {
-                                nice_udp_turn_socket_set_ms_realm(relay_cand->sockptr,
-                                                                  &d->stun_message);
-                                nice_udp_turn_socket_set_ms_connection_id(relay_cand->sockptr,
-                                        resp);
-                            }
-                            else
-                            {
-                                priv_add_new_turn_refresh(d, relay_cand, lifetime);
-                            }
-                        }
-
-                        relay_cand = discovery_add_relay_candidate(
-                                         d->agent,
-                                         d->stream->id,
-                                         d->component->id,
-                                         &niceaddr,
-                                         NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE,
-                                         d->nicesock,
-                                         d->turn);
-                    }
-                    else
-                    {
-                        relay_cand = discovery_add_relay_candidate(
-                                         d->agent,
-                                         d->stream->id,
-                                         d->component->id,
-                                         &niceaddr,
-                                         NICE_CANDIDATE_TRANSPORT_UDP,
-                                         d->nicesock,
-                                         d->turn);
-                    }
-
+                    relay_cand = discovery_add_relay_candidate(d->agent, d->stream->id, d->component->id, &niceaddr, d->nicesock, d->turn);
                     if (relay_cand)
                     {
-                        if (agent->compatibility == NICE_COMPATIBILITY_OC2007 ||
-                                agent->compatibility == NICE_COMPATIBILITY_OC2007R2)
-                        {
-                            /* These data are needed on TURN socket when sending requests,
-                             * but never reach nice_turn_socket_parse_recv() where it could
-                             * be read directly, as the socket does not exist when allocate
-                             * response arrives to _nice_agent_recv(). We must set them right
-                             * after socket gets created in discovery_add_relay_candidate(),
-                             * so we are doing it here. */
-                            nice_udp_turn_socket_set_ms_realm(relay_cand->sockptr,
-                                                              &d->stun_message);
-                            nice_udp_turn_socket_set_ms_connection_id(relay_cand->sockptr,
-                                    resp);
-                        }
-                        else
-                        {
-                            priv_add_new_turn_refresh(d, relay_cand, lifetime);
-                        }
+                           priv_add_new_turn_refresh(d, relay_cand, lifetime);
                     }
 
                     d->stun_message.buffer = NULL;
@@ -2957,18 +2767,16 @@ static gboolean priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage *
                     uint16_t sent_realm_len = 0;
                     uint16_t recv_realm_len = 0;
 
-                    sent_realm = (uint8_t *) stun_message_find(&d->stun_message,
-                                 STUN_ATTRIBUTE_REALM, &sent_realm_len);
-                    recv_realm = (uint8_t *) stun_message_find(resp,
-                                 STUN_ATTRIBUTE_REALM, &recv_realm_len);
+                    sent_realm = (uint8_t *) stun_message_find(&d->stun_message, STUN_ATTRIBUTE_REALM, &sent_realm_len);
+                    recv_realm = (uint8_t *) stun_message_find(resp, STUN_ATTRIBUTE_REALM, &recv_realm_len);
 
                     /* check for unauthorized error response */
-                    if (stun_message_get_class(resp) == STUN_ERROR && 
-						stun_message_find_error(resp, &code) == STUN_MESSAGE_RETURN_SUCCESS &&
-                        recv_realm != NULL && recv_realm_len > 0)
+                    if (stun_message_get_class(resp) == STUN_ERROR &&
+                            stun_message_find_error(resp, &code) == STUN_MESSAGE_RETURN_SUCCESS &&
+                            recv_realm != NULL && recv_realm_len > 0)
                     {
-                        if (code == 438 ||  (code == 401 && !(recv_realm_len == sent_realm_len && sent_realm != NULL &&
-                            memcmp(sent_realm, recv_realm, sent_realm_len) == 0)))
+                        if (code == 438 || (code == 401 && !(recv_realm_len == sent_realm_len && sent_realm != NULL &&
+                                                             memcmp(sent_realm, recv_realm, sent_realm_len) == 0)))
                         {
                             d->stun_resp_msg = *resp;
                             memcpy(d->stun_resp_buffer, resp->buffer, stun_message_length(resp));
@@ -2996,7 +2804,6 @@ static gboolean priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage *
             }
         }
     }
-
     return trans_found;
 }
 
@@ -3007,7 +2814,7 @@ static gboolean priv_map_reply_to_relay_request(NiceAgent * agent, StunMessage *
  *
  * @return TRUE if a matching transaction is found
  */
-static gboolean priv_map_reply_to_relay_refresh(NiceAgent * agent, StunMessage * resp)
+static int priv_map_reply_to_relay_refresh(NiceAgent * agent, StunMessage * resp)
 {
     uint32_t lifetime;
     GSList * i;
@@ -3097,8 +2904,7 @@ static gboolean priv_map_reply_to_relay_refresh(NiceAgent * agent, StunMessage *
 }
 
 
-static gboolean priv_map_reply_to_keepalive_conncheck(NiceAgent * agent,
-        Component * component, StunMessage * resp)
+static int priv_map_reply_to_keepalive_conncheck(NiceAgent * agent, Component * component, StunMessage * resp)
 {
     StunTransactionId conncheck_id;
     StunTransactionId response_id;
@@ -3106,12 +2912,10 @@ static gboolean priv_map_reply_to_keepalive_conncheck(NiceAgent * agent,
 
     if (component->selected_pair.keepalive.stun_message.buffer)
     {
-        stun_message_id(&component->selected_pair.keepalive.stun_message,
-                        conncheck_id);
+        stun_message_id(&component->selected_pair.keepalive.stun_message,  conncheck_id);
         if (memcmp(conncheck_id, response_id, sizeof(StunTransactionId)) == 0)
         {
-            nice_debug("Agent %p : Keepalive for selected pair received.",
-                       agent);
+            nice_debug("Agent %p : Keepalive for selected pair received.", agent);
             if (component->selected_pair.keepalive.tick_source)
             {
                 g_source_destroy(component->selected_pair.keepalive.tick_source);
@@ -3231,9 +3035,9 @@ static bool conncheck_stun_validater(StunAgent * agent,
  *
  * @return XXX (what FALSE means exactly?)
  */
-gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
+int conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
                                         Component * component, NiceSocket * nicesock, const NiceAddress * from,
-                                        gchar * buf, guint len)
+                                        char * buf, uint32_t len)
 {
     union
     {
@@ -3243,20 +3047,20 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
     uint8_t rbuf[MAX_STUN_DATAGRAM_PAYLOAD];
     ssize_t res;
     size_t rbuf_len = sizeof(rbuf);
-    bool control = agent->controlling_mode;
-    uint8_t uname[NICE_STREAM_MAX_UNAME];
-    guint uname_len;
+    int control = agent->controlling_mode;
+    //uint8_t uname[NICE_STREAM_MAX_UNAME];
+    //uint32_t uname_len;
     uint8_t * username;
     uint16_t username_len;
     StunMessage req;
     StunMessage msg;
     StunValidationStatus valid;
     conncheck_validater_data validater_data = {agent, stream, component, NULL};
-    GSList * i, *j;
+    GSList * i;
     NiceCandidate * remote_candidate = NULL;
     NiceCandidate * remote_candidate2 = NULL;
     NiceCandidate * local_candidate = NULL;
-    gboolean discovery_msg = FALSE;
+    int discovery_msg = FALSE;
 
     nice_address_copy_to_sockaddr(from, &sockaddr.addr);
 
@@ -3273,7 +3077,7 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
 
     /* note: ICE  7.2. "STUN Server Procedures" (ID-19) */
 
-    valid = stun_agent_validate(&component->stun_agent, &req,  (uint8_t *) buf, len, conncheck_stun_validater, &validater_data);
+    valid = stun_agent_validate(&component->stun_agent, &req, (uint8_t *) buf, len);
 
     /* Check for discovery candidates stun agents */
     if (valid == STUN_VALIDATION_BAD_REQUEST || valid == STUN_VALIDATION_UNMATCHED_RESPONSE)
@@ -3283,7 +3087,7 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
             CandidateDiscovery * d = i->data;
             if (d->stream == stream && d->component == component && d->nicesock == nicesock)
             {
-                valid = stun_agent_validate(&d->stun_agent, &req, (uint8_t *) buf, len, conncheck_stun_validater, &validater_data);
+                valid = stun_agent_validate(&d->stun_agent, &req, (uint8_t *) buf, len);
 
                 if (valid == STUN_VALIDATION_UNMATCHED_RESPONSE)
                     continue;
@@ -3301,9 +3105,9 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
             CandidateRefresh * r = i->data;
             nice_debug("Comparing %p to %p, %p to %p and %p and %p to %p", r->stream,
                        stream, r->component, component, r->nicesock, r->candidate->sockptr,  nicesock);
-            if (r->stream == stream && r->component == component &&  (r->nicesock == nicesock || r->candidate->sockptr == nicesock))
+            if (r->stream == stream && r->component == component && (r->nicesock == nicesock || r->candidate->sockptr == nicesock))
             {
-                valid = stun_agent_validate(&r->stun_agent, &req,  (uint8_t *) buf, len, conncheck_stun_validater, &validater_data);
+                valid = stun_agent_validate(&r->stun_agent, &req, (uint8_t *) buf, len);
                 nice_debug("Validating gave %d", valid);
                 if (valid == STUN_VALIDATION_UNMATCHED_RESPONSE)
                     continue;
@@ -3327,7 +3131,7 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
 
         rbuf_len = stun_agent_build_unknown_attributes_error(&component->stun_agent, &msg, rbuf, rbuf_len, &req);
         if (rbuf_len != 0)
-			agent_socket_send(nicesock, from, rbuf_len, (const gchar *)rbuf);
+            agent_socket_send(nicesock, from, rbuf_len, (const gchar *)rbuf);
 
         return TRUE;
     }
@@ -3336,12 +3140,10 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
     {
         nice_debug("Agent %p : Integrity check failed.", agent);
 
-        if (stun_agent_init_error(&component->stun_agent, &msg, rbuf, rbuf_len,
-                                  &req, STUN_ERROR_UNAUTHORIZED))
+        if (stun_agent_init_error(&component->stun_agent, &msg, rbuf, rbuf_len, &req, STUN_ERROR_UNAUTHORIZED))
         {
             rbuf_len = stun_agent_finish_message(&component->stun_agent, &msg, NULL, 0);
-            if (rbuf_len > 0 && agent->compatibility != NICE_COMPATIBILITY_MSN &&
-                    agent->compatibility != NICE_COMPATIBILITY_OC2007)
+            if (rbuf_len > 0)
                 agent_socket_send(nicesock, from, rbuf_len, (const gchar *)rbuf);
         }
         return TRUE;
@@ -3349,12 +3151,10 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
     if (valid == STUN_VALIDATION_UNAUTHORIZED_BAD_REQUEST)
     {
         nice_debug("Agent %p : Integrity check failed - bad request.", agent);
-        if (stun_agent_init_error(&component->stun_agent, &msg, rbuf, rbuf_len,
-                                  &req, STUN_ERROR_BAD_REQUEST))
+        if (stun_agent_init_error(&component->stun_agent, &msg, rbuf, rbuf_len, &req, STUN_ERROR_BAD_REQUEST))
         {
             rbuf_len = stun_agent_finish_message(&component->stun_agent, &msg, NULL, 0);
-            if (rbuf_len > 0 && agent->compatibility != NICE_COMPATIBILITY_MSN &&
-                    agent->compatibility != NICE_COMPATIBILITY_OC2007)
+            if (rbuf_len > 0)
                 agent_socket_send(nicesock, from, rbuf_len, (const gchar *)rbuf);
         }
         return TRUE;
@@ -3381,134 +3181,17 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
         }
     }
 
-#if 0
-    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
-            agent->compatibility == NICE_COMPATIBILITY_MSN ||
-            agent->compatibility == NICE_COMPATIBILITY_OC2007)
-    {
-        /* We need to find which local candidate was used */
-        for (i = component->remote_candidates;
-                i != NULL && remote_candidate2 == NULL; i = i->next)
-        {
-            for (j = component->local_candidates; j; j = j->next)
-            {
-                gboolean inbound = TRUE;
-                NiceCandidate * rcand = i->data;
-                NiceCandidate * lcand = j->data;
-
-                /* If we receive a response, then the username is local:remote */
-                if (agent->compatibility != NICE_COMPATIBILITY_MSN)
-                {
-                    if (stun_message_get_class(&req) == STUN_REQUEST ||
-                            stun_message_get_class(&req) == STUN_INDICATION)
-                    {
-                        inbound = TRUE;
-                    }
-                    else
-                    {
-                        inbound = FALSE;
-                    }
-                }
-
-                uname_len = priv_create_username(agent, stream,
-                                                 component->id,  rcand, lcand,
-                                                 uname, sizeof(uname), inbound);
-
-
-
-                stun_debug("Comparing usernames of size %d and %d: %d",
-                           username_len, uname_len, username && uname_len == username_len &&
-                           memcmp(username, uname, uname_len) == 0);
-                stun_debug_bytes("  First username: ", username,
-                                 username ? username_len : 0);
-                stun_debug_bytes("  Second uname:   ", uname, uname_len);
-
-                if (username &&
-                        uname_len == username_len &&
-                        memcmp(uname, username, username_len) == 0)
-                {
-                    local_candidate = lcand;
-                    remote_candidate2 = rcand;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (component->remote_candidates &&
-            agent->compatibility == NICE_COMPATIBILITY_GOOGLE &&
-            local_candidate == NULL &&
-            discovery_msg == FALSE)
-    {
-        /* if we couldn't match the username and the stun agent has
-           IGNORE_CREDENTIALS then we have an integrity check failing.
-           This could happen with the race condition of receiving connchecks
-           before the remote candidates are added. Just drop the message, and let
-           the retransmissions make it work. */
-        nice_debug("Agent %p : Username check failed.", agent);
-        return TRUE;
-    }
-#endif
-
     if (valid != STUN_VALIDATION_SUCCESS)
     {
         nice_debug("Agent %p : STUN message is unsuccessfull %d, ignoring", agent, valid);
         return FALSE;
     }
 
-
     if (stun_message_get_class(&req) == STUN_REQUEST)
     {
-#if 0
-        if (agent->compatibility == NICE_COMPATIBILITY_MSN
-                || agent->compatibility == NICE_COMPATIBILITY_OC2007)
-        {
-            if (local_candidate && remote_candidate2)
-            {
-                gsize key_len;
-
-                if (agent->compatibility == NICE_COMPATIBILITY_MSN)
-                {
-                    username = (uint8_t *) stun_message_find(&req,
-                               STUN_ATTRIBUTE_USERNAME, &username_len);
-                    uname_len = priv_create_username(agent, stream,
-                                                     component->id,  remote_candidate2, local_candidate,
-                                                     uname, sizeof(uname), FALSE);
-                    memcpy(username, uname, MIN(uname_len, username_len));
-
-                    req.key = g_base64_decode((gchar *) remote_candidate2->password,
-                                              &key_len);
-                    req.key_len = key_len;
-                }
-                else if (agent->compatibility == NICE_COMPATIBILITY_OC2007)
-                {
-                    req.key = g_base64_decode((gchar *) local_candidate->password,
-                                              &key_len);
-                    req.key_len = key_len;
-                }
-            }
-            else
-            {
-                nice_debug("Agent %p : received MSN incoming check from unknown remote candidate. "
-                           "Ignoring request", agent);
-                return TRUE;
-            }
-        }
-#endif
-
         rbuf_len = sizeof(rbuf);
         res = stun_usage_ice_conncheck_create_reply(&component->stun_agent, &req,
-                &msg, rbuf, &rbuf_len, &sockaddr.storage, sizeof(sockaddr),
-                &control, agent->tie_breaker,
-                agent_to_ice_compatibility(agent));
-
-#if 0
-        if (agent->compatibility == NICE_COMPATIBILITY_MSN
-                || agent->compatibility == NICE_COMPATIBILITY_OC2007)
-        {
-            g_free(req.key);
-        }
-#endif
+                &msg, rbuf, &rbuf_len, &sockaddr.storage, sizeof(sockaddr),  &control, agent->tie_breaker);
 
         if (res == STUN_USAGE_ICE_RETURN_ROLE_CONFLICT)
             priv_check_for_role_conflict(agent, control);
@@ -3517,14 +3200,10 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
                 res == STUN_USAGE_ICE_RETURN_ROLE_CONFLICT)
         {
             /* case 1: valid incoming request, send a reply/error */
-            bool use_candidate =
-                stun_usage_ice_conncheck_use_candidate(&req);
+            int use_candidate = stun_usage_ice_conncheck_use_candidate(&req);
             uint32_t priority = stun_usage_ice_conncheck_priority(&req);
 
-            if (agent->controlling_mode ||
-                    agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
-                    agent->compatibility == NICE_COMPATIBILITY_MSN ||
-                    agent->compatibility == NICE_COMPATIBILITY_OC2007)
+            if (agent->controlling_mode)
                 use_candidate = TRUE;
 
             if (stream->initial_binding_request_received != TRUE)
@@ -3532,8 +3211,7 @@ gboolean conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream,
 
             if (component->remote_candidates && remote_candidate == NULL)
             {
-                nice_debug("Agent %p : No matching remote candidate for incoming check ->"
-                           "peer-reflexive candidate.", agent);
+                nice_debug("Agent %p : No matching remote candidate for incoming check ->" "peer-reflexive candidate.", agent);
                 remote_candidate = discovery_learn_remote_peer_reflexive_candidate(
                                        agent, stream, component, priority, from, nicesock,
                                        local_candidate,

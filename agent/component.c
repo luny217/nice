@@ -96,8 +96,7 @@ Component * component_new(guint id, NiceAgent * agent, Stream * stream)
 
     component->own_ctx = g_main_context_new();
     component->stop_cancellable = g_cancellable_new();
-    component->stop_cancellable_source =
-        g_cancellable_source_new(component->stop_cancellable);
+    component->stop_cancellable_source = g_cancellable_source_new(component->stop_cancellable);
     g_source_set_dummy_callback(component->stop_cancellable_source);
     g_source_attach(component->stop_cancellable_source, component->own_ctx);
     component->ctx = g_main_context_ref(component->own_ctx);
@@ -146,8 +145,7 @@ void component_clean_turn_servers(Component * cmp)
             {
                 refresh_prune_candidate(cmp->agent, cmp->turn_candidate);
                 discovery_prune_socket(cmp->agent, cmp->turn_candidate->sockptr);
-                conn_check_prune_socket(cmp->agent, cmp->stream, cmp,
-                                        cmp->turn_candidate->sockptr);
+                conn_check_prune_socket(cmp->agent, cmp->stream, cmp,  cmp->turn_candidate->sockptr);
                 component_detach_socket(cmp, cmp->turn_candidate->sockptr);
                 nice_candidate_free(cmp->turn_candidate);
             }
@@ -161,8 +159,7 @@ void component_clean_turn_servers(Component * cmp)
         {
             refresh_prune_candidate(cmp->agent, candidate);
             discovery_prune_socket(cmp->agent, candidate->sockptr);
-            conn_check_prune_socket(cmp->agent, cmp->stream, cmp,
-                                    candidate->sockptr);
+            conn_check_prune_socket(cmp->agent, cmp->stream, cmp, candidate->sockptr);
             component_detach_socket(cmp, candidate->sockptr);
             agent_remove_local_candidate(cmp->agent, candidate);
             nice_candidate_free(candidate);
@@ -207,27 +204,22 @@ void component_close(Component * cmp)
     }
 
     if (cmp->restart_candidate)
-        nice_candidate_free(cmp->restart_candidate),
-                            cmp->restart_candidate = NULL;
+        nice_candidate_free(cmp->restart_candidate), cmp->restart_candidate = NULL;
 
     if (cmp->turn_candidate)
-        nice_candidate_free(cmp->turn_candidate),
-                            cmp->turn_candidate = NULL;
+        nice_candidate_free(cmp->turn_candidate),  cmp->turn_candidate = NULL;
 
     while (cmp->local_candidates)
     {
         agent_remove_local_candidate(cmp->agent, cmp->local_candidates->data);
         nice_candidate_free(cmp->local_candidates->data);
-        cmp->local_candidates = g_slist_delete_link(cmp->local_candidates,
-                                cmp->local_candidates);
+        cmp->local_candidates = g_slist_delete_link(cmp->local_candidates, cmp->local_candidates);
     }
 
-    g_slist_free_full(cmp->remote_candidates,
-                      (GDestroyNotify) nice_candidate_free);
+    g_slist_free_full(cmp->remote_candidates, (GDestroyNotify) nice_candidate_free);
     cmp->remote_candidates = NULL;
     component_free_socket_sources(cmp);
-    g_slist_free_full(cmp->incoming_checks,
-                      (GDestroyNotify) incoming_check_free);
+    g_slist_free_full(cmp->incoming_checks, (GDestroyNotify) incoming_check_free);
     cmp->incoming_checks = NULL;
 
     component_clean_turn_servers(cmp);
@@ -326,7 +318,7 @@ component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundatio
 
     if (result.local && result.remote)
     {
-        result.priority = agent_candidate_pair_priority(agent, result.local, result.remote);
+        result.priority = (uint32_t)agent_candidate_pair_priority(agent, result.local, result.remote);
         if (pair)
             *pair = result;
         return TRUE;
@@ -437,9 +429,7 @@ component_find_remote_candidate(const Component * component, const NiceAddress *
  * this candidate.
  */
 
-NiceCandidate *
-component_set_selected_remote_candidate(NiceAgent * agent, Component * component,
-                                        NiceCandidate * candidate)
+NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Component * component, NiceCandidate * candidate)
 {
     NiceCandidate * local = NULL;
     NiceCandidate * remote = NULL;
@@ -485,7 +475,7 @@ component_set_selected_remote_candidate(NiceAgent * agent, Component * component
 
     component->selected_pair.local = local;
     component->selected_pair.remote = remote;
-    component->selected_pair.priority = priority;
+    component->selected_pair.priority = (uint32_t)priority;
 
     return local;
 }
@@ -500,9 +490,8 @@ _find_socket_source(gconstpointer a, gconstpointer b)
 }
 
 /* This takes ownership of the socket.
- * It creates and attaches a source to the component?s context. */
-void
-component_attach_socket(Component * component, NiceSocket * nicesock)
+ * It creates and attaches a source to the components context. */
+void component_attach_socket(Component * component, NiceSocket * nicesock)
 {
     GSList * l;
     SocketSource * socket_source;
@@ -521,8 +510,7 @@ component_attach_socket(Component * component, NiceSocket * nicesock)
      * Whenever a source is added or remove to socket_sources, socket_sources_age
      * must be incremented.
      */
-    l = g_slist_find_custom(component->socket_sources, nicesock,
-                            _find_socket_source);
+    l = g_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
     if (l != NULL)
     {
         socket_source = l->data;
@@ -532,14 +520,12 @@ component_attach_socket(Component * component, NiceSocket * nicesock)
         socket_source = g_slice_new0(SocketSource);
         socket_source->socket = nicesock;
         socket_source->component = component;
-        component->socket_sources =
-            g_slist_prepend(component->socket_sources, socket_source);
+        component->socket_sources = g_slist_prepend(component->socket_sources, socket_source);
         component->socket_sources_age++;
     }
 
     /* Create and attach a source */
-    nice_debug("Component %p (agent %p): Attach source (stream %u).",
-               component, component->agent, component->stream->id);
+    nice_debug("Component %p (agent %p): Attach source (stream %u).", component, component->agent, component->stream->id);
     socket_source_attach(socket_source, component->ctx);
 }
 

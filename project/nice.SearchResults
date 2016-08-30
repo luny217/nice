@@ -1,1 +1,152 @@
----- __GTK_DOC_IGNORE__ Matches (0 in 0 files) ----
+---- compatibility Matches (155 in 17 files) ----
+Agent-priv.h (agent):    NiceCompatibility compatibility; /* property: Compatibility mode */
+Agent.c (agent):                                        "compatibility",
+Agent.c (agent):                                        "ICE specification compatibility",
+Agent.c (agent):                                        "The compatibility mode for the agent",
+Agent.c (agent):    agent->compatibility = NICE_COMPATIBILITY_RFC5245;
+Agent.c (agent):                                     "compatibility", compat,
+Agent.c (agent):                                     "compatibility", compat,
+Agent.c (agent):            g_value_set_uint(value, agent->compatibility);
+Agent.c (agent):                if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
+Agent.c (agent):            if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
+Agent.c (agent):            agent->compatibility = g_value_get_uint(value);
+Agent.c (agent):            if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
+Agent.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Agent.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_WLM2009)
+Agent.c (agent):            if ((agent->compatibility == NICE_COMPATIBILITY_RFC5245 ||
+Agent.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_OC2007 ||
+Agent.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_OC2007R2) &&
+Conncheck.c (agent):                if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
+Conncheck.c (agent):                    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
+Conncheck.c (agent):                            agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Conncheck.c (agent):                            agent->compatibility == NICE_COMPATIBILITY_OC2007)
+Conncheck.c (agent):                    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE &&
+Conncheck.c (agent):    if (agent->compatibility == NICE_COMPATIBILITY_RFC5245)
+Conncheck.c (agent):    if ((agent->compatibility == NICE_COMPATIBILITY_RFC5245 ||
+Conncheck.c (agent):            agent->compatibility == NICE_COMPATIBILITY_WLM2009 ||
+Conncheck.c (agent):            agent->compatibility == NICE_COMPATIBILITY_OC2007R2) &&
+Conncheck.c (agent):        if (agent->compatibility == NICE_COMPATIBILITY_RFC5245 &&
+Conncheck.c (agent):        else if ((agent->compatibility == NICE_COMPATIBILITY_WLM2009 ||
+Conncheck.c (agent):                  agent->compatibility == NICE_COMPATIBILITY_OC2007R2) &&
+Conncheck.c (agent):        else if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE &&
+Conncheck.c (agent):        else if (agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Conncheck.c (agent):                 agent->compatibility == NICE_COMPATIBILITY_OC2007)
+Conncheck.c (agent):    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
+Conncheck.c (agent):            (agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Conncheck.c (agent):             agent->compatibility == NICE_COMPATIBILITY_OC2007))
+Conncheck.c (agent):        if (agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Conncheck.c (agent):                agent->compatibility == NICE_COMPATIBILITY_OC2007)
+Conncheck.c (agent):                if ((agent->compatibility == NICE_COMPATIBILITY_RFC5245 ||
+Conncheck.c (agent):                        agent->compatibility == NICE_COMPATIBILITY_WLM2009 ||
+Conncheck.c (agent):                        agent->compatibility == NICE_COMPATIBILITY_OC2007R2) &&
+Conncheck.c (agent):                            if (agent->compatibility == NICE_COMPATIBILITY_OC2007 ||
+Conncheck.c (agent):                                    agent->compatibility == NICE_COMPATIBILITY_OC2007R2)
+Conncheck.c (agent):                        if (agent->compatibility == NICE_COMPATIBILITY_OC2007 ||
+Conncheck.c (agent):                                agent->compatibility == NICE_COMPATIBILITY_OC2007R2)
+Conncheck.c (agent):                    if (cand->agent->compatibility == NICE_COMPATIBILITY_RFC5245 &&
+Conncheck.c (agent):        data->agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Conncheck.c (agent):        data->agent->compatibility == NICE_COMPATIBILITY_OC2007;
+Conncheck.c (agent):    if (data->agent->compatibility == NICE_COMPATIBILITY_OC2007 &&
+Conncheck.c (agent):            if (rbuf_len > 0 && agent->compatibility != NICE_COMPATIBILITY_MSN &&
+Conncheck.c (agent):                    agent->compatibility != NICE_COMPATIBILITY_OC2007)
+Conncheck.c (agent):            if (rbuf_len > 0 && agent->compatibility != NICE_COMPATIBILITY_MSN &&
+Conncheck.c (agent):                    agent->compatibility != NICE_COMPATIBILITY_OC2007)
+Conncheck.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_GOOGLE ||
+Conncheck.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Conncheck.c (agent):                    agent->compatibility == NICE_COMPATIBILITY_OC2007)
+Discovery.c (agent):                        !(agent->compatibility == NICE_COMPATIBILITY_GOOGLE &&
+Discovery.c (agent):    if (agent->compatibility == NICE_COMPATIBILITY_MSN ||
+Discovery.c (agent):            agent->compatibility == NICE_COMPATIBILITY_OC2007)
+Discovery.c (agent):    else if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
+Discovery.c (agent):    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
+Ice.c (stun\usages):                                StunUsageIceCompatibility compatibility)
+Ice.c (stun\usages):    if (compatibility == STUN_USAGE_ICE_COMPATIBILITY_RFC5245)
+Ice.c (stun\usages):        StunUsageIceCompatibility compatibility)
+Ice.c (stun\usages):                                      StunUsageIceCompatibility compatibility)
+Ice.h (stun\usages):                                StunUsageIceCompatibility compatibility);
+Ice.h (stun\usages):        StunUsageIceCompatibility compatibility);
+Ice.h (stun\usages):                                      StunUsageIceCompatibility compatibility);
+Pseudossl.c (socket):    NicePseudoSSLSocketCompatibility compatibility;
+Pseudossl.c (socket):                          NicePseudoSSLSocketCompatibility compatibility)
+Pseudossl.c (socket):    if (compatibility == NICE_PSEUDOSSL_SOCKET_COMPATIBILITY_MSOC)
+Pseudossl.c (socket):    else if (compatibility == NICE_PSEUDOSSL_SOCKET_COMPATIBILITY_GOOGLE)
+Pseudossl.c (socket):    priv->compatibility = compatibility;
+Pseudossl.c (socket):    if (priv->compatibility == NICE_PSEUDOSSL_SOCKET_COMPATIBILITY_MSOC)
+Pseudossl.c (socket):        if (priv->compatibility == NICE_PSEUDOSSL_SOCKET_COMPATIBILITY_MSOC)
+Pseudossl.h (socket):    NicePseudoSSLSocketCompatibility compatibility);
+Stunagent.c (stun):void stun_agent_init(StunAgent * agent, const uint16_t * known_attributes, StunCompatibility compatibility, StunAgentUsageFlags usage_flags)
+Stunagent.c (stun):    agent->compatibility = compatibility;
+Stunagent.h (stun):    StunCompatibility compatibility;
+Stunagent.h (stun):                     StunCompatibility compatibility, StunAgentUsageFlags usage_flags);
+Stunmessage.c (stun):    if (msg->agent && msg->agent->compatibility == STUN_COMPATIBILITY_OC2007)
+Stunmessage.c (stun):    if (msg->agent && msg->agent->compatibility == STUN_COMPATIBILITY_OC2007)
+Turn.c (stun\usages):                              StunUsageTurnCompatibility compatibility)
+Turn.c (stun\usages):                                      StunUsageTurnCompatibility compatibility)
+Turn.c (stun\usages):        StunUsageTurnCompatibility compatibility)
+Turn.c (stun\usages):        StunUsageTurnCompatibility compatibility)
+Turn.c (stun\usages):    if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_DRAFT9 ||
+Turn.c (stun\usages):            compatibility == STUN_USAGE_TURN_COMPATIBILITY_RFC5766)
+Turn.c (stun\usages):    else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_GOOGLE)
+Turn.c (stun\usages):    else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_MSN)
+Turn.c (stun\usages):    else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_OC2007)
+Turn.c (stun\usages):        uint32_t * lifetime, StunUsageTurnCompatibility compatibility)
+Turn.c (stun\usages):    if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_DRAFT9 ||
+Turn.c (stun\usages):            compatibility == STUN_USAGE_TURN_COMPATIBILITY_RFC5766)
+Turn.h (stun\usages):                              StunUsageTurnCompatibility compatibility);
+Turn.h (stun\usages):                                      StunUsageTurnCompatibility compatibility);
+Turn.h (stun\usages):        StunUsageTurnCompatibility compatibility);
+Turn.h (stun\usages):        StunUsageTurnCompatibility compatibility);
+Turn.h (stun\usages):        uint32_t * lifetime, StunUsageTurnCompatibility compatibility);
+Udp-turn-over-tcp.c (socket):    NiceTurnSocketCompatibility compatibility;
+Udp-turn-over-tcp.c (socket):                                  NiceTurnSocketCompatibility compatibility)
+Udp-turn-over-tcp.c (socket):    priv->compatibility = compatibility;
+Udp-turn-over-tcp.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn-over-tcp.c (socket):                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766 ||
+Udp-turn-over-tcp.c (socket):                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn-over-tcp.c (socket):        else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn-over-tcp.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn-over-tcp.c (socket):                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn-over-tcp.c (socket):        else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn-over-tcp.c (socket):        else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn-over-tcp.c (socket):    if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn-over-tcp.c (socket):            priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn-over-tcp.c (socket):    if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn-over-tcp.c (socket):    else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn-over-tcp.c (socket):             priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn-over-tcp.c (socket):    else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn-over-tcp.h (socket):                                  NiceTurnSocketCompatibility compatibility);
+Udp-turn.c (socket):    NiceTurnSocketCompatibility compatibility;
+Udp-turn.c (socket):                         NiceTurnSocketCompatibility compatibility)
+Udp-turn.c (socket):    if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn.c (socket):            compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):    else if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN)
+Udp-turn.c (socket):    else if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn.c (socket):    else if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn.c (socket):    if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN ||
+Udp-turn.c (socket):            compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn.c (socket):        if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn.c (socket):    priv->compatibility = compatibility;
+Udp-turn.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn.c (socket):                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn.c (socket):                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):            if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE &&
+Udp-turn.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766 &&
+Udp-turn.c (socket):            if (priv->compatibility != NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 &&
+Udp-turn.c (socket):                    priv->compatibility != NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):                    if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn.c (socket):                                (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007 ||
+Udp-turn.c (socket):                                 priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN))
+Udp-turn.c (socket):                if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn.c (socket):                        priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):                if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766 &&
+Udp-turn.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn.c (socket):                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):    if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
+Udp-turn.c (socket):            priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+Udp-turn.c (socket):    else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN ||
+Udp-turn.c (socket):             priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn.c (socket):        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
+Udp-turn.c (socket):    else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
+Udp-turn.h (socket):                         gchar * username, gchar * password, NiceTurnSocketCompatibility compatibility);

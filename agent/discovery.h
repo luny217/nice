@@ -15,8 +15,8 @@ typedef struct
     NiceSocket * nicesock; /* XXX: should be taken from local cand: existing socket to use */
     NiceAddress server;       /* STUN/TURN server address */
     GTimeVal next_tick;       /* next tick timestamp */
-    gboolean pending;         /* is discovery in progress? */
-    gboolean done;            /* is discovery complete? */
+    int pending;         /* is discovery in progress? */
+    int done;            /* is discovery complete? */
     Stream * stream;
     Component * component;
     TurnServer * turn;
@@ -47,14 +47,14 @@ typedef struct
 } CandidateRefresh;
 
 void refresh_free(NiceAgent * agent);
-void refresh_prune_stream(NiceAgent * agent, guint stream_id);
+void refresh_prune_stream(NiceAgent * agent, uint32_t stream_id);
 void refresh_prune_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void refresh_prune_socket(NiceAgent * agent, NiceSocket * sock);
 void refresh_cancel(CandidateRefresh * refresh);
 
 
 void discovery_free(NiceAgent * agent);
-void discovery_prune_stream(NiceAgent * agent, guint stream_id);
+void discovery_prune_stream(NiceAgent * agent, uint32_t stream_id);
 void discovery_prune_socket(NiceAgent * agent, NiceSocket * sock);
 void discovery_schedule(NiceAgent * agent);
 
@@ -69,45 +69,33 @@ typedef enum
 HostCandidateResult
 discovery_add_local_host_candidate(
     NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
+    uint32_t stream_id,
+    uint32_t component_id,
     NiceAddress * address,
-    NiceCandidateTransport transport,
     NiceCandidate ** candidate);
 
 NiceCandidate *
 discovery_add_relay_candidate(
     NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
+    uint32_t stream_id,
+    uint32_t component_id,
     NiceAddress * address,
-    NiceCandidateTransport transport,
     NiceSocket * base_socket,
     TurnServer * turn);
 
 NiceCandidate *
 discovery_add_server_reflexive_candidate(
     NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
-    NiceAddress * address,
-    NiceCandidateTransport transport,
-    NiceSocket * base_socket,
-    gboolean nat_assisted);
-
-void
-discovery_discover_tcp_server_reflexive_candidates(
-    NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
+    uint32_t stream_id,
+    uint32_t component_id,
     NiceAddress * address,
     NiceSocket * base_socket);
 
 NiceCandidate *
 discovery_add_peer_reflexive_candidate(
     NiceAgent * agent,
-    guint stream_id,
-    guint component_id,
+    uint32_t stream_id,
+    uint32_t component_id,
     NiceAddress * address,
     NiceSocket * base_socket,
     NiceCandidate * local,
@@ -118,7 +106,7 @@ discovery_learn_remote_peer_reflexive_candidate(
     NiceAgent * agent,
     Stream * stream,
     Component * component,
-    guint32 priority,
+	uint32_t priority,
     const NiceAddress * remote_address,
     NiceSocket * udp_socket,
     NiceCandidate * local,

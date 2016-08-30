@@ -13,15 +13,14 @@ static volatile unsigned int n_streams_destroyed = 0;
  * @file stream.c
  * @brief ICE stream functionality
  */
-Stream * stream_new(guint n_components, NiceAgent * agent)
+Stream * stream_new(uint32_t n_components, NiceAgent * agent)
 {
     Stream * stream;
     guint n;
     Component * component;
 
     g_atomic_int_inc(&n_streams_created);
-    nice_debug("Created NiceStream (%u created, %u destroyed)",
-               n_streams_created, n_streams_destroyed);
+    nice_debug("Created NiceStream (%u created, %u destroyed)", n_streams_created, n_streams_destroyed);
 
     stream = g_slice_new0(Stream);
     for (n = 0; n < n_components; n++)
@@ -54,11 +53,10 @@ void stream_free(Stream * stream)
     g_slice_free(Stream, stream);
 
     g_atomic_int_inc(&n_streams_destroyed);
-    nice_debug("Destroyed NiceStream (%u created, %u destroyed)",
-               n_streams_created, n_streams_destroyed);
+    nice_debug("Destroyed NiceStream (%u created, %u destroyed)", n_streams_created, n_streams_destroyed);
 }
 
-Component * stream_find_component_by_id(const Stream * stream, guint id)
+Component * stream_find_component_by_id(const Stream * stream, uint32_t id)
 {
     GSList * i;
 

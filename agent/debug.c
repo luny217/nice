@@ -2,6 +2,8 @@
 
 #include <config.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include "debug.h"
 #include "stunagent.h"
 #include "pseudotcp.h"
@@ -86,6 +88,14 @@ void nice_debug_disable(gboolean with_stun)
         stun_debug_disable();
 }
 
+static void default_handler(const char * format, va_list ap)
+{
+	vfprintf(stderr, format, ap);
+	fprintf(stderr, "\n");
+}
+
+static StunDebugHandler handler = default_handler;
+
 #ifndef NDEBUG
 void nice_debug(const char * fmt, ...)
 {
@@ -93,7 +103,8 @@ void nice_debug(const char * fmt, ...)
     if (debug_enabled)
     {
         va_start(ap, fmt);
-        g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, fmt, ap);
+        //g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, fmt, ap);
+		handler(fmt, ap);
         va_end(ap);
     }
 }

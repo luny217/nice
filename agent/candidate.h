@@ -108,11 +108,10 @@ typedef struct _TurnServer TurnServer;
  */
 struct _TurnServer
 {
-    gint ref_count;
-
+    uint32_t ref_count;
     NiceAddress server;
-    gchar * username;
-    gchar * password;
+    char * username;
+    char * password;
     NiceRelayType type;
 };
 
@@ -150,14 +149,14 @@ struct _NiceCandidate
     NiceCandidateTransport transport;
     NiceAddress addr;
     NiceAddress base_addr;
-    guint32 priority;
-    guint stream_id;
-    guint component_id;
-    gchar foundation[NICE_CANDIDATE_MAX_FOUNDATION];
-    gchar * username;       /* pointer to a nul-terminated username string */
-    gchar * password;       /* pointer to a nul-terminated password string */
+    uint32_t priority;
+    uint32_t stream_id;
+    uint32_t component_id;
+    char foundation[NICE_CANDIDATE_MAX_FOUNDATION];
+    char * username;       /* pointer to a nul-terminated username string */
+    char * password;       /* pointer to a nul-terminated password string */
     TurnServer * turn;
-    gpointer sockptr;
+    void * sockptr;
 };
 
 /**

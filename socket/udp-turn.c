@@ -137,7 +137,7 @@ priv_send_data_queue_destroy(gpointer user_data)
 NiceSocket *
 nice_udp_turn_socket_new(GMainContext * ctx, NiceAddress * addr,
                          NiceSocket * base_socket, NiceAddress * server_addr,
-                         gchar * username, gchar * password,
+                         char * username, char * password,
                          NiceTurnSocketCompatibility compatibility)
 {
     UdpTurnPriv * priv;
@@ -366,7 +366,7 @@ socket_recv_messages(NiceSocket * sock,
         }
         else
         {
-            nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
+            //nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
 
             buffer = compact_input_message(message, &buffer_length);
             allocated_buffer = TRUE;
@@ -1154,9 +1154,7 @@ priv_binding_timeout(gpointer data)
     return FALSE;
 }
 
-guint
-nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_sock,
-                                        NiceInputMessage * message)
+uint32_t nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_sock, NiceInputMessage * message)
 {
     /* TODO: Speed this up in the common reliable case of having a 24-byte header
      * buffer to begin with, followed by one or more massive buffers. */
@@ -1181,7 +1179,7 @@ nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_so
     }
 
     /* Slow path. */
-    nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
+    //nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
 
     buf = compact_input_message(message, &buf_len);
     len = nice_udp_turn_socket_parse_recv(sock, from_sock,
@@ -1225,8 +1223,7 @@ nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
 
     if (nice_address_equal(&priv->server_addr, recv_from))
     {
-        valid = stun_agent_validate(&priv->agent, &msg,
-                                    recv_buf.u8, recv_len, NULL, NULL);
+        valid = stun_agent_validate(&priv->agent, &msg, recv_buf.u8, recv_len);
 
         if (valid == STUN_VALIDATION_SUCCESS)
         {

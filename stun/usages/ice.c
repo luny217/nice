@@ -18,45 +18,37 @@
 /** ICE connectivity checks **/
 #include "ice.h"
 
-
-size_t
-stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
-                                uint8_t * buffer, size_t buffer_len,
-                                const uint8_t * username, const size_t username_len,
-                                const uint8_t * password, const size_t password_len,
-                                bool cand_use, bool controlling, uint32_t priority,
-                                uint64_t tie, const char * candidate_identifier,
-                                StunUsageIceCompatibility compatibility)
+size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
+                                       uint8_t * buffer, size_t buffer_len,
+                                       const uint8_t * username, const size_t username_len,
+                                       const uint8_t * password, const size_t password_len,
+                                       int cand_use, int controlling, uint32_t priority, uint64_t tie)
 {
     StunMessageReturn val;
 
     stun_agent_init_request(agent, msg, buffer, buffer_len, STUN_BINDING);
 
-    if (compatibility == STUN_USAGE_ICE_COMPATIBILITY_RFC5245)
+    if (cand_use)
     {
-        if (cand_use)
-        {
-            val = stun_message_append_flag(msg, STUN_ATTRIBUTE_USE_CANDIDATE);
-            if (val != STUN_MESSAGE_RETURN_SUCCESS)
-                return 0;
-        }
-
-        val = stun_message_append32(msg, STUN_ATTRIBUTE_PRIORITY, priority);
-        if (val != STUN_MESSAGE_RETURN_SUCCESS)
-            return 0;
-
-        if (controlling)
-            val = stun_message_append64(msg, STUN_ATTRIBUTE_ICE_CONTROLLING, tie);
-        else
-            val = stun_message_append64(msg, STUN_ATTRIBUTE_ICE_CONTROLLED, tie);
+        val = stun_message_append_flag(msg, STUN_ATTRIBUTE_USE_CANDIDATE);
         if (val != STUN_MESSAGE_RETURN_SUCCESS)
             return 0;
     }
 
+    val = stun_message_append32(msg, STUN_ATTRIBUTE_PRIORITY, priority);
+    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+        return 0;
+
+    if (controlling)
+        val = stun_message_append64(msg, STUN_ATTRIBUTE_ICE_CONTROLLING, tie);
+    else
+        val = stun_message_append64(msg, STUN_ATTRIBUTE_ICE_CONTROLLED, tie);
+    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+        return 0;
+
     if (username && username_len > 0)
     {
-        val = stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME,
-                                        username, username_len);
+        val = stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME,  username, username_len);
         if (val != STUN_MESSAGE_RETURN_SUCCESS)
             return 0;
     }
@@ -65,9 +57,7 @@ stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
 }
 
 
-StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg,
-        struct sockaddr_storage * addr, socklen_t * addrlen,
-        StunUsageIceCompatibility compatibility)
+StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg, struct sockaddr_storage * addr, socklen_t * addrlen)
 {
     int code = -1;
     StunMessageReturn val;
@@ -114,10 +104,8 @@ StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg,
     return STUN_USAGE_ICE_RETURN_SUCCESS;
 }
 
-static int
-stun_bind_error(StunAgent * agent, StunMessage * msg,
-                uint8_t * buf, size_t * plen, const StunMessage * req,
-                StunError code)
+static int stun_bind_error(StunAgent * agent, StunMessage * msg,
+                           uint8_t * buf, size_t * plen, const StunMessage * req,  StunError code)
 {
     size_t len = *plen;
     int val;
@@ -143,8 +131,7 @@ StunUsageIceReturn
 stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
                                       StunMessage * msg, uint8_t * buf, size_t * plen,
                                       const struct sockaddr_storage * src, socklen_t srclen,
-                                      bool * control, uint64_t tie,
-                                      StunUsageIceCompatibility compatibility)
+                                      int * control, uint64_t tie)
 {
     const char * username = NULL;
     uint16_t username_len;
@@ -152,11 +139,6 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
     uint64_t q;
     StunMessageReturn val = STUN_MESSAGE_RETURN_SUCCESS;
     StunUsageIceReturn ret = STUN_USAGE_ICE_RETURN_SUCCESS;
-
-
-#define err( code ) \
-  stun_bind_error (agent, msg, buf, &len, req, code); \
-  *plen = len
 
     *plen = 0;
     stun_debug("STUN Reply (buffer size = %u)...", (unsigned)len);
@@ -170,9 +152,9 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
 
     if (stun_message_get_method(req) != STUN_BINDING)
     {
-        stun_debug(" Bad request (method %u) message.",
-                   stun_message_get_method(req));
-        err(STUN_ERROR_BAD_REQUEST);
+        stun_debug(" Bad request (method %u) message.", stun_message_get_method(req));
+        stun_bind_error(agent, msg, buf, &len, req, STUN_ERROR_BAD_REQUEST);
+        *plen = len;
         return STUN_USAGE_ICE_RETURN_INVALID_METHOD;
     }
 
@@ -192,9 +174,9 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
         }
         else
         {
-            stun_debug(" staying \"controll%s\" (sending error)",
-                       *control ? "ing" : "ed");
-            err(STUN_ERROR_ROLE_CONFLICT);
+            stun_debug(" staying \"controll%s\" (sending error)", *control ? "ing" : "ed");
+            stun_bind_error(agent, msg, buf, &len, req, STUN_ERROR_ROLE_CONFLICT);
+            *plen = len;
             return STUN_USAGE_ICE_RETURN_SUCCESS;
         }
     }
@@ -224,12 +206,10 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
         goto failure;
     }
 
-    username = (const char *)stun_message_find(req,
-               STUN_ATTRIBUTE_USERNAME, &username_len);
+    username = (const char *)stun_message_find(req, STUN_ATTRIBUTE_USERNAME, &username_len);
     if (username)
     {
-        val = stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME,
-                                        username, username_len);
+        val = stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME, username, username_len);
     }
 
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
@@ -265,8 +245,6 @@ failure:
             return STUN_USAGE_ICE_RETURN_ERROR;
     }
 }
-#undef err
-
 
 uint32_t stun_usage_ice_conncheck_priority(const StunMessage * msg)
 {

@@ -153,16 +153,14 @@ size_t stun_usage_turn_create_refresh(StunAgent * agent, StunMessage * msg,
         nonce = (uint8_t *) stun_message_find(previous_response, STUN_ATTRIBUTE_NONCE, &len);
         if (nonce != NULL)
         {
-            if (stun_message_append_bytes(msg, STUN_ATTRIBUTE_NONCE, nonce, len) !=
-                    STUN_MESSAGE_RETURN_SUCCESS)
+            if (stun_message_append_bytes(msg, STUN_ATTRIBUTE_NONCE, nonce, len) != STUN_MESSAGE_RETURN_SUCCESS)
                 return 0;
         }
     }
 
     if (username != NULL && username_len > 0)
     {
-        if (stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME,
-                                      username, username_len) != STUN_MESSAGE_RETURN_SUCCESS)
+        if (stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME, username, username_len) != STUN_MESSAGE_RETURN_SUCCESS)
             return 0;
     }
 
