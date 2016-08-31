@@ -27,10 +27,8 @@
 #include "inputstream.h"
 #include "agent-priv.h"
 
-static void streams_removed_cb(NiceAgent * agent, guint * stream_ids,
-                               gpointer user_data);
-static void nice_input_stream_init_pollable(
-    GPollableInputStreamInterface * iface);
+static void streams_removed_cb(NiceAgent * agent, guint * stream_ids, void * user_data);
+static void nice_input_stream_init_pollable(GPollableInputStreamInterface * iface);
 
 G_DEFINE_TYPE_WITH_CODE(NiceInputStream,
                         nice_input_stream, G_TYPE_INPUT_STREAM,
