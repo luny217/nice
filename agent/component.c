@@ -6,19 +6,14 @@ static volatile unsigned int n_components_created = 0;
 static volatile unsigned int n_components_destroyed = 0;
 
 #include <config.h>
-
 #include <string.h>
-
 #include "debug.h"
-
 #include "component.h"
 #include "discovery.h"
 #include "agent-priv.h"
 
-
 static void component_schedule_io_callback(Component * component);
 static void component_deschedule_io_callback(Component * component);
-
 
 void incoming_check_free(IncomingCheck * icheck)
 {
@@ -72,7 +67,7 @@ static void socket_source_free(SocketSource * source)
     g_slice_free(SocketSource, source);
 }
 
-Component * component_new(guint id, NiceAgent * agent, Stream * stream)
+Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
 {
     Component * component;
 
@@ -290,7 +285,7 @@ void component_free(Component * cmp)
  *
  * @return TRUE if pair found, pointer to pair stored at 'pair'
  */
-gboolean
+int
 component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair)
 {
     GSList * i;
@@ -672,7 +667,7 @@ void component_set_io_context(Component * component, GMainContext * context)
 void
 component_set_io_callback(Component * component,
                           NiceAgentRecvFunc func, gpointer user_data,
-                          NiceInputMessage * recv_messages, guint n_recv_messages,
+                          NiceInputMessage * recv_messages, uint32_t n_recv_messages,
                           GError ** error)
 {
     g_assert(func == NULL || recv_messages == NULL);
@@ -706,10 +701,10 @@ component_set_io_callback(Component * component,
     g_mutex_unlock(&component->io_mutex);
 }
 
-gboolean
+int
 component_has_io_callback(Component * component)
 {
-    gboolean has_io_callback;
+    int has_io_callback;
 
     g_mutex_lock(&component->io_mutex);
     has_io_callback = (component->io_callback != NULL);
@@ -718,7 +713,7 @@ component_has_io_callback(Component * component)
     return has_io_callback;
 }
 
-IOCallbackData * io_callback_data_new(const guint8 * buf, gsize buf_len)
+IOCallbackData * io_callback_data_new(const uint8_t * buf, uint32_t buf_len)
 {
     IOCallbackData * data;
 
@@ -738,13 +733,13 @@ void io_callback_data_free(IOCallbackData * data)
 
 /* This is called with the global agent lock released. It does not take that
  * lock, but does take the io_mutex. */
-static gboolean emit_io_callback_cb(gpointer user_data)
+static int emit_io_callback_cb(gpointer user_data)
 {
     Component * component = user_data;
     IOCallbackData * data;
     NiceAgentRecvFunc io_callback;
-    gpointer io_user_data;
-    guint stream_id, component_id;
+    void * io_user_data;
+    uint32_t stream_id, component_id;
     NiceAgent * agent;
 
     agent = component->agent;
@@ -811,10 +806,10 @@ done:
 }
 
 /* This must be called with the agent lock *held*. */
-void component_emit_io_callback(Component * component,  const guint8 * buf, gsize buf_len)
+void component_emit_io_callback(Component * component,  const uint8_t * buf, uint32_t buf_len)
 {
     NiceAgent * agent;
-    guint stream_id, component_id;
+    uint32_t stream_id, component_id;
     NiceAgentRecvFunc io_callback;
     gpointer io_user_data;
 
@@ -860,13 +855,10 @@ void component_emit_io_callback(Component * component,  const guint8 * buf, gsiz
         /* Slow path: Current thread doesn?t own the Component?s context at the
          * moment, so schedule the callback in an idle handler. */
         data = io_callback_data_new(buf, buf_len);
-        g_queue_push_tail(&component->pending_io_messages,
-                          data);  /* transfer ownership */
+        g_queue_push_tail(&component->pending_io_messages, data);  /* transfer ownership */
 
         nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
-
         component_schedule_io_callback(component);
-
         g_mutex_unlock(&component->io_mutex);
     }
 }
@@ -932,9 +924,9 @@ typedef struct
     GObject * pollable_stream; /* owned */
 
     GWeakRef agent_ref;
-    guint stream_id;
-    guint component_id;
-    guint component_socket_sources_age;
+    uint32_t stream_id;
+    uint32_t component_id;
+    uint32_t component_socket_sources_age;
 
     /* SocketSource, free with free_child_socket_source() */
     GSList * socket_sources;
@@ -942,8 +934,7 @@ typedef struct
     GIOCondition condition;
 } ComponentSource;
 
-static gboolean
-component_source_prepare(GSource * source, gint * timeout_)
+static int component_source_prepare(GSource * source, gint * timeout_)
 {
     ComponentSource * component_source = (ComponentSource *) source;
     NiceAgent * agent;
@@ -957,14 +948,11 @@ component_source_prepare(GSource * source, gint * timeout_)
     /* Needed due to accessing the Component. */
     agent_lock();
 
-    if (!agent_find_component(agent,
-                              component_source->stream_id, component_source->component_id, NULL,
-                              &component))
+    if (!agent_find_component(agent, component_source->stream_id, component_source->component_id, NULL, &component))
         goto done;
 
 
-    if (component->socket_sources_age ==
-            component_source->component_socket_sources_age)
+    if (component->socket_sources_age == component_source->component_socket_sources_age)
         goto done;
 
     /* If the age has changed, either
@@ -983,8 +971,7 @@ component_source_prepare(GSource * source, gint * timeout_)
          * because the number of pairs is limited ~100 normally, so there will
          * rarely be more than 10.
          */
-        childl = g_slist_find_custom(component_source->socket_sources,
-                                     parent_socket_source->socket, _find_socket_source);
+        childl = g_slist_find_custom(component_source->socket_sources, parent_socket_source->socket, _find_socket_source);
 
         /* If we have reached this state, then all sources new sources have been
          * added, because they are always prepended.
@@ -994,40 +981,32 @@ component_source_prepare(GSource * source, gint * timeout_)
 
         child_socket_source = g_slice_new0(SocketSource);
         child_socket_source->socket = parent_socket_source->socket;
-        child_socket_source->source =
-            g_socket_create_source(child_socket_source->socket->fileno, G_IO_IN,
-                                   NULL);
+        child_socket_source->source = g_socket_create_source(child_socket_source->socket->fileno, G_IO_IN, NULL);
         g_source_set_dummy_callback(child_socket_source->source);
         g_source_add_child_source(source, child_socket_source->source);
         g_source_unref(child_socket_source->source);
-        component_source->socket_sources =
-            g_slist_prepend(component_source->socket_sources, child_socket_source);
+        component_source->socket_sources = g_slist_prepend(component_source->socket_sources, child_socket_source);
     }
 
-
-    for (childl = component_source->socket_sources;
-            childl;)
+    for (childl = component_source->socket_sources; childl;)
     {
         SocketSource * child_socket_source = childl->data;
         GSList * next = childl->next;
 
-        parentl = g_slist_find_custom(component->socket_sources,
-                                      child_socket_source->socket, _find_socket_source);
+        parentl = g_slist_find_custom(component->socket_sources, child_socket_source->socket, _find_socket_source);
 
         /* If this is not a currently used socket, remove the relevant source */
         if (!parentl)
         {
             g_source_remove_child_source(source, child_socket_source->source);
             g_slice_free(SocketSource, child_socket_source);
-            component_source->socket_sources =
-                g_slist_delete_link(component_source->socket_sources, childl);
+            component_source->socket_sources = g_slist_delete_link(component_source->socket_sources, childl);
         }
 
         childl = next;
     }
 
-
-    /* Update the age. */
+	/* Update the age. */
     component_source->component_socket_sources_age = component->socket_sources_age;
 
 done:
@@ -1040,9 +1019,7 @@ done:
     return FALSE;
 }
 
-static gboolean
-component_source_dispatch(GSource * source, GSourceFunc callback,
-                          gpointer user_data)
+static int component_source_dispatch(GSource * source, GSourceFunc callback, void * user_data)
 {
     ComponentSource * component_source = (ComponentSource *) source;
     GPollableSourceFunc func = (GPollableSourceFunc) callback;
@@ -1050,14 +1027,12 @@ component_source_dispatch(GSource * source, GSourceFunc callback,
     return func(component_source->pollable_stream, user_data);
 }
 
-static void
-free_child_socket_source(gpointer data)
+static void free_child_socket_source(gpointer data)
 {
     g_slice_free(SocketSource, data);
 }
 
-static void
-component_source_finalize(GSource * source)
+static void component_source_finalize(GSource * source)
 {
     ComponentSource * component_source = (ComponentSource *) source;
 
@@ -1068,13 +1043,12 @@ component_source_finalize(GSource * source)
     component_source->pollable_stream = NULL;
 }
 
-static gboolean
-component_source_closure_callback(GObject * pollable_stream, gpointer user_data)
+static int component_source_closure_callback(GObject * pollable_stream, void * user_data)
 {
     GClosure * closure = user_data;
     GValue param_value = G_VALUE_INIT;
     GValue result_value = G_VALUE_INIT;
-    gboolean retval;
+    int retval;
 
     g_value_init(&result_value, G_TYPE_BOOLEAN);
     g_value_init(&param_value, G_TYPE_OBJECT);
@@ -1120,19 +1094,17 @@ static GSourceFuncs component_source_funcs =
  *
  * Returns: (transfer full): a new #ComponentSource; unref with g_source_unref()
  */
-GSource * component_input_source_new(NiceAgent * agent, guint stream_id,
-                           guint component_id, GPollableInputStream * pollable_istream,
+GSource * component_input_source_new(NiceAgent * agent, uint32_t stream_id,
+                           uint32_t component_id, GPollableInputStream * pollable_istream,
                            GCancellable * cancellable)
 {
     ComponentSource * component_source;
 
     g_assert(G_IS_POLLABLE_INPUT_STREAM(pollable_istream));
 
-    component_source =
-        (ComponentSource *)
-        g_source_new(&component_source_funcs, sizeof(ComponentSource));
-    g_source_set_name((GSource *) component_source, "ComponentSource");
+    component_source = (ComponentSource *) g_source_new(&component_source_funcs, sizeof(ComponentSource));
 
+    g_source_set_name((GSource *) component_source, "ComponentSource");
     component_source->component_socket_sources_age = 0;
     component_source->pollable_stream = g_object_ref(pollable_istream);
     g_weak_ref_init(&component_source->agent_ref, agent);
@@ -1146,17 +1118,14 @@ GSource * component_input_source_new(NiceAgent * agent, guint stream_id,
 
         cancellable_source = g_cancellable_source_new(cancellable);
         g_source_set_dummy_callback(cancellable_source);
-        g_source_add_child_source((GSource *) component_source,
-                                  cancellable_source);
+        g_source_add_child_source((GSource *) component_source, cancellable_source);
         g_source_unref(cancellable_source);
     }
 
     return (GSource *) component_source;
 }
 
-
-TurnServer * turn_server_new(const gchar * server_ip, guint server_port,
-                const gchar * username, const gchar * password, NiceRelayType type)
+TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password, NiceRelayType type)
 {
     TurnServer * turn = g_slice_new(TurnServer);
 
@@ -1182,7 +1151,6 @@ TurnServer * turn_server_new(const gchar * server_ip, guint server_port,
 TurnServer * turn_server_ref(TurnServer * turn)
 {
     turn->ref_count++;
-
     return turn;
 }
 

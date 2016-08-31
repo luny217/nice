@@ -1171,7 +1171,7 @@ uint32_t nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket *
                                               message->from, message->length, message->buffers[0].buffer,
                                               message->from, message->buffers[0].buffer, message->length);
 
-        g_assert_cmpuint(len, <= , message->length);
+        //g_assert_cmpuint(len, <= , message->length);
 
         message->length = len;
 

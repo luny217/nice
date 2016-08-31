@@ -94,9 +94,8 @@ typedef struct
     uint32_t offset;
 } IOCallbackData;
 
-IOCallbackData * io_callback_data_new(const guint8 * buf, gsize buf_len);
+IOCallbackData * io_callback_data_new(const uint8_t * buf, uint32_t buf_len);
 void io_callback_data_free(IOCallbackData * data);
-
 
 struct _Component
 {

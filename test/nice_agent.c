@@ -61,7 +61,7 @@ int main(int argc, char * argv[])
 
     return EXIT_SUCCESS;
 }
-#define G_LOG_DOMAIN    ((gchar*) 0)
+//#define G_LOG_DOMAIN    ((char*) 0)
 
 static void * example_thread(void * data)
 {
@@ -80,7 +80,7 @@ static void * example_thread(void * data)
     g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
 
     // Create the nice agent
-    agent = nice_agent_new(g_main_loop_get_context(gloop), NICE_COMPATIBILITY_RFC5245);
+    agent = nice_agent_new(g_main_loop_get_context(gloop));
     if (agent == NULL)
         g_error("Failed to create agent");
 
@@ -303,26 +303,24 @@ end:
     return cand;
 }
 
-
 static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     int result = EXIT_FAILURE;
-    gchar * local_ufrag = NULL;
-    gchar * local_password = NULL;
-    gchar ipaddr[INET6_ADDRSTRLEN];
-    GSList * cands = NULL, *item;
+    char * local_ufrag = NULL;
+    char * local_password = NULL;
+    char ipaddr[INET6_ADDRSTRLEN];
+    GSList * cand_lists = NULL, *item;
 
-    if (!nice_agent_get_local_credentials(agent, stream_id,
-                                          &local_ufrag, &local_password))
+    if (!nice_agent_get_local_credentials(agent, stream_id,  &local_ufrag, &local_password))
         goto end;
 
-    cands = nice_agent_get_local_candidates(agent, stream_id, component_id);
-    if (cands == NULL)
+	cand_lists = nice_agent_get_local_candidates(agent, stream_id, component_id);
+    if (cand_lists == NULL)
         goto end;
 
-    printf("%s %s", local_ufrag, local_password);
+    printf("%s--%s", local_ufrag, local_password);
 
-    for (item = cands; item; item = item->next)
+    for (item = cand_lists; item; item = item->next)
     {
         NiceCandidate * c = (NiceCandidate *)item->data;
 
@@ -344,8 +342,8 @@ end:
         g_free(local_ufrag);
     if (local_password)
         g_free(local_password);
-    if (cands)
-        g_slist_free_full(cands, (GDestroyNotify)&nice_candidate_free);
+    if (cand_lists)
+        g_slist_free_full(cand_lists, (GDestroyNotify)&nice_candidate_free);
 
     return result;
 }

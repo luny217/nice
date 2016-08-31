@@ -13,12 +13,12 @@ void nice_RAND_bytes (uint8_t *dst, int len)
   HCRYPTPROV hCryptProv;
   LPCSTR container = "Libnice key container";
 
-  if(!CryptAcquireContext(&hCryptProv, container, NULL, PROV_RSA_FULL, 0)) {
+  if(!CryptAcquireContextA(&hCryptProv, container, NULL, PROV_RSA_FULL, 0)) {
     /* non existing container. try to create a new one */
     // I hope this cast here doesn't cause issues
     // gcc was complaining about comparing signed and unsigned values
     if (GetLastError() == (DWORD) NTE_BAD_KEYSET) {
-      if(!CryptAcquireContext(&hCryptProv, container, NULL, PROV_RSA_FULL, CRYPT_NEWKEYSET)) {
+      if(!CryptAcquireContextA(&hCryptProv, container, NULL, PROV_RSA_FULL, CRYPT_NEWKEYSET)) {
         return;
       }
     }

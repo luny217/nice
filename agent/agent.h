@@ -368,8 +368,7 @@ typedef void (*NiceAgentRecvFunc)(NiceAgent * agent, uint32_t stream_id, uint32_
  *
  * Returns: The new agent GObject
  */
-NiceAgent * nice_agent_new(GMainContext * ctx, NiceCompatibility compat);
-
+NiceAgent * nice_agent_new(GMainContext * ctx);
 
 /**
  * nice_agent_new_reliable:
@@ -386,7 +385,7 @@ NiceAgent * nice_agent_new(GMainContext * ctx, NiceCompatibility compat);
  *
  * Returns: The new agent GObject
  */
-NiceAgent * nice_agent_new_reliable(GMainContext * ctx, NiceCompatibility compat);
+NiceAgent * nice_agent_new_reliable(GMainContext * ctx);
 
 /**
  * nice_agent_add_local_address:
@@ -405,7 +404,6 @@ NiceAgent * nice_agent_new_reliable(GMainContext * ctx, NiceCompatibility compat
  * Returns: %TRUE on success, %FALSE on fatal (memory allocation) errors
  */
 int nice_agent_add_local_address(NiceAgent * agent, NiceAddress * addr);
-
 
 /**
  * nice_agent_add_stream:
