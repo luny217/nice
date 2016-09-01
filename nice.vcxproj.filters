@@ -26,12 +26,6 @@
     <ClCompile Include="agent\interfaces.c">
       <Filter>agent</Filter>
     </ClCompile>
-    <ClCompile Include="agent\iostream.c">
-      <Filter>agent</Filter>
-    </ClCompile>
-    <ClCompile Include="agent\outputstream.c">
-      <Filter>agent</Filter>
-    </ClCompile>
     <ClCompile Include="agent\pseudotcp.c">
       <Filter>agent</Filter>
     </ClCompile>
@@ -59,19 +53,10 @@
     <ClCompile Include="agent\discovery.c">
       <Filter>agent</Filter>
     </ClCompile>
-    <ClCompile Include="agent\inputstream.c">
-      <Filter>agent</Filter>
-    </ClCompile>
     <ClCompile Include="socket\udp-bsd.c">
       <Filter>socket</Filter>
     </ClCompile>
     <ClCompile Include="socket\udp-turn.c">
-      <Filter>socket</Filter>
-    </ClCompile>
-    <ClCompile Include="socket\udp-turn-over-tcp.c">
-      <Filter>socket</Filter>
-    </ClCompile>
-    <ClCompile Include="socket\pseudossl.c">
       <Filter>socket</Filter>
     </ClCompile>
     <ClCompile Include="socket\socket.c">
@@ -154,16 +139,7 @@
     <ClInclude Include="agent\discovery.h">
       <Filter>agent</Filter>
     </ClInclude>
-    <ClInclude Include="agent\inputstream.h">
-      <Filter>agent</Filter>
-    </ClInclude>
     <ClInclude Include="agent\interfaces.h">
-      <Filter>agent</Filter>
-    </ClInclude>
-    <ClInclude Include="agent\iostream.h">
-      <Filter>agent</Filter>
-    </ClInclude>
-    <ClInclude Include="agent\outputstream.h">
       <Filter>agent</Filter>
     </ClInclude>
     <ClInclude Include="agent\pseudotcp.h">
@@ -171,9 +147,6 @@
     </ClInclude>
     <ClInclude Include="agent\stream.h">
       <Filter>agent</Filter>
-    </ClInclude>
-    <ClInclude Include="socket\pseudossl.h">
-      <Filter>socket</Filter>
     </ClInclude>
     <ClInclude Include="socket\socket.h">
       <Filter>socket</Filter>
@@ -185,9 +158,6 @@
       <Filter>socket</Filter>
     </ClInclude>
     <ClInclude Include="socket\udp-turn.h">
-      <Filter>socket</Filter>
-    </ClInclude>
-    <ClInclude Include="socket\udp-turn-over-tcp.h">
       <Filter>socket</Filter>
     </ClInclude>
     <ClInclude Include="stun\usages\ice.h">

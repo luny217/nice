@@ -11,16 +11,15 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-
 static int stun_agent_is_unknown(StunAgent * agent, uint16_t type);
 static unsigned stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg, uint16_t * list, unsigned max);
 
-void stun_agent_init(StunAgent * agent, const uint16_t * known_attributes, StunCompatibility compatibility, StunAgentUsageFlags usage_flags)
+void stun_agent_init(StunAgent * agent, StunAgentUsageFlags usage_flags)
 {
     int i;
 
-    agent->known_attributes = (uint16_t *) known_attributes;
-    agent->compatibility = compatibility;
+    agent->known_attributes = (uint16_t *) STUN_ALL_KNOWN_ATTRIBUTES;
+    agent->compatibility = STUN_COMPATIBILITY_RFC5389;
     agent->usage_flags = usage_flags;
     agent->software_attribute = NULL;
 
@@ -29,38 +28,6 @@ void stun_agent_init(StunAgent * agent, const uint16_t * known_attributes, StunC
         agent->sent_ids[i].valid = FALSE;
     }
 }
-
-
-#if 0
-bool stun_agent_default_validater(StunAgent * agent,
-                                  StunMessage * message, uint8_t * username, uint16_t username_len,
-                                  uint8_t ** password, size_t * password_len, void * user_data)
-{
-    StunDefaultValidaterData * val = (StunDefaultValidaterData *) user_data;
-    int i;
-
-    for (i = 0; val && val[i].username ; i++)
-    {
-#if 0
-        stun_debug("Comparing username of size %d and %" PRIuPTR ": %d",
-                   username_len, val[i].username_len,
-                   (memcmp(username, val[i].username, username_len) == 0));
-#endif
-        stun_debug_bytes("  First username: ", username, username_len);
-        stun_debug_bytes("  Second username: ", val[i].username, val[i].username_len);
-        if (username_len == val[i].username_len && memcmp(username, val[i].username, username_len) == 0)
-        {
-            *password = (uint8_t *) val[i].password;
-            *password_len = val[i].password_len;
-            stun_debug("Found valid username, returning password : '%s'", *password);
-            return TRUE;
-        }
-    }
-
-    return FALSE;
-
-}
-#endif
 
 StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, const uint8_t * buffer, size_t buffer_len)
 {

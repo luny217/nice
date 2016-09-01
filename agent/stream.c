@@ -16,7 +16,7 @@ static volatile unsigned int n_streams_destroyed = 0;
 Stream * stream_new(uint32_t n_components, NiceAgent * agent)
 {
     Stream * stream;
-    guint n;
+    uint32_t n;
     Component * component;
 
     g_atomic_int_inc(&n_streams_created);

@@ -87,18 +87,14 @@ struct _NiceIOStreamPrivate
 };
 
 static void nice_io_stream_dispose (GObject *object);
-static void nice_io_stream_get_property (GObject *object, guint prop_id,
-    GValue *value, GParamSpec *pspec);
-static void nice_io_stream_set_property (GObject *object, guint prop_id,
-    const GValue *value, GParamSpec *pspec);
+static void nice_io_stream_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+static void nice_io_stream_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static GInputStream *nice_io_stream_get_input_stream (GIOStream *stream);
 static GOutputStream *nice_io_stream_get_output_stream (GIOStream *stream);
 
-static void streams_removed_cb (NiceAgent *agent, guint *stream_ids,
-    gpointer user_data);
+static void streams_removed_cb (NiceAgent *agent, guint *stream_ids, gpointer user_data);
 
-static void
-nice_io_stream_class_init (NiceIOStreamClass *klass)
+static void nice_io_stream_class_init (NiceIOStreamClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   GIOStreamClass *stream_class = G_IO_STREAM_CLASS (klass);
@@ -110,7 +106,7 @@ nice_io_stream_class_init (NiceIOStreamClass *klass)
   gobject_class->dispose = nice_io_stream_dispose;
 
   stream_class->get_input_stream = nice_io_stream_get_input_stream;
-  stream_class->get_output_stream = nice_io_stream_get_output_stream;
+  //stream_class->get_output_stream = nice_io_stream_get_output_stream;
 
   /*
    * NiceIOStream:agent:

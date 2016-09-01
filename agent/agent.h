@@ -356,7 +356,7 @@ typedef enum
  * Callback function when data is received on a component
  *
  */
-typedef void (*NiceAgentRecvFunc)(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, gpointer user_data);
+typedef void (*NiceAgentRecvFunc)(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * user_data);
 
 /**
  * nice_agent_new:
@@ -554,7 +554,7 @@ int nice_agent_set_remote_credentials(NiceAgent * agent, uint32_t stream_id, con
  * Since 0.1.11
  * Returns: %TRUE on success, %FALSE on error.
  */
-gboolean
+int
 nice_agent_set_local_credentials(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -579,7 +579,7 @@ nice_agent_set_local_credentials(
  *
  * Returns: %TRUE on success, %FALSE on error.
  */
-gboolean
+int
 nice_agent_get_local_credentials(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -659,7 +659,7 @@ nice_agent_set_remote_candidates(
  *
  * Returns: The number of bytes sent, or negative error code
  */
-gint
+int32_t
 nice_agent_send(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -711,7 +711,7 @@ nice_agent_send(
  *
  * Since: 0.1.5
  */
-gint
+int32_t
 nice_agent_send_messages_nonblocking(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -789,7 +789,7 @@ nice_agent_get_remote_candidates(
  *
  * Returns: %TRUE on success %FALSE on error
  **/
-gboolean
+int
 nice_agent_restart(
     NiceAgent * agent);
 
@@ -810,7 +810,7 @@ nice_agent_restart(
  *
  * Since: 0.1.6
  **/
-gboolean
+int
 nice_agent_restart_stream(
     NiceAgent * agent,
     uint32_t stream_id);
@@ -843,14 +843,14 @@ nice_agent_restart_stream(
  *
  * Returns: %TRUE on success, %FALSE if the stream or component IDs are invalid.
  */
-gboolean
+int
 nice_agent_attach_recv(
     NiceAgent * agent,
     uint32_t stream_id,
     uint32_t component_id,
     GMainContext * ctx,
     NiceAgentRecvFunc func,
-    gpointer data);
+    void * data);
 
 /**
  * nice_agent_recv:
@@ -872,13 +872,13 @@ nice_agent_attach_recv(
  *
  * Since: 0.1.5
  */
-gssize
+int32_t
 nice_agent_recv(
     NiceAgent * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    guint8 * buf,
-    gsize buf_len,
+    uint8_t * buf,
+    uint32_t buf_len,
     GCancellable * cancellable,
     GError ** error);
 
@@ -935,7 +935,7 @@ nice_agent_recv(
  *
  * Since: 0.1.5
  */
-gint
+int32_t
 nice_agent_recv_messages(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -965,13 +965,13 @@ nice_agent_recv_messages(
  *
  * Since: 0.1.5
  */
-gssize
+int32_t
 nice_agent_recv_nonblocking(
     NiceAgent * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    guint8 * buf,
-    gsize buf_len,
+    uint8_t * buf,
+    uint32_t buf_len,
     GCancellable * cancellable,
     GError ** error);
 
@@ -1020,7 +1020,7 @@ nice_agent_recv_nonblocking(
  *
  * Since: 0.1.5
  */
-gint
+int32_t
 nice_agent_recv_messages_nonblocking(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -1046,7 +1046,7 @@ nice_agent_recv_messages_nonblocking(
  *
  * Returns: %TRUE on success, %FALSE if the candidate pair cannot be found
  */
-gboolean
+int
 nice_agent_set_selected_pair(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -1067,7 +1067,7 @@ nice_agent_set_selected_pair(
  *
  * Returns: %TRUE on success, %FALSE if there is no selected candidate pair
  */
-gboolean
+int
 nice_agent_get_selected_pair(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -1123,7 +1123,7 @@ nice_agent_get_selected_socket(
  *
  * Returns: %TRUE on success, %FALSE on failure
  */
-gboolean
+int
 nice_agent_set_selected_remote_candidate(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -1144,7 +1144,7 @@ nice_agent_set_selected_remote_candidate(
 void nice_agent_set_stream_tos(
     NiceAgent * agent,
     uint32_t stream_id,
-    gint tos);
+    int32_t tos);
 
 
 
@@ -1199,7 +1199,7 @@ void nice_agent_set_software(
  * (invalid stream or duplicate name).
  * Since: 0.1.4
  */
-gboolean nice_agent_set_stream_name(
+int nice_agent_set_stream_name(
     NiceAgent * agent,
     uint32_t stream_id,
     const gchar * name);
@@ -1329,7 +1329,7 @@ gchar *
 nice_agent_generate_local_stream_sdp(
     NiceAgent * agent,
     uint32_t stream_id,
-    gboolean include_non_ice);
+    int include_non_ice);
 
 /**
  * nice_agent_generate_local_candidate_sdp:
@@ -1490,7 +1490,7 @@ nice_component_state_to_string(NiceComponentState state);
  *
  * Since: 0.1.6
  */
-gboolean
+int
 nice_agent_forget_relays(NiceAgent * agent,
                          uint32_t stream_id,
                          uint32_t component_id);

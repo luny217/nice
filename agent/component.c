@@ -240,7 +240,7 @@ void component_close(Component * cmp)
 
     while ((vec = g_queue_pop_head(&cmp->queued_tcp_packets)) != NULL)
     {
-        g_free((gpointer) vec->buffer);
+        g_free((void *) vec->buffer);
         g_slice_free(GOutputVector, vec);
     }
 }
@@ -475,7 +475,7 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     return local;
 }
 
-static gint
+static int32_t
 _find_socket_source(gconstpointer a, gconstpointer b)
 {
     const SocketSource * source_a = a;
@@ -666,7 +666,7 @@ void component_set_io_context(Component * component, GMainContext * context)
  * unset in that time). */
 void
 component_set_io_callback(Component * component,
-                          NiceAgentRecvFunc func, gpointer user_data,
+                          NiceAgentRecvFunc func, void * user_data,
                           NiceInputMessage * recv_messages, uint32_t n_recv_messages,
                           GError ** error)
 {
@@ -733,7 +733,7 @@ void io_callback_data_free(IOCallbackData * data)
 
 /* This is called with the global agent lock released. It does not take that
  * lock, but does take the io_mutex. */
-static int emit_io_callback_cb(gpointer user_data)
+static int emit_io_callback_cb(void * user_data)
 {
     Component * component = user_data;
     IOCallbackData * data;
@@ -811,7 +811,7 @@ void component_emit_io_callback(Component * component,  const uint8_t * buf, uin
     NiceAgent * agent;
     uint32_t stream_id, component_id;
     NiceAgentRecvFunc io_callback;
-    gpointer io_user_data;
+    void * io_user_data;
 
     g_assert(component != NULL);
     g_assert(buf != NULL);
@@ -934,7 +934,7 @@ typedef struct
     GIOCondition condition;
 } ComponentSource;
 
-static int component_source_prepare(GSource * source, gint * timeout_)
+static int component_source_prepare(GSource * source, int32_t * timeout_)
 {
     ComponentSource * component_source = (ComponentSource *) source;
     NiceAgent * agent;
@@ -1027,7 +1027,7 @@ static int component_source_dispatch(GSource * source, GSourceFunc callback, voi
     return func(component_source->pollable_stream, user_data);
 }
 
-static void free_child_socket_source(gpointer data)
+static void free_child_socket_source(void * data)
 {
     g_slice_free(SocketSource, data);
 }

@@ -1,2 +1,2 @@
----- srv-rflx Matches (1 in 1 files) ----
-Agent.c (agent):    nice_debug("Agent %p : Adding new srv-rflx candidate discovery %p", agent, cdisco);
+---- nice_agent_class_init Matches (1 in 1 files) ----
+Agent.c (agent):static void nice_agent_class_init(NiceAgentClass * klass)

@@ -40,25 +40,14 @@
 #include <gio/gio.h>
 #include "agent.h"
 
-G_BEGIN_DECLS
 
 /* TYPE MACROS */
-#define NICE_TYPE_OUTPUT_STREAM \
-  (nice_output_stream_get_type ())
-#define NICE_OUTPUT_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), NICE_TYPE_OUTPUT_STREAM, \
-                              NiceOutputStream))
-#define NICE_OUTPUT_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), NICE_TYPE_OUTPUT_STREAM, \
-                           NiceOutputStreamClass))
-#define NICE_IS_OUTPUT_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), NICE_TYPE_OUTPUT_STREAM))
-#define NICE_IS_OUTPUT_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), NICE_TYPE_OUTPUT_STREAM))
-#define NICE_OUTPUT_STREAM_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), NICE_TYPE_OUTPUT_STREAM, \
-                              NiceOutputStreamClass))
-
+#define NICE_TYPE_OUTPUT_STREAM  (nice_output_stream_get_type ())
+#define NICE_OUTPUT_STREAM(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj), NICE_TYPE_OUTPUT_STREAM,  NiceOutputStream))
+#define NICE_OUTPUT_STREAM_CLASS(klass)  (G_TYPE_CHECK_CLASS_CAST((klass), NICE_TYPE_OUTPUT_STREAM, NiceOutputStreamClass))
+#define NICE_IS_OUTPUT_STREAM(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj), NICE_TYPE_OUTPUT_STREAM))
+#define NICE_IS_OUTPUT_STREAM_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE((klass), NICE_TYPE_OUTPUT_STREAM))
+#define NICE_OUTPUT_STREAM_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), NICE_TYPE_OUTPUT_STREAM, NiceOutputStreamClass))
 
 typedef struct _NiceOutputStreamPrivate    NiceOutputStreamPrivate;
 typedef struct _NiceOutputStreamClass  NiceOutputStreamClass;
@@ -79,9 +68,6 @@ struct _NiceOutputStream
 };
 
 
-NiceOutputStream *nice_output_stream_new (NiceAgent *agent,
-    guint stream_id, guint component_id);
-
-G_END_DECLS
+NiceOutputStream *nice_output_stream_new (NiceAgent *agent, uint32_t stream_id, uint32_t component_id);
 
 #endif /* __NICE_OUTPUT_STREAM_H__ */

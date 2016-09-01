@@ -209,7 +209,7 @@ static int32_t time_diff(uint32_t later, uint32_t earlier)
 
 typedef struct
 {
-    guint8 * buffer;
+    uint8_t * buffer;
     uint32_t buffer_length;
     uint32_t data_length;
     uint32_t read_position;
@@ -242,7 +242,7 @@ static int pseudo_tcp_fifo_set_capacity(PseudoTcpFifo * b, uint32_t size)
 
     if (size != b->data_length)
     {
-        guint8 * buffer = g_slice_alloc(size);
+        uint8_t * buffer = g_slice_alloc(size);
         uint32_t copy = b->data_length;
         uint32_t tail_copy = min(copy, b->buffer_length - b->read_position);
 
@@ -277,7 +277,7 @@ static uint32_t pseudo_tcp_fifo_get_write_remaining(PseudoTcpFifo * b)
     return b->buffer_length - b->data_length;
 }
 
-static uint32_t pseudo_tcp_fifo_read_offset(PseudoTcpFifo * b, guint8 * buffer, uint32_t bytes, uint32_t offset)
+static uint32_t pseudo_tcp_fifo_read_offset(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes, uint32_t offset)
 {
     uint32_t available = b->data_length - offset;
     uint32_t read_position = (b->read_position + offset) % b->buffer_length;
@@ -295,7 +295,7 @@ static uint32_t pseudo_tcp_fifo_read_offset(PseudoTcpFifo * b, guint8 * buffer, 
 }
 
 static uint32_t
-pseudo_tcp_fifo_write_offset(PseudoTcpFifo * b, const guint8 * buffer,
+pseudo_tcp_fifo_write_offset(PseudoTcpFifo * b, const uint8_t * buffer,
                              uint32_t bytes, uint32_t offset)
 {
     uint32_t available = b->buffer_length - b->data_length - offset;
@@ -316,7 +316,7 @@ pseudo_tcp_fifo_write_offset(PseudoTcpFifo * b, const guint8 * buffer,
 }
 
 static uint32_t
-pseudo_tcp_fifo_read(PseudoTcpFifo * b, guint8 * buffer, uint32_t bytes)
+pseudo_tcp_fifo_read(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes)
 {
     uint32_t copy;
 
@@ -329,7 +329,7 @@ pseudo_tcp_fifo_read(PseudoTcpFifo * b, guint8 * buffer, uint32_t bytes)
 }
 
 static uint32_t
-pseudo_tcp_fifo_write(PseudoTcpFifo * b, const guint8 * buffer, uint32_t bytes)
+pseudo_tcp_fifo_write(PseudoTcpFifo * b, const uint8_t * buffer, uint32_t bytes)
 {
     uint32_t copy;
 
@@ -374,7 +374,7 @@ typedef struct
 typedef struct
 {
     uint32_t seq, len;
-    guint8 xmit;
+    uint8_t xmit;
     TcpFlags flags;
 } SSegment;
 
@@ -417,7 +417,7 @@ struct _PseudoTcpSocketPrivate
     // Incoming data
     GList * rlist;
     uint32_t rbuf_len, rcv_nxt, rcv_wnd, lastrecv;
-    guint8 rwnd_scale; // Window scale factor
+    uint8_t rwnd_scale; // Window scale factor
     PseudoTcpFifo rbuf;
 
     // Outgoing data
@@ -425,7 +425,7 @@ struct _PseudoTcpSocketPrivate
     GQueue unsent_slist;
     uint32_t sbuf_len, snd_nxt, snd_wnd, lastsend;
     uint32_t snd_una;  /* oldest unacknowledged sequence number */
-    guint8 swnd_scale; // Window scale factor
+    uint8_t swnd_scale; // Window scale factor
     PseudoTcpFifo sbuf;
 
     // Maximum segment size, estimated protocol level, largest segment sent
@@ -441,7 +441,7 @@ struct _PseudoTcpSocketPrivate
 
     // Congestion avoidance, Fast retransmit/recovery, Delayed ACKs
     uint32_t ssthresh, cwnd;
-    guint8 dup_acks;
+    uint8_t dup_acks;
     uint32_t recover;
     uint32_t t_ack;  /* time a delayed ack was scheduled; 0 if no acks scheduled */
 
@@ -482,9 +482,9 @@ enum
 };
 
 
-static void pseudo_tcp_socket_get_property(GObject * object, guint property_id,
+static void pseudo_tcp_socket_get_property(GObject * object, uint32_t property_id,
         GValue * value,  GParamSpec * pspec);
-static void pseudo_tcp_socket_set_property(GObject * object, guint property_id,
+static void pseudo_tcp_socket_set_property(GObject * object, uint32_t property_id,
         const GValue * value, GParamSpec * pspec);
 static void pseudo_tcp_socket_finalize(GObject * object);
 
@@ -495,15 +495,15 @@ static uint32_t queue(PseudoTcpSocket * self, const char * data,
 static PseudoTcpWriteResult packet(PseudoTcpSocket * self, uint32_t seq,
                                    TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now);
 static int parse(PseudoTcpSocket * self,
-                      const guint8 * _header_buf, uint32_t header_buf_len,
-                      const guint8 * data_buf, uint32_t data_buf_len);
+                      const uint8_t * _header_buf, uint32_t header_buf_len,
+                      const uint8_t * data_buf, uint32_t data_buf_len);
 static int process(PseudoTcpSocket * self, Segment * seg);
 static int transmit(PseudoTcpSocket * self, SSegment * sseg, uint32_t now);
 static void attempt_send(PseudoTcpSocket * self, SendFlags sflags);
 static void closedown(PseudoTcpSocket * self, uint32_t err,
                       ClosedownSource source);
 static void adjustMTU(PseudoTcpSocket * self);
-static void parse_options(PseudoTcpSocket * self, const guint8 * data,
+static void parse_options(PseudoTcpSocket * self, const uint8_t * data,
                           uint32_t len);
 static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size);
 static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size);
@@ -615,7 +615,7 @@ pseudo_tcp_socket_class_init(PseudoTcpSocketClass * cls)
 
 static void
 pseudo_tcp_socket_get_property(GObject * object,
-                               guint property_id,
+                               uint32_t property_id,
                                GValue * value,
                                GParamSpec * pspec)
 {
@@ -627,7 +627,7 @@ pseudo_tcp_socket_get_property(GObject * object,
             g_value_set_uint(value, self->priv->conv);
             break;
         case PROP_CALLBACKS:
-            g_value_set_pointer(value, (gpointer) &self->priv->callbacks);
+            g_value_set_pointer(value, (void *) &self->priv->callbacks);
             break;
         case PROP_STATE:
             g_value_set_uint(value, self->priv->state);
@@ -655,7 +655,7 @@ pseudo_tcp_socket_get_property(GObject * object,
 
 static void
 pseudo_tcp_socket_set_property(GObject * object,
-                               guint property_id,
+                               uint32_t property_id,
                                const GValue * value,
                                GParamSpec * pspec)
 {
@@ -800,7 +800,7 @@ static void
 queue_connect_message(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
-    guint8 buf[8];
+    uint8_t buf[8];
     uint32_t size = 0;
 
     buf[size++] = CTL_CONNECT;
@@ -920,7 +920,7 @@ pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
 
             DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "timeout retransmit (rto: %u) "
                   "(rto_base: %u) (now: %u) (dup_acks: %u)",
-                  priv->rx_rto, priv->rto_base, now, (guint) priv->dup_acks);
+                  priv->rx_rto, priv->rto_base, now, (uint32_t) priv->dup_acks);
 
             if (!transmit(self, g_queue_peek_head(&priv->slist), now))
             {
@@ -986,8 +986,8 @@ pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self,
     /* Hold a reference to the PseudoTcpSocket during parsing, since it may be
      * closed from within a callback. */
     g_object_ref(self);
-    retval = parse(self, (guint8 *) buffer, HEADER_SIZE,
-                   (guint8 *) buffer + HEADER_SIZE, len - HEADER_SIZE);
+    retval = parse(self, (uint8_t *) buffer, HEADER_SIZE,
+                   (uint8_t *) buffer + HEADER_SIZE, len - HEADER_SIZE);
     g_object_unref(self);
 
     return retval;
@@ -1147,7 +1147,7 @@ int32_t pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len
     if (len == 0)
         return 0;
 
-    bytesread = pseudo_tcp_fifo_read(&priv->rbuf, (guint8 *) buffer, len);
+    bytesread = pseudo_tcp_fifo_read(&priv->rbuf, (uint8_t *) buffer, len);
 
 // If there's no data in |m_rbuf|.
     if (bytesread == 0)
@@ -1351,7 +1351,7 @@ static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, T
     }
 
     //LOG(LS_INFO) << "PseudoTcp::queue - priv->slen = " << priv->slen;
-    return pseudo_tcp_fifo_write(&priv->sbuf, (guint8 *) data, len);;
+    return pseudo_tcp_fifo_write(&priv->sbuf, (uint8_t *) data, len);;
 }
 
 // Creates a packet and submits it to the network. This method can either
@@ -1370,7 +1370,7 @@ packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags,
     PseudoTcpSocketPrivate * priv = self->priv;
     union
     {
-        guint8 u8[MAX_PACKET];
+        uint8_t u8[MAX_PACKET];
         guint16 u16[MAX_PACKET / 2];
         uint32_t u32[MAX_PACKET / 4];
     } buffer;
@@ -1424,14 +1424,14 @@ packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags,
     return WR_SUCCESS;
 }
 
-static int parse(PseudoTcpSocket * self, const guint8 * _header_buf, uint32_t header_buf_len,
-      const guint8 * data_buf, uint32_t data_buf_len)
+static int parse(PseudoTcpSocket * self, const uint8_t * _header_buf, uint32_t header_buf_len,
+      const uint8_t * data_buf, uint32_t data_buf_len)
 {
     Segment seg;
 
     union
     {
-        const guint8 * u8;
+        const uint8_t * u8;
         const guint16 * u16;
         const uint32_t * u32;
     } header_buf;
@@ -1568,7 +1568,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
         {
             bConnect = TRUE;
 
-            parse_options(self, (guint8 *) &seg->data[1], seg->len - 1);
+            parse_options(self, (uint8_t *) &seg->data[1], seg->len - 1);
 
             if (priv->state == TCP_LISTEN)
             {
@@ -1972,7 +1972,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
             uint32_t nOffset = seg->seq - priv->rcv_nxt;
             uint32_t res;
 
-            res = pseudo_tcp_fifo_write_offset(&priv->rbuf, (guint8 *) seg->data,
+            res = pseudo_tcp_fifo_write_offset(&priv->rbuf, (uint8_t *) seg->data,
                                                seg->len, nOffset);
             g_assert(res == seg->len);
 
@@ -2054,7 +2054,7 @@ static int transmit(PseudoTcpSocket * self, SSegment * segment, uint32_t now)
     while (TRUE)
     {
         uint32_t seq = segment->seq;
-        guint8 flags = segment->flags;
+        uint8_t flags = segment->flags;
         PseudoTcpWriteResult wres;
 
         /* The packet must not have already been acknowledged. */
@@ -2323,7 +2323,7 @@ static void adjustMTU(PseudoTcpSocket * self)
     priv->cwnd = max(priv->cwnd, priv->mss);
 }
 
-static void apply_window_scale_option(PseudoTcpSocket * self, guint8 scale_factor)
+static void apply_window_scale_option(PseudoTcpSocket * self, uint8_t scale_factor)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2337,7 +2337,7 @@ static void apply_fin_ack_option(PseudoTcpSocket * self)
     priv->support_fin_ack = TRUE;
 }
 
-static void apply_option(PseudoTcpSocket * self, guint8 kind, const guint8 * data,
+static void apply_option(PseudoTcpSocket * self, uint8_t kind, const uint8_t * data,
              uint32_t len)
 {
     switch (kind)
@@ -2373,7 +2373,7 @@ static void apply_option(PseudoTcpSocket * self, guint8 kind, const guint8 * dat
 }
 
 
-static void parse_options(PseudoTcpSocket * self, const guint8 * data, uint32_t len)
+static void parse_options(PseudoTcpSocket * self, const uint8_t * data, uint32_t len)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     int has_window_scaling_option = FALSE;
@@ -2384,8 +2384,8 @@ static void parse_options(PseudoTcpSocket * self, const guint8 * data, uint32_t 
     // parsing the options list.
     while (pos < len)
     {
-        guint8 kind = TCP_OPT_EOL;
-        guint8 opt_len;
+        uint8_t kind = TCP_OPT_EOL;
+        uint8_t opt_len;
 
         if (len < pos + 1)
             return;
@@ -2463,7 +2463,7 @@ static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size)
 static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
-    guint8 scale_factor = 0;
+    uint8_t scale_factor = 0;
     int result;
     uint32_t available_space;
 

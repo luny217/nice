@@ -120,9 +120,9 @@ static void refresh_free_item(CandidateRefresh * cand)
 {
     NiceAgent * agent = cand->agent;
     uint8_t * username;
-    gsize username_len;
+    uint32_t username_len;
     uint8_t * password;
-    gsize password_len;
+    uint32_t password_len;
     size_t buffer_len = 0;
     StunUsageTurnCompatibility turn_compat = agent_to_turn_compatibility(agent);
 
@@ -268,7 +268,7 @@ void refresh_cancel(CandidateRefresh * refresh)
  * defined in ICE spec section 4.1.3 "Eliminating Redundant
  * Candidates" (ID-19).
  */
-static gboolean priv_add_local_candidate_pruned(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * candidate)
+static int priv_add_local_candidate_pruned(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * candidate)
 {
     GSList * i;
 
@@ -302,7 +302,7 @@ static uint32_t priv_highest_remote_foundation(Component * component)
 
     for (highest = 1;; highest++)
     {
-        gboolean taken = FALSE;
+        int taken = FALSE;
 
         g_snprintf(foundation, NICE_CANDIDATE_MAX_FOUNDATION, "remote-%u",
                    highest);
@@ -565,7 +565,7 @@ NiceCandidate * discovery_add_server_reflexive_candidate(
     NiceCandidate * candidate;
     Component * component;
     Stream * stream;
-    gboolean result = FALSE;
+    int result = FALSE;
 
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return NULL;
@@ -675,7 +675,7 @@ NiceCandidate * discovery_add_peer_reflexive_candidate(
     NiceCandidate * candidate;
     Component * component;
     Stream * stream;
-    gboolean result;
+    int result;
 
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return NULL;
@@ -965,10 +965,10 @@ static int priv_discovery_tick_unlocked(void * pointer)
     return TRUE;
 }
 
-static gboolean priv_discovery_tick(gpointer pointer)
+static int priv_discovery_tick(void * pointer)
 {
     NiceAgent * agent = pointer;
-    gboolean ret;
+    int ret;
 
     agent_lock();
     if (g_source_is_destroyed(g_main_current_source()))
@@ -1009,7 +1009,7 @@ void discovery_schedule(NiceAgent * agent)
         if (agent->discovery_timer_source == NULL)
         {
             /* step: run first iteration immediately */
-            gboolean res = priv_discovery_tick_unlocked(agent);
+            int res = priv_discovery_tick_unlocked(agent);
             if (res == TRUE)
             {
                 agent_timeout_add_with_context(agent, &agent->discovery_timer_source,

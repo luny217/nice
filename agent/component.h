@@ -52,7 +52,7 @@ struct _IncomingCheck
     NiceAddress from;
     NiceSocket * local_socket;
     uint32_t priority;
-    gboolean use_candidate;
+    int use_candidate;
     uint8_t * username;
     uint16_t username_len;
 };
@@ -171,10 +171,10 @@ struct _Component
     GQueue queued_tcp_packets;
 };
 
-Component * component_new(guint component_id, NiceAgent * agent, Stream * stream);
+Component * component_new(uint32_t component_id, NiceAgent * agent, Stream * stream);
 void component_close(Component * cmp);
 void component_free(Component * cmp);
-gboolean component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
+int component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
 void component_restart(Component * cmp);
 void component_update_selected_pair(Component * component, const CandidatePair * pair);
 NiceCandidate * component_find_remote_candidate(const Component * component, const NiceAddress * addr, NiceCandidateTransport transport);
@@ -184,17 +184,17 @@ void component_detach_socket(Component * component, NiceSocket * nsocket);
 void component_detach_all_sockets(Component * component);
 void component_free_socket_sources(Component * component);
 
-GSource * component_input_source_new(NiceAgent * agent, guint stream_id,
+GSource * component_input_source_new(NiceAgent * agent, uint32_t stream_id,
                                      uint32_t component_id, GPollableInputStream * pollable_istream, GCancellable * cancellable);
 
 GMainContext * component_dup_io_context(Component * component);
 void component_set_io_context(Component * component, GMainContext * context);
-void component_set_io_callback(Component * component,  NiceAgentRecvFunc func, gpointer user_data,
-                               NiceInputMessage * recv_messages, guint n_recv_messages, GError ** error);
-void component_emit_io_callback(Component * component, const guint8 * buf, uint32_t buf_len);
+void component_set_io_callback(Component * component,  NiceAgentRecvFunc func, void * user_data,
+                               NiceInputMessage * recv_messages, uint32_t n_recv_messages, GError ** error);
+void component_emit_io_callback(Component * component, const uint8_t * buf, uint32_t buf_len);
 int component_has_io_callback(Component * component);
 void component_clean_turn_servers(Component * component);
-TurnServer * turn_server_new(const gchar * server_ip, guint server_port, const char * username, const char * password, NiceRelayType type);
+TurnServer * turn_server_new(const gchar * server_ip, uint32_t server_port, const char * username, const char * password, NiceRelayType type);
 TurnServer * turn_server_ref(TurnServer * turn);
 void turn_server_unref(TurnServer * turn);
 

@@ -28,7 +28,7 @@ static size_t priv_create_username(NiceAgent * agent, Stream * stream,
                                    uint8_t * dest, uint32_t dest_len, int inbound);
 static size_t priv_get_password(NiceAgent * agent, Stream * stream,
                                 NiceCandidate * remote, uint8_t ** password);
-static void conn_check_free_item(gpointer data);
+static void conn_check_free_item(void * data);
 static void priv_conn_check_add_for_candidate_pair_matched(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * local, NiceCandidate * remote, NiceCheckState initial_state);
 
 static int priv_timer_expired(GTimeVal * timer, GTimeVal * now)
@@ -459,7 +459,7 @@ static int priv_conn_check_tick_unlocked(NiceAgent * agent)
     return keep_timer_going;
 }
 
-static int priv_conn_check_tick(gpointer pointer)
+static int priv_conn_check_tick(void * pointer)
 {
     int ret;
     NiceAgent * agent = pointer;
@@ -479,7 +479,7 @@ static int priv_conn_check_tick(gpointer pointer)
     return ret;
 }
 
-static int priv_conn_keepalive_retransmissions_tick(gpointer pointer)
+static int priv_conn_keepalive_retransmissions_tick(void * pointer)
 {
     CandidatePair * pair = (CandidatePair *) pointer;
 
@@ -727,7 +727,7 @@ static int priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                      * but the stun agent will not be able to parse it due to an invalid
                      * stun message since RFC3489 will not be compatible, and the response
                      * will be forwarded to the application as user data */
-                    stun_agent_init(&stun_agent, STUN_ALL_KNOWN_ATTRIBUTES, STUN_COMPATIBILITY_RFC3489, 0);
+                    stun_agent_init(&stun_agent, 0);
 
                     buffer_len = stun_usage_bind_create(&stun_agent, &stun_message, stun_buffer, sizeof(stun_buffer));
 
@@ -759,7 +759,7 @@ done:
     return ret;
 }
 
-static int priv_conn_keepalive_tick(gpointer pointer)
+static int priv_conn_keepalive_tick(void * pointer)
 {
     NiceAgent * agent = pointer;
     int ret;
@@ -788,7 +788,7 @@ static int priv_conn_keepalive_tick(gpointer pointer)
 }
 
 
-static int priv_turn_allocate_refresh_retransmissions_tick(gpointer pointer)
+static int priv_turn_allocate_refresh_retransmissions_tick(void * pointer)
 {
     CandidateRefresh * cand = (CandidateRefresh *) pointer;
     NiceAgent * agent = NULL;
@@ -909,7 +909,7 @@ static void priv_turn_allocate_refresh_tick_unlocked(CandidateRefresh * cand)
  *
  * @return will return FALSE when no more pending timers.
  */
-static int priv_turn_allocate_refresh_tick(gpointer pointer)
+static int priv_turn_allocate_refresh_tick(void * pointer)
 {
     CandidateRefresh * cand = (CandidateRefresh *) pointer;
 
@@ -971,7 +971,7 @@ int conn_check_schedule_next(NiceAgent * agent)
  * in descending priority order, with highest priority item at
  * the start of the list.
  */
-gint conn_check_compare(const CandidateCheckPair * a, const CandidateCheckPair * b)
+int32_t conn_check_compare(const CandidateCheckPair * a, const CandidateCheckPair * b)
 {
     if (a->priority > b->priority)
         return -1;
@@ -1576,7 +1576,7 @@ int conn_check_add_for_local_candidate(NiceAgent * agent, uint32_t stream_id, Co
  * Frees the CandidateCheckPair structure pointer to
  * by 'user data'. Compatible with GDestroyNotify.
  */
-static void conn_check_free_item(gpointer data)
+static void conn_check_free_item(void * data)
 {
     CandidateCheckPair * pair = data;
 
@@ -1729,13 +1729,8 @@ static size_t priv_create_username(NiceAgent * agent, Stream * stream,
  * Returns a password string for use in an outbound connectivity
  * check.
  */
-static
-size_t priv_get_password(NiceAgent * agent, Stream * stream,
-                         NiceCandidate * remote, uint8_t ** password)
+static size_t priv_get_password(NiceAgent * agent, Stream * stream, NiceCandidate * remote, uint8_t ** password)
 {
-    if (agent->compatibility == NICE_COMPATIBILITY_GOOGLE)
-        return 0;
-
     if (remote && remote->password)
     {
         *password = (uint8_t *)remote->password;
@@ -1753,8 +1748,7 @@ size_t priv_get_password(NiceAgent * agent, Stream * stream,
 
 /* Implement the computation specific in RFC 5245 section 16 */
 
-static unsigned int priv_compute_conncheck_timer(NiceAgent * agent,
-        Stream * stream)
+static unsigned int priv_compute_conncheck_timer(NiceAgent * agent, Stream * stream)
 {
     GSList * item;
     uint32_t waiting_and_in_progress = 0;
@@ -1764,8 +1758,7 @@ static unsigned int priv_compute_conncheck_timer(NiceAgent * agent,
     {
         CandidateCheckPair * pair = item->data;
 
-        if (pair->state == NICE_CHECK_IN_PROGRESS ||
-                pair->state == NICE_CHECK_WAITING)
+        if (pair->state == NICE_CHECK_IN_PROGRESS || pair->state == NICE_CHECK_WAITING)
             waiting_and_in_progress++;
     }
 
@@ -1809,22 +1802,12 @@ int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair)
     size_t buffer_len;
     unsigned int timeout;
 
-    if (!agent_find_component(agent, pair->stream_id, pair->component_id,
-                              &stream, &component))
+    if (!agent_find_component(agent, pair->stream_id, pair->component_id, &stream, &component))
         return -1;
 
-    uname_len = priv_create_username(agent, stream, pair->component_id,
-                                     pair->remote, pair->local, uname, sizeof(uname), FALSE);
+    uname_len = priv_create_username(agent, stream, pair->component_id,  pair->remote, pair->local, uname, sizeof(uname), FALSE);
     password_len = priv_get_password(agent, stream, pair->remote, &password);
-
     priority = peer_reflexive_candidate_priority(agent, pair->local);
-
-    if (password != NULL &&
-            (agent->compatibility == NICE_COMPATIBILITY_MSN ||
-             agent->compatibility == NICE_COMPATIBILITY_OC2007))
-    {
-        password = g_base64_decode((char *) password, &password_len);
-    }
 
     if (nice_debug_is_enabled())
     {
@@ -2094,7 +2077,8 @@ static int priv_schedule_triggered_check(NiceAgent * agent, Stream * stream, Com
  *
  * @pre (rcand == NULL || nice_address_equal(rcand->addr, toaddr) == TRUE)
  */
-static void priv_reply_to_conn_check(NiceAgent * agent, Stream * stream, Component * component, NiceCandidate * rcand, const NiceAddress * toaddr, NiceSocket * sockptr, size_t  rbuf_len, uint8_t * rbuf, int use_candidate)
+static void priv_reply_to_conn_check(NiceAgent * agent, Stream * stream, Component * component, NiceCandidate * rcand, 
+													const NiceAddress * toaddr, NiceSocket * sockptr, size_t  rbuf_len, uint8_t * rbuf, int use_candidate)
 {
     g_assert(rcand == NULL || nice_address_equal(&rcand->addr, toaddr) == TRUE);
 

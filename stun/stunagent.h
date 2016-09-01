@@ -272,8 +272,7 @@ bool stun_agent_default_validater(StunAgent * agent,
     </para>
  </note>
  */
-void stun_agent_init(StunAgent * agent, const uint16_t * known_attributes,
-                     StunCompatibility compatibility, StunAgentUsageFlags usage_flags);
+void stun_agent_init(StunAgent * agent, StunAgentUsageFlags usage_flags);
 
 /**
  * stun_agent_validate:

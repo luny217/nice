@@ -30,7 +30,7 @@ typedef struct
 {
     NiceAddress peer;
     uint16_t channel;
-    gboolean renew;
+    int renew;
     GSource * timeout_source;
 } ChannelBinding;
 
@@ -48,9 +48,9 @@ typedef struct
     NiceSocket * base_socket;
     NiceAddress server_addr;
     uint8_t * username;
-    gsize username_len;
+    uint32_t username_len;
     uint8_t * password;
-    gsize password_len;
+    uint32_t password_len;
     NiceTurnSocketCompatibility compatibility;
     GQueue * send_requests;
     uint8_t ms_realm[STUN_MAX_MS_REALM_LEN + 1];
@@ -77,38 +77,38 @@ typedef struct
 typedef struct
 {
     gchar * data;
-    guint data_len;
-    gboolean reliable;
+    uint32_t data_len;
+    int reliable;
 } SendData;
 
 static void socket_close(NiceSocket * sock);
-static gint socket_recv_messages(NiceSocket * sock,
-                                 NiceInputMessage * recv_messages, guint n_recv_messages);
-static gint socket_send_messages(NiceSocket * sock, const NiceAddress * to,
-                                 const NiceOutputMessage * messages, guint n_messages);
-static gint socket_send_messages_reliable(NiceSocket * sock,
-        const NiceAddress * to, const NiceOutputMessage * messages, guint n_messages);
-static gboolean socket_is_reliable(NiceSocket * sock);
-static gboolean socket_can_send(NiceSocket * sock, NiceAddress * addr);
+static int32_t socket_recv_messages(NiceSocket * sock,
+                                 NiceInputMessage * recv_messages, uint32_t n_recv_messages);
+static int32_t socket_send_messages(NiceSocket * sock, const NiceAddress * to,
+                                 const NiceOutputMessage * messages, uint32_t n_messages);
+static int32_t socket_send_messages_reliable(NiceSocket * sock,
+        const NiceAddress * to, const NiceOutputMessage * messages, uint32_t n_messages);
+static int socket_is_reliable(NiceSocket * sock);
+static int socket_can_send(NiceSocket * sock, NiceAddress * addr);
 static void socket_set_writable_callback(NiceSocket * sock,
-        NiceSocketWritableCb callback, gpointer user_data);
+        NiceSocketWritableCb callback, void * user_data);
 
 static void priv_process_pending_bindings(UdpTurnPriv * priv);
-static gboolean priv_retransmissions_tick_unlocked(UdpTurnPriv * priv);
-static gboolean priv_retransmissions_tick(gpointer pointer);
+static int priv_retransmissions_tick_unlocked(UdpTurnPriv * priv);
+static int priv_retransmissions_tick(void * pointer);
 static void priv_schedule_tick(UdpTurnPriv * priv);
 static void priv_send_turn_message(UdpTurnPriv * priv, TURNMessage * msg);
-static gboolean priv_send_create_permission(UdpTurnPriv * priv,  StunMessage * resp,
+static int priv_send_create_permission(UdpTurnPriv * priv,  StunMessage * resp,
         const NiceAddress * peer);
-static gboolean priv_send_channel_bind(UdpTurnPriv * priv, StunMessage * resp,
+static int priv_send_channel_bind(UdpTurnPriv * priv, StunMessage * resp,
                                        uint16_t channel,
                                        const NiceAddress * peer);
-static gboolean priv_add_channel_binding(UdpTurnPriv * priv,
+static int priv_add_channel_binding(UdpTurnPriv * priv,
         const NiceAddress * peer);
-static gboolean priv_forget_send_request(gpointer pointer);
+static int priv_forget_send_request(void * pointer);
 static void priv_clear_permissions(UdpTurnPriv * priv);
 
-static guint
+static uint32_t
 priv_nice_address_hash(gconstpointer data)
 {
     gchar address[NICE_ADDRESS_STRING_LEN];
@@ -119,7 +119,7 @@ priv_nice_address_hash(gconstpointer data)
 }
 
 static void
-priv_send_data_queue_destroy(gpointer user_data)
+priv_send_data_queue_destroy(void * user_data)
 {
     GQueue * send_queue = (GQueue *) user_data;
     GList * i;
@@ -150,34 +150,7 @@ nice_udp_turn_socket_new(GMainContext * ctx, NiceAddress * addr,
 
     priv = g_new0(UdpTurnPriv, 1);
 
-    if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
-            compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
-    {
-        stun_agent_init(&priv->agent, STUN_ALL_KNOWN_ATTRIBUTES,
-                        STUN_COMPATIBILITY_RFC5389,
-                        STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS);
-    }
-    else if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN)
-    {
-        stun_agent_init(&priv->agent, STUN_ALL_KNOWN_ATTRIBUTES,
-                        STUN_COMPATIBILITY_RFC3489,
-                        STUN_AGENT_USAGE_SHORT_TERM_CREDENTIALS |
-                        STUN_AGENT_USAGE_NO_INDICATION_AUTH);
-    }
-    else if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
-    {
-        stun_agent_init(&priv->agent, STUN_ALL_KNOWN_ATTRIBUTES,
-                        STUN_COMPATIBILITY_RFC3489,
-                        STUN_AGENT_USAGE_SHORT_TERM_CREDENTIALS |
-                        STUN_AGENT_USAGE_IGNORE_CREDENTIALS);
-    }
-    else if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
-    {
-        stun_agent_init(&priv->agent, STUN_ALL_KNOWN_ATTRIBUTES,
-                        STUN_COMPATIBILITY_OC2007,
-                        STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS |
-                        STUN_AGENT_USAGE_NO_ALIGNED_ATTRIBUTES);
-    }
+	stun_agent_init(&priv->agent, STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS);
 
     priv->channels = NULL;
     priv->current_binding = NULL;
@@ -185,27 +158,10 @@ nice_udp_turn_socket_new(GMainContext * ctx, NiceAddress * addr,
     if (ctx)
         priv->ctx = g_main_context_ref(ctx);
 
-    if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN ||
-            compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
-    {
-        priv->username = g_base64_decode(username, &priv->username_len);
-        priv->password = g_base64_decode(password, &priv->password_len);
-    }
-    else
-    {
-        priv->username = (uint8_t *)g_strdup(username);
-        priv->username_len = (gsize) strlen(username);
-        if (compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
-        {
-            priv->password = NULL;
-            priv->password_len = 0;
-        }
-        else
-        {
-            priv->password = (uint8_t *)g_strdup(password);
-            priv->password_len = (gsize) strlen(password);
-        }
-    }
+	priv->username = (uint8_t *)g_strdup(username);
+	priv->username_len = (uint32_t)strlen(username);
+	priv->password = (uint8_t *)g_strdup(password);
+	priv->password_len = (uint32_t)strlen(password);
     priv->server_addr = *server_addr;
     priv->compatibility = compatibility;
     priv->send_requests = g_queue_new();
@@ -231,10 +187,7 @@ nice_udp_turn_socket_new(GMainContext * ctx, NiceAddress * addr,
     return sock;
 }
 
-
-
-static void
-socket_close(NiceSocket * sock)
+static void socket_close(NiceSocket * sock)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
     GList * i = NULL;
@@ -310,15 +263,13 @@ socket_close(NiceSocket * sock)
     sock->priv = NULL;
 }
 
-static gint
-socket_recv_messages(NiceSocket * sock,
-                     NiceInputMessage * recv_messages, guint n_recv_messages)
+static int32_t socket_recv_messages(NiceSocket * sock,  NiceInputMessage * recv_messages, uint32_t n_recv_messages)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
-    gint n_messages;
-    guint i;
-    gboolean error = FALSE;
-    guint n_valid_messages;
+    int32_t n_messages;
+    uint32_t i;
+    int error = FALSE;
+    uint32_t n_valid_messages;
 
     /* Socket has been closed: */
     if (sock->priv == NULL)
@@ -339,15 +290,15 @@ socket_recv_messages(NiceSocket * sock,
      * Implementing such a path means rewriting the TURN parser (and hence the
      * STUN message code) to operate on vectors of buffers, rather than a
      * monolithic buffer. */
-    for (i = 0; i < (guint) n_messages; i += n_valid_messages)
+    for (i = 0; i < (uint32_t) n_messages; i += n_valid_messages)
     {
         NiceInputMessage * message = &recv_messages[i];
         NiceSocket * dummy;
         NiceAddress from;
-        guint8 * buffer;
-        gsize buffer_length;
-        gint parsed_buffer_length;
-        gboolean allocated_buffer = FALSE;
+        uint8_t * buffer;
+        uint32_t buffer_length;
+        int32_t parsed_buffer_length;
+        int allocated_buffer = FALSE;
 
         n_valid_messages = 1;
 
@@ -416,8 +367,7 @@ socket_recv_messages(NiceSocket * sock,
 }
 
 static GSource *
-priv_timeout_add_with_context(UdpTurnPriv * priv, guint interval,
-                              gboolean seconds, GSourceFunc function, gpointer data)
+priv_timeout_add_with_context(UdpTurnPriv * priv, uint32_t interval, int seconds, GSourceFunc function, void * data)
 {
     GSource * source;
 
@@ -462,7 +412,7 @@ stun_message_ensure_ms_realm(StunMessage * msg, uint8_t * realm)
     }
 }
 
-static gboolean
+static int
 priv_is_peer_in_list(const GList * list, const NiceAddress * peer)
 {
     const GList * iter;
@@ -478,13 +428,13 @@ priv_is_peer_in_list(const GList * list, const NiceAddress * peer)
     return FALSE;
 }
 
-static gboolean
+static int
 priv_has_permission_for_peer(UdpTurnPriv * priv, const NiceAddress * peer)
 {
     return priv_is_peer_in_list(priv->permissions, peer);
 }
 
-static gboolean
+static int
 priv_has_sent_permission_for_peer(UdpTurnPriv * priv, const NiceAddress * peer)
 {
     return priv_is_peer_in_list(priv->sent_permissions, peer);
@@ -543,9 +493,9 @@ priv_clear_permissions(UdpTurnPriv * priv)
     priv->permissions = NULL;
 }
 
-static gint
+static int32_t
 _socket_send_messages_wrapped(NiceSocket * sock, const NiceAddress * to,
-                              const NiceOutputMessage * messages, guint n_messages, gboolean reliable)
+                              const NiceOutputMessage * messages, uint32_t n_messages, int reliable)
 {
     if (!nice_socket_is_reliable(sock))
     {
@@ -559,11 +509,11 @@ _socket_send_messages_wrapped(NiceSocket * sock, const NiceAddress * to,
         GOutputVector * local_bufs;
         NiceOutputMessage local_message;
         const NiceOutputMessage * message;
-        gsize message_len;
-        guint n_bufs = 0;
+        uint32_t message_len;
+        uint32_t n_bufs = 0;
         guint16 rfc4571_frame;
-        guint i;
-        gint ret;
+        uint32_t i;
+        int32_t ret;
 
         g_assert(n_messages == 1);
         message = &messages[0];
@@ -613,11 +563,11 @@ _socket_send_messages_wrapped(NiceSocket * sock, const NiceAddress * to,
     }
 }
 
-static gssize
+static int32_t
 _socket_send_wrapped(NiceSocket * sock, const NiceAddress * to,
-                     guint len, const gchar * buf, gboolean reliable)
+                     uint32_t len, const gchar * buf, int reliable)
 {
-    gint ret;
+    int32_t ret;
 
     if (!nice_socket_is_reliable(sock))
     {
@@ -648,7 +598,7 @@ _socket_send_wrapped(NiceSocket * sock, const NiceAddress * to,
 
 static void
 socket_enqueue_data(UdpTurnPriv * priv, const NiceAddress * to,
-                    guint len, const gchar * buf, gboolean reliable)
+                    uint32_t len, const gchar * buf, int reliable)
 {
     SendData * data = g_slice_new0(SendData);
     GQueue * queue = g_hash_table_lookup(priv->send_data_queues, to);
@@ -692,9 +642,7 @@ socket_dequeue_all_data(UdpTurnPriv * priv, const NiceAddress * to)
 }
 
 
-static gssize
-socket_send_message(NiceSocket * sock, const NiceAddress * to,
-                    const NiceOutputMessage * message, gboolean reliable)
+static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, const NiceOutputMessage * message, int reliable)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
     StunMessage msg;
@@ -707,7 +655,7 @@ socket_send_message(NiceSocket * sock, const NiceAddress * to,
     } sa;
     GList * i;
     ChannelBinding * binding = NULL;
-    gint ret;
+    int32_t ret;
 
     /* Socket has been closed: */
     if (sock->priv == NULL)
@@ -727,16 +675,15 @@ socket_send_message(NiceSocket * sock, const NiceAddress * to,
 
     if (binding)
     {
-        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
-                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
+        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
         {
-            gsize message_len = output_message_get_size(message);
+            uint32_t message_len = output_message_get_size(message);
 
             if (message_len + sizeof(uint32_t) <= sizeof(buffer))
             {
-                guint j;
+                uint32_t j;
                 uint16_t len16, channel16;
-                gsize message_offset = 0;
+                uint32_t message_offset = 0;
 
                 len16 = htons((uint16_t) message_len);
                 channel16 = htons(binding->channel);
@@ -748,12 +695,12 @@ socket_send_message(NiceSocket * sock, const NiceAddress * to,
                  * the GOutputVector array, rather than the buffer contents
                  * themselves. */
                 for (j = 0;
-                        (message->n_buffers >= 0 && j < (guint) message->n_buffers) ||
+                        (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
                         (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
                         j++)
                 {
                     const GOutputVector * out_buf = &message->buffers[j];
-                    gsize out_len;
+                    uint32_t out_len;
 
                     out_len = MIN(message_len - message_offset, out_buf->size);
                     memcpy(buffer + sizeof(uint32_t) + message_offset,
@@ -770,8 +717,7 @@ socket_send_message(NiceSocket * sock, const NiceAddress * to,
         }
         else
         {
-            ret = _socket_send_messages_wrapped(priv->base_socket,
-                                                &priv->server_addr, message, 1, reliable);
+            ret = _socket_send_messages_wrapped(priv->base_socket,  &priv->server_addr, message, 1, reliable);
 
             if (ret == 1)
                 return output_message_get_size(message);
@@ -780,60 +726,14 @@ socket_send_message(NiceSocket * sock, const NiceAddress * to,
     }
     else
     {
-        guint8 * compacted_buf;
-        gsize compacted_buf_len;
+        uint8_t * compacted_buf;
+        uint32_t compacted_buf_len;
 
-        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_DRAFT9 ||
-                priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
-        {
-            if (!stun_agent_init_indication(&priv->agent, &msg,
-                                            buffer, sizeof(buffer), STUN_IND_SEND))
-                goto error;
-            if (stun_message_append_xor_addr(&msg, STUN_ATTRIBUTE_PEER_ADDRESS,
-                                             &sa.storage, sizeof(sa)) !=
-                    STUN_MESSAGE_RETURN_SUCCESS)
-                goto error;
-        }
-        else
-        {
-            if (!stun_agent_init_request(&priv->agent, &msg,
-                                         buffer, sizeof(buffer), STUN_SEND))
-                goto error;
-
-            if (stun_message_append32(&msg, STUN_ATTRIBUTE_MAGIC_COOKIE,
-                                      TURN_MAGIC_COOKIE) != STUN_MESSAGE_RETURN_SUCCESS)
-                goto error;
-            if (priv->username != NULL && priv->username_len > 0)
-            {
-                if (stun_message_append_bytes(&msg, STUN_ATTRIBUTE_USERNAME,
-                                              priv->username, priv->username_len) !=
-                        STUN_MESSAGE_RETURN_SUCCESS)
-                    goto error;
-            }
-            if (stun_message_append_addr(&msg, STUN_ATTRIBUTE_DESTINATION_ADDRESS,
-                                         &sa.addr, sizeof(sa)) !=
-                    STUN_MESSAGE_RETURN_SUCCESS)
-                goto error;
-
-            if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE &&
-                    priv->current_binding &&
-                    nice_address_equal(&priv->current_binding->peer, to))
-            {
-                stun_message_append32(&msg, STUN_ATTRIBUTE_OPTIONS, 1);
-            }
-        }
-
-        if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
-        {
-            stun_message_append32(&msg, STUN_ATTRIBUTE_MS_VERSION, 1);
-
-            if (priv->ms_connection_id_valid)
-                stun_message_append_ms_connection_id(&msg, priv->ms_connection_id,
-                                                     ++priv->ms_sequence_num);
-
-            stun_message_ensure_ms_realm(&msg, priv->ms_realm);
-        }
-
+		if (!stun_agent_init_indication(&priv->agent, &msg, buffer, sizeof(buffer), STUN_IND_SEND))
+			goto error;
+		if (stun_message_append_xor_addr(&msg, STUN_ATTRIBUTE_PEER_ADDRESS, &sa.storage, sizeof(sa)) != STUN_MESSAGE_RETURN_SUCCESS)
+			goto error;
+        
         /* Slow path! We have to compact the buffers to append them to the message.
          * FIXME: This could be improved by adding vectored I/O support to
           * stun_message_append_bytes(). */
@@ -903,11 +803,9 @@ error:
     return -1;
 }
 
-static gint
-socket_send_messages(NiceSocket * sock, const NiceAddress * to,
-                     const NiceOutputMessage * messages, guint n_messages)
+static int32_t socket_send_messages(NiceSocket * sock, const NiceAddress * to, const NiceOutputMessage * messages, uint32_t n_messages)
 {
-    guint i;
+    uint32_t i;
 
     /* Socket has been closed: */
     if (sock->priv == NULL)
@@ -916,7 +814,7 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
     for (i = 0; i < n_messages; i++)
     {
         const NiceOutputMessage * message = &messages[i];
-        gssize len;
+        int32_t len;
 
         len = socket_send_message(sock, to, message, FALSE);
 
@@ -937,12 +835,10 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
     return i;
 }
 
-static gint
-socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
-                              const NiceOutputMessage * messages, guint n_messages)
+static int32_t socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to, const NiceOutputMessage * messages, uint32_t n_messages)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
-    guint i;
+    uint32_t i;
 
     /* TURN can depend either on tcp-turn or udp-bsd as a base socket
      * if we allow reliable send and need to create permissions and we queue the
@@ -955,7 +851,7 @@ socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
     for (i = 0; i < n_messages; i++)
     {
         const NiceOutputMessage * message = &messages[i];
-        gssize len;
+        int32_t len;
 
         len = socket_send_message(sock, to, message, TRUE);
 
@@ -974,33 +870,28 @@ socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
     return i;
 }
 
-static gboolean
-socket_is_reliable(NiceSocket * sock)
+static int socket_is_reliable(NiceSocket * sock)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
 
     return nice_socket_is_reliable(priv->base_socket);
 }
 
-static gboolean
-socket_can_send(NiceSocket * sock, NiceAddress * addr)
+static int socket_can_send(NiceSocket * sock, NiceAddress * addr)
 {
     UdpTurnPriv * priv = sock->priv;
 
     return nice_socket_can_send(priv->base_socket, addr);
 }
 
-static void
-socket_set_writable_callback(NiceSocket * sock,
-                             NiceSocketWritableCb callback, gpointer user_data)
+static void socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data)
 {
     UdpTurnPriv * priv = sock->priv;
 
     nice_socket_set_writable_callback(priv->base_socket, callback, user_data);
 }
 
-static gboolean
-priv_forget_send_request(gpointer pointer)
+static int priv_forget_send_request(void * pointer)
 {
     SendRequest * req = pointer;
 
@@ -1029,8 +920,7 @@ priv_forget_send_request(gpointer pointer)
     return FALSE;
 }
 
-static gboolean
-priv_permission_timeout(gpointer data)
+static int priv_permission_timeout(void * data)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) data;
 
@@ -1045,8 +935,7 @@ priv_permission_timeout(gpointer data)
     return TRUE;
 }
 
-static gboolean
-priv_binding_expired_timeout(gpointer data)
+static int priv_binding_expired_timeout(void * data)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) data;
     GList * i;
@@ -1111,8 +1000,7 @@ priv_binding_expired_timeout(gpointer data)
     return FALSE;
 }
 
-static gboolean
-priv_binding_timeout(gpointer data)
+static int priv_binding_timeout(void * data)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) data;
     GList * i;
@@ -1158,8 +1046,8 @@ uint32_t nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket *
 {
     /* TODO: Speed this up in the common reliable case of having a 24-byte header
      * buffer to begin with, followed by one or more massive buffers. */
-    guint8 * buf;
-    gsize buf_len, len;
+    uint8_t * buf;
+    uint32_t buf_len, len;
 
     if (message->n_buffers == 1 ||
             (message->n_buffers == -1 &&
@@ -1191,10 +1079,9 @@ uint32_t nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket *
     return (len > 0) ? 1 : 0;
 }
 
-gsize
-nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
-                                NiceAddress * from, gsize len, guint8 * buf,
-                                NiceAddress * recv_from, guint8 * _recv_buf, gsize recv_len)
+uint32_t nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
+                                NiceAddress * from, uint32_t len, uint8_t * buf,
+                                NiceAddress * recv_from, uint8_t * _recv_buf, uint32_t recv_len)
 {
 
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
@@ -1205,7 +1092,7 @@ nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
 
     union
     {
-        guint8 * u8;
+        uint8_t * u8;
         guint16 * u16;
     } recv_buf;
 
@@ -1267,14 +1154,6 @@ nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
                         g_queue_remove(priv->send_requests, req);
 
                         g_slice_free(SendRequest, req);
-                    }
-
-                    if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)
-                    {
-                        uint32_t opts = 0;
-                        if (stun_message_find32(&msg, STUN_ATTRIBUTE_OPTIONS, &opts) ==
-                                STUN_MESSAGE_RETURN_SUCCESS && opts & 0x1)
-                            goto msn_google_lock;
                     }
                 }
                 return 0;
@@ -1643,7 +1522,7 @@ msn_google_lock:
     return 0;
 }
 
-gboolean
+int
 nice_udp_turn_socket_set_peer(NiceSocket * sock, NiceAddress * peer)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
@@ -1654,7 +1533,7 @@ nice_udp_turn_socket_set_peer(NiceSocket * sock, NiceAddress * peer)
 static void
 priv_process_pending_bindings(UdpTurnPriv * priv)
 {
-    gboolean ret = FALSE;
+    int ret = FALSE;
 
     while (priv->pending_bindings != NULL && ret == FALSE)
     {
@@ -1684,10 +1563,10 @@ priv_process_pending_bindings(UdpTurnPriv * priv)
 }
 
 
-static gboolean
+static int
 priv_retransmissions_tick_unlocked(UdpTurnPriv * priv)
 {
-    gboolean ret = FALSE;
+    int ret = FALSE;
 
     if (priv->current_binding_msg)
     {
@@ -1731,10 +1610,10 @@ priv_retransmissions_tick_unlocked(UdpTurnPriv * priv)
     return ret;
 }
 
-static gboolean
+static int
 priv_retransmissions_create_permission_tick_unlocked(UdpTurnPriv * priv, GList * list_element)
 {
-    gboolean ret = FALSE;
+    int ret = FALSE;
     TURNMessage * current_create_permission_msg;
 
     current_create_permission_msg = (TURNMessage *)list_element->data;
@@ -1797,8 +1676,8 @@ priv_retransmissions_create_permission_tick_unlocked(UdpTurnPriv * priv, GList *
     return ret;
 }
 
-static gboolean
-priv_retransmissions_tick(gpointer pointer)
+static int
+priv_retransmissions_tick(void * pointer)
 {
     UdpTurnPriv * priv = pointer;
 
@@ -1825,8 +1704,8 @@ priv_retransmissions_tick(gpointer pointer)
     return FALSE;
 }
 
-static gboolean
-priv_retransmissions_create_permission_tick(gpointer pointer)
+static int
+priv_retransmissions_create_permission_tick(void * pointer)
 {
     UdpTurnPriv * priv = pointer;
 
@@ -1854,7 +1733,7 @@ priv_schedule_tick(UdpTurnPriv * priv)
 {
     GList * i, *next, *prev;
     TURNMessage * current_create_permission_msg;
-    guint min_timeout = G_MAXUINT;
+    uint32_t min_timeout = G_MAXUINT;
 
     if (priv->tick_source_channel_bind != NULL)
     {
@@ -1865,7 +1744,7 @@ priv_schedule_tick(UdpTurnPriv * priv)
 
     if (priv->current_binding_msg)
     {
-        guint timeout = stun_timer_remainder(&priv->current_binding_msg->timer);
+        uint32_t timeout = stun_timer_remainder(&priv->current_binding_msg->timer);
         if (timeout > 0)
         {
             priv->tick_source_channel_bind =
@@ -1887,7 +1766,7 @@ priv_schedule_tick(UdpTurnPriv * priv)
 
     for (i = priv->pending_permissions, prev = NULL; i; i = next)
     {
-        guint timeout;
+        uint32_t timeout;
 
         current_create_permission_msg = (TURNMessage *)i->data;
         next = i->next;
@@ -1954,12 +1833,12 @@ priv_send_turn_message(UdpTurnPriv * priv, TURNMessage * msg)
     priv_schedule_tick(priv);
 }
 
-static gboolean
+static int
 priv_send_create_permission(UdpTurnPriv * priv, StunMessage * resp,
                             const NiceAddress * peer)
 {
-    guint msg_buf_len;
-    gboolean res = FALSE;
+    uint32_t msg_buf_len;
+    int res = FALSE;
     TURNMessage * msg = g_new0(TURNMessage, 1);
     union
     {
@@ -2038,7 +1917,7 @@ priv_send_create_permission(UdpTurnPriv * priv, StunMessage * resp,
     return res;
 }
 
-static gboolean
+static int
 priv_send_channel_bind(UdpTurnPriv * priv,  StunMessage * resp,
                        uint16_t channel, const NiceAddress * peer)
 {
@@ -2131,7 +2010,7 @@ priv_send_channel_bind(UdpTurnPriv * priv,  StunMessage * resp,
     return FALSE;
 }
 
-static gboolean
+static int
 priv_add_channel_binding(UdpTurnPriv * priv, const NiceAddress * peer)
 {
     size_t stun_len;
@@ -2169,7 +2048,7 @@ priv_add_channel_binding(UdpTurnPriv * priv, const NiceAddress * peer)
 
         if (channel >= 0x4000 && channel < 0xffff)
         {
-            gboolean ret = priv_send_channel_bind(priv, NULL, channel, peer);
+            int ret = priv_send_channel_bind(priv, NULL, channel, peer);
             if (ret)
             {
                 priv->current_binding = g_new0(ChannelBinding, 1);

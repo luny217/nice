@@ -449,7 +449,7 @@ StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
     socklen_t alternate_server_len = sizeof(alternate_server);
     StunUsageBindReturn bind_ret;
 
-    stun_agent_init(&agent, STUN_ALL_KNOWN_ATTRIBUTES, STUN_COMPATIBILITY_RFC5389, 0);
+    stun_agent_init(&agent, 0);
 
     len = stun_usage_bind_create(&agent, &req, req_buf, sizeof(req_buf));
 

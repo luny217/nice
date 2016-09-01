@@ -130,13 +130,13 @@ StunUsageTurnCompatibility agent_to_turn_compatibility(NiceAgent * agent);
 NiceTurnSocketCompatibility agent_to_turn_socket_compatibility(NiceAgent * agent);
 void agent_remove_local_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void nice_agent_init_stun_agent(NiceAgent * agent, StunAgent * stun_agent);
-void _priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, gint tos);
-int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, gpointer data);
+void _priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, int32_t tos);
+int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
 uint32_t memcpy_buffer_to_input_message(NiceInputMessage * message, const uint8_t * buffer, uint32_t buffer_length);
 uint8_t * compact_input_message(const NiceInputMessage * message, uint32_t * buffer_length);
 uint8_t * compact_output_message(const NiceOutputMessage * message, uint32_t * buffer_length);
 uint32_t output_message_get_size(const NiceOutputMessage * message);
-gssize agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len,  const gchar * buf);
+int32_t agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len,  const gchar * buf);
 
 uint32_t nice_candidate_ice_priority_full(uint32_t type_pref, uint32_t local_pref, uint32_t component_id);
 uint32_t nice_candidate_ice_priority(const NiceCandidate * candidate);

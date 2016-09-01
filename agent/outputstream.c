@@ -33,7 +33,7 @@
 #include "agent-priv.h"
 
 static void nice_output_stream_init_pollable(GPollableOutputStreamInterface * iface);
-static void streams_removed_cb(NiceAgent * agent, guint * stream_ids, gpointer user_data);
+static void streams_removed_cb(NiceAgent * agent, uint32_t * stream_ids, void * user_data);
 
 G_DEFINE_TYPE_WITH_CODE(NiceOutputStream,
                         nice_output_stream, G_TYPE_OUTPUT_STREAM,
@@ -50,33 +50,25 @@ enum
 struct _NiceOutputStreamPrivate
 {
     GWeakRef/*<NiceAgent>*/ agent_ref;
-    guint stream_id;
-    guint component_id;
+    uint32_t stream_id;
+    uint32_t component_id;
 
     GCancellable * closed_cancellable;
 };
 
 static void nice_output_stream_dispose(GObject * object);
-static void nice_output_stream_get_property(GObject * object, guint prop_id,
-        GValue * value, GParamSpec * pspec);
-static void nice_output_stream_set_property(GObject * object, guint prop_id,
-        const GValue * value, GParamSpec * pspec);
+static void nice_output_stream_get_property(GObject * object, uint32_t prop_id, GValue * value, GParamSpec * pspec);
+static void nice_output_stream_set_property(GObject * object, uint32_t prop_id, const GValue * value, GParamSpec * pspec);
 
-static gssize nice_output_stream_write(GOutputStream * stream,
-                                       const void * buffer, gsize count, GCancellable * cancellable, GError ** error);
-static gboolean nice_output_stream_close(GOutputStream * stream,
-        GCancellable * cancellable, GError ** error);
+static int32_t nice_output_stream_write(GOutputStream * stream, const void * buffer, gsize count, GCancellable * cancellable, GError ** error);
+static int nice_output_stream_close(GOutputStream * stream, GCancellable * cancellable, GError ** error);
 
-static gboolean nice_output_stream_is_writable(GPollableOutputStream * stream);
-static gssize nice_output_stream_write_nonblocking(
-    GPollableOutputStream * stream, const void * buffer, gsize count,
-    GError ** error);
-static GSource * nice_output_stream_create_source(GPollableOutputStream * stream,
-        GCancellable * cancellable);
+static int nice_output_stream_is_writable(GPollableOutputStream * stream); 
+static int32_t nice_output_stream_write_nonblocking(GPollableOutputStream * stream, const void * buffer, uint32_t count, GError ** error);
+static GSource * nice_output_stream_create_source(GPollableOutputStream * stream, GCancellable * cancellable);
 
 /* Output Stream */
-static void
-nice_output_stream_class_init(NiceOutputStreamClass * klass)
+static void nice_output_stream_class_init(NiceOutputStreamClass * klass)
 {
     GObjectClass * gobject_class = G_OBJECT_CLASS(klass);
     GOutputStreamClass * stream_class = G_OUTPUT_STREAM_CLASS(klass);
@@ -166,7 +158,7 @@ static void nice_output_stream_dispose(GObject * object)
     G_OBJECT_CLASS(nice_output_stream_parent_class)->dispose(object);
 }
 
-static void nice_output_stream_get_property(GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
+static void nice_output_stream_get_property(GObject * object, uint32_t prop_id, GValue * value, GParamSpec * pspec)
 {
     NiceOutputStream * self = NICE_OUTPUT_STREAM(object);
 
@@ -186,9 +178,7 @@ static void nice_output_stream_get_property(GObject * object, guint prop_id, GVa
     }
 }
 
-static void
-nice_output_stream_set_property(GObject * object, guint prop_id,
-                                const GValue * value, GParamSpec * pspec)
+static void nice_output_stream_set_property(GObject * object, uint32_t prop_id, const GValue * value, GParamSpec * pspec)
 {
     NiceOutputStream * self = NICE_OUTPUT_STREAM(object);
 
@@ -205,8 +195,7 @@ nice_output_stream_set_property(GObject * object, guint prop_id,
              * already been finalised. */
             if (agent != NULL)
             {
-                g_signal_connect(agent, "streams-removed",
-                                 (GCallback) streams_removed_cb, self);
+                g_signal_connect(agent, "streams-removed", (GCallback) streams_removed_cb, self);
                 g_object_unref(agent);
             }
 
@@ -225,8 +214,7 @@ nice_output_stream_set_property(GObject * object, guint prop_id,
     }
 }
 
-static void
-nice_output_stream_init(NiceOutputStream * stream)
+static void nice_output_stream_init(NiceOutputStream * stream)
 {
     stream->priv = G_TYPE_INSTANCE_GET_PRIVATE(stream, NICE_TYPE_OUTPUT_STREAM,
                    NiceOutputStreamPrivate);
@@ -235,8 +223,7 @@ nice_output_stream_init(NiceOutputStream * stream)
     stream->priv->closed_cancellable = g_cancellable_new();
 }
 
-static void
-nice_output_stream_init_pollable(GPollableOutputStreamInterface * iface)
+static void nice_output_stream_init_pollable(GPollableOutputStreamInterface * iface)
 {
     iface->is_writable = nice_output_stream_is_writable;
     iface->write_nonblocking = nice_output_stream_write_nonblocking;
@@ -246,8 +233,8 @@ nice_output_stream_init_pollable(GPollableOutputStreamInterface * iface)
 /***
  * nice_output_stream_new:
  * @agent: A #NiceAgent
- * @stream_id: The ID of the agent?s stream to wrap
- * @component_id: The ID of the agent?s component to wrap
+ * @stream_id: The ID of the agent's stream to wrap
+ * @component_id: The ID of the agent's component to wrap
  *
  * Create a new #NiceOutputStream wrapping the given stream/component from
  * @agent, which must be a reliable #NiceAgent.
@@ -260,8 +247,7 @@ nice_output_stream_init_pollable(GPollableOutputStreamInterface * iface)
  *
  * Since: 0.1.5
  */
-NiceOutputStream *
-nice_output_stream_new(NiceAgent * agent, guint stream_id, guint component_id)
+NiceOutputStream * nice_output_stream_new(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
     g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
     g_return_val_if_fail(stream_id >= 1, NULL);
@@ -281,8 +267,8 @@ typedef struct
     GCond cond;
     GMutex mutex;
 
-    gboolean writable;
-    gboolean cancelled;
+    int writable;
+    int cancelled;
 } WriteData;
 
 static WriteData *
@@ -315,8 +301,8 @@ write_cancelled_cb(GCancellable * cancellable, gpointer user_data)
 }
 
 static void
-reliable_transport_writeable_cb(NiceAgent * agent, guint stream_id,
-                                guint component_id, gpointer user_data)
+reliable_transport_writeable_cb(NiceAgent * agent, uint32_t stream_id,
+                                uint32_t component_id, gpointer user_data)
 {
     WriteData * write_data = user_data;
 
@@ -479,7 +465,7 @@ static int nice_output_stream_is_writable(GPollableOutputStream * stream)
     NiceOutputStreamPrivate * priv = NICE_OUTPUT_STREAM(stream)->priv;
     Component * component = NULL;
     Stream * _stream = NULL;
-    gboolean retval = FALSE;
+    int retval = FALSE;
     NiceAgent * agent; /* owned */
 
     /* Closed streams are not writeable. */
@@ -524,8 +510,7 @@ done:
     return retval;
 }
 
-static int32_t nice_output_stream_write_nonblocking(GPollableOutputStream * stream,
-                                     const void * buffer, int32_t count, GError ** error)
+static int32_t nice_output_stream_write_nonblocking(GPollableOutputStream * stream, const void * buffer, uint32_t count, GError ** error)
 {
     NiceOutputStreamPrivate * priv = NICE_OUTPUT_STREAM(stream)->priv;
     NiceAgent * agent; /* owned */

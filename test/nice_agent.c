@@ -106,7 +106,7 @@ static void * example_thread(void * data)
     // Without this call, candidates cannot be gathered
     nice_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
 
-    //nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
+    nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
 
     // Start gathering local candidates
     if (!nice_agent_gather_candidates(agent, stream_id))
@@ -167,14 +167,12 @@ static void * example_thread(void * data)
         goto end;
 
     // Get current selected candidate pair and print IP address used
-    if (nice_agent_get_selected_pair(agent, stream_id, 1,
-                                     &local, &remote))
+    if (nice_agent_get_selected_pair(agent, stream_id, 1, &local, &remote))
     {
-        gchar ipaddr[INET6_ADDRSTRLEN];
+        char ipaddr[INET6_ADDRSTRLEN];
 
         nice_address_to_string(&local->addr, ipaddr);
-        printf("\nNegotiation complete: ([%s]:%d,",
-               ipaddr, nice_address_get_port(&local->addr));
+        printf("\nNegotiation complete: ([%s]:%d,", ipaddr, nice_address_get_port(&local->addr));
         nice_address_to_string(&remote->addr, ipaddr);
         printf(" [%s]:%d)\n", ipaddr, nice_address_get_port(&remote->addr));
     }
@@ -318,7 +316,7 @@ static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t comp
     if (cand_lists == NULL)
         goto end;
 
-    printf("%s--%s", local_ufrag, local_password);
+    printf("%s  %s", local_ufrag, local_password);
 
     for (item = cand_lists; item; item = item->next)
     {
@@ -399,8 +397,7 @@ static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t com
     }
 
     // Note: this will trigger the start of negotiation.
-    if (nice_agent_set_remote_candidates(agent, stream_id, component_id,
-                                         remote_candidates) < 1)
+    if (nice_agent_set_remote_candidates(agent, stream_id, component_id, remote_candidates) < 1)
     {
         g_message("failed to set remote candidates");
         goto end;
