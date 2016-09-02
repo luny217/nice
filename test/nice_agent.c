@@ -17,15 +17,17 @@
 #include <ctype.h>
 
 #include <agent.h>
+#include "agent-priv.h"
 #include <gio/gnetworking.h>
 
 static GMainLoop * gloop;
 static gchar * stun_addr = "107.191.106.104";
 static uint32_t stun_port = 3478;
-static int controlling = 0;
+static int controlling = 1;
 static int exit_thread, candidate_gathering_done, negotiation_done;
 static GMutex gather_mutex, negotiate_mutex;
 static GCond gather_cond, negotiate_cond;
+FILE  * wfile_fp;
 
 static const char * candidate_type_name[] = {"host", "srflx", "prflx", "relay"};
 
@@ -36,17 +38,24 @@ static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t com
 static void cb_candidate_gathering_done(NiceAgent * agent, uint32_t stream_id, void * data);
 static void cb_new_selected_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, char * lfoundation, char * rfoundation, void * data);
 static void cb_component_state_changed(NiceAgent * agent, uint32_t stream_id,  uint32_t component_id, uint32_t state, void * data);
-static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, gchar * buf, void * data);
+static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data);
 
 static void * example_thread(void * data);
 
 int main(int argc, char * argv[])
 {
     GThread * gexamplethread;
+	char write_file[] = "wtest.dat";
 
     g_networking_init();
 
     g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
+
+	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
+	{
+		printf("Open %s failed:%s\n", write_file, strerror(errno));
+		return -1;
+	}
 
     gloop = g_main_loop_new(NULL, FALSE);
 
@@ -71,6 +80,10 @@ static void * example_thread(void * data)
     uint32_t stream_id;
     char * line = NULL;
     int rval;
+	FILE  * file_fp;
+	char test_file[] = "test.dat";
+	char snd_buf[2048];
+	int ret = 0, numread, numsend;
 
 #ifdef G_OS_WIN32
     io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
@@ -106,7 +119,7 @@ static void * example_thread(void * data)
     // Without this call, candidates cannot be gathered
     nice_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
 
-    nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
+    //nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
 
     // Start gathering local candidates
     if (!nice_agent_gather_candidates(agent, stream_id))
@@ -181,29 +194,68 @@ static void * example_thread(void * data)
     printf("\nSend lines to remote (Ctrl-D to quit):\n");
     printf("> ");
     fflush(stdout);
-    while (!exit_thread)
+
+    if ((file_fp = fopen(test_file, "rb")) == NULL)
     {
-        GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
-        if (s == G_IO_STATUS_NORMAL)
-        {
-            nice_agent_send(agent, stream_id, 1, strlen(line), line);
-            g_free(line);
-            printf("> ");
-            fflush(stdout);
-        }
-        else if (s == G_IO_STATUS_AGAIN)
-        {
-            g_usleep(100000);
-        }
-        else
-        {
-            // Ctrl-D was pressed.
-            nice_agent_send(agent, stream_id, 1, 1, "\0");
-            break;
-        }
+        printf("Open %s failed:%s\n", test_file, strerror(errno));
+        goto end;
+    }
+
+	printf("> ");
+	fflush(stdout);
+	GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);	
+
+    while (!exit_thread)
+    {	
+		if (agent->controlling_mode)
+		{
+			numread = fread(snd_buf, 500, 1, file_fp);
+			if (numread > 0)
+			{
+resend:				
+				numsend = nice_agent_send(agent, stream_id, 1, 500, snd_buf);
+				if (numsend < 0)
+				{
+					//nice_debug("send err!");
+					g_usleep(500);
+					goto resend;
+				}
+				else
+				{
+					//nice_debug("send %d bytes", numsend);
+				}
+			}
+			else
+			{
+				g_usleep(100000);
+				goto end;
+			}
+		}
+		else
+		{
+			GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
+			if (s == G_IO_STATUS_NORMAL)
+			{
+				nice_agent_send(agent, stream_id, 1, strlen(line), line);
+				g_free(line);
+				printf("> ");
+				fflush(stdout);
+			}
+			else if (s == G_IO_STATUS_AGAIN)
+			{
+				g_usleep(100000);
+			}
+			else
+			{
+				// Ctrl-D was pressed.
+				nice_agent_send(agent, stream_id, 1, 1, "\0");
+				break;
+			}
+		}
     }
 
 end:
+	fclose(file_fp);
     g_io_channel_unref(io_stdin);
     g_object_unref(agent);
     g_main_loop_quit(gloop);
@@ -239,19 +291,31 @@ static void cb_component_state_changed(NiceAgent * agent, uint32_t stream_id, ui
 }
 
 static void cb_new_selected_pair(NiceAgent * agent, uint32_t stream_id,
-                     uint32_t component_id, char * lfoundation,
-                     char * rfoundation, void * data)
+                                 uint32_t component_id, char * lfoundation,
+                                 char * rfoundation, void * data)
 {
     g_debug("SIGNAL: selected pair %s %s", lfoundation, rfoundation);
 }
 
-static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, gchar * buf, void * data)
+static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data)
 {
-    if (len == 1 && buf[0] == '\0')
-        g_main_loop_quit(gloop);
+	int numwrite;
 
-    printf("%.*s", len, buf);
-    fflush(stdout);
+	if (agent->controlling_mode)
+	{
+		if (len == 1 && buf[0] == '\0')
+			g_main_loop_quit(gloop);
+		printf("%.*s", len, buf);
+		fflush(stdout);
+	}
+	else
+	{
+		numwrite = fwrite(buf, len, 1, wfile_fp);
+		if (numwrite != 1)
+		{
+			printf("Short write:%d writed, %d should (%s)\n", len, numwrite, strerror(errno));
+		}
+	}
 }
 
 static NiceCandidate * parse_candidate(char * scand, uint32_t stream_id)
@@ -312,7 +376,7 @@ static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t comp
     if (!nice_agent_get_local_credentials(agent, stream_id,  &local_ufrag, &local_password))
         goto end;
 
-	cand_lists = nice_agent_get_local_candidates(agent, stream_id, component_id);
+    cand_lists = nice_agent_get_local_candidates(agent, stream_id, component_id);
     if (cand_lists == NULL)
         goto end;
 

@@ -6,7 +6,7 @@
 
 #include <glib.h>
 
-#ifndef G_OS_WIN32
+#ifndef _WIN32
 #include <arpa/inet.h>
 #endif
 
@@ -21,7 +21,7 @@ G_DEFINE_TYPE(PseudoTcpSocket, pseudo_tcp_socket, G_TYPE_OBJECT);
 //////////////////////////////////////////////////////////////////////
 
 // Standard MTUs
-const guint16 PACKET_MAXIMUMS[] =
+const uint16_t PACKET_MAXIMUMS[] =
 {
     65535,    // Theoretical maximum, Hyperchannel
     32000,    // Nothing

@@ -21,22 +21,19 @@ void incoming_check_free(IncomingCheck * icheck)
     g_slice_free(IncomingCheck, icheck);
 }
 
-/* Must *not* take the agent lock, since it?s called from within
- * component_set_io_context(), which holds the Component?s I/O lock. */
+/* Must *not* take the agent lock, since its called from within
+ * component_set_io_context(), which holds the Components I/O lock. */
 static void socket_source_attach(SocketSource * socket_source, GMainContext * context)
 {
     GSource * source;
 
     /* Create a source. */
-    source = g_socket_create_source(socket_source->socket->fileno,
-                                    G_IO_IN, NULL);
-    g_source_set_callback(source, (GSourceFunc) component_io_cb,
-                          socket_source, NULL);
+    source = g_socket_create_source(socket_source->socket->fileno, G_IO_IN, NULL);
+    g_source_set_callback(source, (GSourceFunc) component_io_cb, socket_source, NULL);
 
     /* Add the source. */
     nice_debug("Attaching source %p (socket %p, FD %d) to context %p", source,
-               socket_source->socket, g_socket_get_fd(socket_source->socket->fileno),
-               context);
+               socket_source->socket, g_socket_get_fd(socket_source->socket->fileno), context);
 
     g_assert(socket_source->source == NULL);
     socket_source->source = source;

@@ -7,7 +7,7 @@
 #include <string.h>
 #include <errno.h>
 
-#ifndef G_OS_WIN32
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -38,7 +38,7 @@
 
 static void nice_debug_input_message_composition(const NiceInputMessage * messages,  uint32_t n_messages);
 
-G_DEFINE_TYPE(NiceAgent, nice_agent, G_TYPE_OBJECT);
+//G_DEFINE_TYPE(NiceAgent, nice_agent, G_TYPE_OBJECT);
 
 enum
 {
@@ -1093,13 +1093,10 @@ static int32_t pseudo_tcp_socket_send_messages(PseudoTcpSocket * self, const Nic
                 if (pseudo_tcp_socket_get_error(self) == EWOULDBLOCK)
                     goto out;
 
-                if (pseudo_tcp_socket_get_error(self) == ENOTCONN ||
-                        pseudo_tcp_socket_get_error(self) == EPIPE)
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK,
-                                "TCP connection is not yet established.");
+                if (pseudo_tcp_socket_get_error(self) == ENOTCONN ||  pseudo_tcp_socket_get_error(self) == EPIPE)
+                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK, "TCP connection is not yet established.");
                 else
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                                "Error writing data to pseudo-TCP socket.");
+                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "Error writing data to pseudo-TCP socket.");
                 return -1;
             }
             else
@@ -3656,7 +3653,7 @@ static int32_t nice_agent_send_messages_nonblocking_internal(
         goto done;
     }
 
-    /* FIXME: Cancellation isn??t yet supported, but it doesn??t matter because
+    /* FIXME: Cancellation isnt yet supported, but it doesnt matter because
      * we only deal with non-blocking writes. */
     if (component->selected_pair.local != NULL)
     {
@@ -3951,8 +3948,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
     /* Remove disconnected sockets when we get a HUP */
     if (condition & G_IO_HUP)
     {
-        nice_debug("Agent %p: NiceSocket %p has received HUP", agent,
-                   socket_source->socket);
+        nice_debug("Agent %p: NiceSocket %p has received HUP", agent,  socket_source->socket);
         if (component->selected_pair.local &&
                 component->selected_pair.local->sockptr == socket_source->socket &&
                 component->state == NICE_COMPONENT_STATE_READY)

@@ -659,13 +659,7 @@ nice_agent_set_remote_candidates(
  *
  * Returns: The number of bytes sent, or negative error code
  */
-int32_t
-nice_agent_send(
-    NiceAgent * agent,
-    uint32_t stream_id,
-    uint32_t component_id,
-    uint32_t len,
-    const gchar * buf);
+int32_t nice_agent_send(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, const char * buf);
 
 /**
  * nice_agent_send_messages_nonblocking:
