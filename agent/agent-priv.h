@@ -50,17 +50,13 @@ int nice_input_message_iter_compare(const NiceInputMessageIter * a, const NiceIn
 #include "stun/usages/turn.h"
 #include "stun/usages/ice.h"
 
-#ifdef HAVE_GUPNP
-#include <libgupnp-igd/gupnp-simple-igd-thread.h>
-#endif
-
 /* XXX: starting from ICE ID-18, Ta SHOULD now be set according
  *      to session bandwidth -> this is not yet implemented in NICE */
 
-#define NICE_AGENT_TIMER_TA_DEFAULT 20      /* timer Ta, msecs (impl. defined) */
+#define _AGENT_TIMER_TA_DEFAULT 20      /* timer Ta, msecs (impl. defined) */
 #define NICE_AGENT_TIMER_TR_DEFAULT 25000   /* timer Tr, msecs (impl. defined) */
 #define NICE_AGENT_TIMER_TR_MIN     15000   /* timer Tr, msecs (ICE ID-19) */
-#define NICE_AGENT_MAX_CONNECTIVITY_CHECKS_DEFAULT 100 /* see spec 5.7.3 (ID-19) */
+#define _AGENT_MAX_CONNECTIVITY_CHECKS 100 /* see spec 5.7.3 (ID-19) */
 
 
 /* An upper limit to size of STUN packets handled (based on Ethernet
@@ -92,19 +88,10 @@ struct _NiceAgent
     uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
     NiceCompatibility compatibility; /* property: Compatibility mode */
     int32_t media_after_tick;       /* Received media after keepalive tick */
-#ifdef HAVE_GUPNP
-    GUPnPSimpleIgdThread * upnp;	  /* GUPnP Single IGD agent */
-    int32_t upnp_enabled;           /* whether UPnP discovery is enabled */
-    uint32_t upnp_timeout;              /* UPnP discovery timeout */
-    GSList * upnp_mapping;           /* NiceAddresses of cands being mapped */
-    GSource * upnp_timer_source;     /* source of upnp timeout timer */
-#endif
     char * software_attribute;      /* SOFTWARE attribute */
     int32_t reliable;               /* property: reliable */
     int32_t keepalive_conncheck;    /* property: keepalive_conncheck */
-
     GQueue pending_signals;
-    uint16_t rfc4571_expecting_length;
     int use_ice_udp;
     int use_ice_tcp;
     /* XXX: add pointer to internal data struct for ABI-safe extensions */

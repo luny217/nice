@@ -622,8 +622,7 @@ component_free_socket_sources(Component * component)
     component_clear_selected_pair(component);
 }
 
-GMainContext *
-component_dup_io_context(Component * component)
+GMainContext * component_dup_io_context(Component * component)
 {
     return g_main_context_ref(component->own_ctx);
 }
@@ -661,8 +660,7 @@ void component_set_io_context(Component * component, GMainContext * context)
  * dequeued from the kernel buffers in agent.c, and an I/O callback being
  * emitted for it (which could cause data loss if the I/O callback function was
  * unset in that time). */
-void
-component_set_io_callback(Component * component,
+void component_set_io_callback(Component * component,
                           NiceAgentRecvFunc func, void * user_data,
                           NiceInputMessage * recv_messages, uint32_t n_recv_messages,
                           GError ** error)
@@ -698,8 +696,7 @@ component_set_io_callback(Component * component,
     g_mutex_unlock(&component->io_mutex);
 }
 
-int
-component_has_io_callback(Component * component)
+int component_has_io_callback(Component * component)
 {
     int has_io_callback;
 
@@ -839,8 +836,7 @@ void component_emit_io_callback(Component * component,  const uint8_t * buf, uin
     {
         /* Thread owns the main context, so invoke the callback directly. */
         agent_unlock_and_emit(agent);
-        io_callback(agent, stream_id,
-                    component_id, buf_len, (gchar *) buf, io_user_data);
+        io_callback(agent, stream_id, component_id, buf_len, (gchar *) buf, io_user_data);
         agent_lock();
     }
     else
@@ -891,235 +887,6 @@ static void component_deschedule_io_callback(Component * component)
 
     g_source_remove(component->io_callback_id);
     component->io_callback_id = 0;
-}
-
-/**
- * ComponentSource:
- *
- * This is a GSource which wraps a single Component and is dispatched whenever
- * any of its NiceSockets are dispatched, i.e. it proxies all poll() events for
- * every socket in the Component. It is designed for use by GPollableInputStream
- * and GPollableOutputStream, so that a Component can be incorporated into a
- * custom main context iteration.
- *
- * The callbacks dispatched by a ComponentSource have type GPollableSourceFunc.
- *
- * ComponentSource supports adding a GCancellable child source which will
- * additionally dispatch if a provided GCancellable is cancelled.
- *
- * Internally, ComponentSource adds a new GSocketSource for each socket in the
- * Component. Changes to the Component?s list of sockets are detected on each
- * call to component_source_prepare(), which compares a stored age with the
- * current age of the Component?s socket list ? if the socket list has changed,
- * the age will have increased (indicating added sockets) or will have been
- * reset to 0 (indicating all sockets have been closed).
- */
-typedef struct
-{
-    GSource parent;
-
-    GObject * pollable_stream; /* owned */
-
-    GWeakRef agent_ref;
-    uint32_t stream_id;
-    uint32_t component_id;
-    uint32_t component_socket_sources_age;
-
-    /* SocketSource, free with free_child_socket_source() */
-    GSList * socket_sources;
-
-    GIOCondition condition;
-} ComponentSource;
-
-static int component_source_prepare(GSource * source, int32_t * timeout_)
-{
-    ComponentSource * component_source = (ComponentSource *) source;
-    NiceAgent * agent;
-    Component * component;
-    GSList * parentl, *childl;
-
-    agent = g_weak_ref_get(&component_source->agent_ref);
-    if (!agent)
-        return FALSE;
-
-    /* Needed due to accessing the Component. */
-    agent_lock();
-
-    if (!agent_find_component(agent, component_source->stream_id, component_source->component_id, NULL, &component))
-        goto done;
-
-
-    if (component->socket_sources_age == component_source->component_socket_sources_age)
-        goto done;
-
-    /* If the age has changed, either
-     *  - one or more new socket has been prepended
-     *  - old sockets have been removed
-     */
-
-    /* Add the new child sources. */
-
-    for (parentl = component->socket_sources; parentl; parentl = parentl->next)
-    {
-        SocketSource * parent_socket_source = parentl->data;
-        SocketSource * child_socket_source;
-
-        /* Iterating the list of socket sources every time isn't a big problem
-         * because the number of pairs is limited ~100 normally, so there will
-         * rarely be more than 10.
-         */
-        childl = g_slist_find_custom(component_source->socket_sources, parent_socket_source->socket, _find_socket_source);
-
-        /* If we have reached this state, then all sources new sources have been
-         * added, because they are always prepended.
-         */
-        if (childl)
-            break;
-
-        child_socket_source = g_slice_new0(SocketSource);
-        child_socket_source->socket = parent_socket_source->socket;
-        child_socket_source->source = g_socket_create_source(child_socket_source->socket->fileno, G_IO_IN, NULL);
-        g_source_set_dummy_callback(child_socket_source->source);
-        g_source_add_child_source(source, child_socket_source->source);
-        g_source_unref(child_socket_source->source);
-        component_source->socket_sources = g_slist_prepend(component_source->socket_sources, child_socket_source);
-    }
-
-    for (childl = component_source->socket_sources; childl;)
-    {
-        SocketSource * child_socket_source = childl->data;
-        GSList * next = childl->next;
-
-        parentl = g_slist_find_custom(component->socket_sources, child_socket_source->socket, _find_socket_source);
-
-        /* If this is not a currently used socket, remove the relevant source */
-        if (!parentl)
-        {
-            g_source_remove_child_source(source, child_socket_source->source);
-            g_slice_free(SocketSource, child_socket_source);
-            component_source->socket_sources = g_slist_delete_link(component_source->socket_sources, childl);
-        }
-
-        childl = next;
-    }
-
-	/* Update the age. */
-    component_source->component_socket_sources_age = component->socket_sources_age;
-
-done:
-
-    agent_unlock_and_emit(agent);
-    g_object_unref(agent);
-
-    /* We can?t be sure if the ComponentSource itself needs to be dispatched until
-     * poll() is called on all the child sources. */
-    return FALSE;
-}
-
-static int component_source_dispatch(GSource * source, GSourceFunc callback, void * user_data)
-{
-    ComponentSource * component_source = (ComponentSource *) source;
-    GPollableSourceFunc func = (GPollableSourceFunc) callback;
-
-    return func(component_source->pollable_stream, user_data);
-}
-
-static void free_child_socket_source(void * data)
-{
-    g_slice_free(SocketSource, data);
-}
-
-static void component_source_finalize(GSource * source)
-{
-    ComponentSource * component_source = (ComponentSource *) source;
-
-    g_slist_free_full(component_source->socket_sources, free_child_socket_source);
-
-    g_weak_ref_clear(&component_source->agent_ref);
-    g_object_unref(component_source->pollable_stream);
-    component_source->pollable_stream = NULL;
-}
-
-static int component_source_closure_callback(GObject * pollable_stream, void * user_data)
-{
-    GClosure * closure = user_data;
-    GValue param_value = G_VALUE_INIT;
-    GValue result_value = G_VALUE_INIT;
-    int retval;
-
-    g_value_init(&result_value, G_TYPE_BOOLEAN);
-    g_value_init(&param_value, G_TYPE_OBJECT);
-    g_value_set_object(&param_value, pollable_stream);
-
-    g_closure_invoke(closure, &result_value, 1, &param_value, NULL);
-    retval = g_value_get_boolean(&result_value);
-
-    g_value_unset(&param_value);
-    g_value_unset(&result_value);
-
-    return retval;
-}
-
-static GSourceFuncs component_source_funcs =
-{
-    component_source_prepare,
-    NULL,  /* check */
-    component_source_dispatch,
-    component_source_finalize,
-    (GSourceFunc) component_source_closure_callback,
-};
-
-/**
- * component_source_new:
- * @agent: a #NiceAgent
- * @stream_id: The stream's id
- * @component_id: The component's number
- * @pollable_stream: a #GPollableInputStream or #GPollableOutputStream to pass
- * to dispatched callbacks
- * @cancellable: (allow-none): a #GCancellable, or %NULL
- *
- * Create a new #ComponentSource, a type of #GSource which proxies poll events
- * from all sockets in the given @component.
- *
- * A callback function of type #GPollableSourceFunc must be connected to the
- * returned #GSource using g_source_set_callback(). @pollable_stream is passed
- * to all callbacks dispatched from the #GSource, and a reference is held on it
- * by the #GSource.
- *
- * The #GSource will automatically update to poll sockets as they?re added to
- * the @component (e.g. during peer discovery).
- *
- * Returns: (transfer full): a new #ComponentSource; unref with g_source_unref()
- */
-GSource * component_input_source_new(NiceAgent * agent, uint32_t stream_id,
-                           uint32_t component_id, GPollableInputStream * pollable_istream,
-                           GCancellable * cancellable)
-{
-    ComponentSource * component_source;
-
-    g_assert(G_IS_POLLABLE_INPUT_STREAM(pollable_istream));
-
-    component_source = (ComponentSource *) g_source_new(&component_source_funcs, sizeof(ComponentSource));
-
-    g_source_set_name((GSource *) component_source, "ComponentSource");
-    component_source->component_socket_sources_age = 0;
-    component_source->pollable_stream = g_object_ref(pollable_istream);
-    g_weak_ref_init(&component_source->agent_ref, agent);
-    component_source->stream_id = stream_id;
-    component_source->component_id = component_id;
-
-    /* Add a cancellable source. */
-    if (cancellable != NULL)
-    {
-        GSource * cancellable_source;
-
-        cancellable_source = g_cancellable_source_new(cancellable);
-        g_source_set_dummy_callback(cancellable_source);
-        g_source_add_child_source((GSource *) component_source, cancellable_source);
-        g_source_unref(cancellable_source);
-    }
-
-    return (GSource *) component_source;
 }
 
 TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password, NiceRelayType type)

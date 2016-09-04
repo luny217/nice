@@ -21,9 +21,9 @@
 #include <gio/gnetworking.h>
 
 static GMainLoop * gloop;
-static gchar * stun_addr = "107.191.106.104";
+static char * stun_addr = "107.191.106.104";
 static uint32_t stun_port = 3478;
-static int controlling = 1;
+static int controlling = 0;
 static int exit_thread, candidate_gathering_done, negotiation_done;
 static GMutex gather_mutex, negotiate_mutex;
 static GCond gather_cond, negotiate_cond;
@@ -100,10 +100,13 @@ static void * example_thread(void * data)
     // Set the STUN settings and controlling mode
     if (stun_addr)
     {
-        g_object_set(agent, "stun-server", stun_addr, NULL);
-        g_object_set(agent, "stun-server-port", stun_port, NULL);
+        //g_object_set(agent, "stun-server", stun_addr, NULL);
+        //g_object_set(agent, "stun-server-port", stun_port, NULL);
+		agent->stun_server_ip = stun_addr;
+		agent->stun_server_port = stun_port;
     }
-    g_object_set(agent, "controlling-mode", controlling, NULL);
+    //g_object_set(agent, "controlling-mode", controlling, NULL);
+	agent->controlling_mode = controlling;
 
     // Connect to the signals
     g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_candidate_gathering_done), NULL);

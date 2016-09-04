@@ -1,2 +1,0 @@
----- nice_agent_class_init Matches (1 in 1 files) ----
-Agent.c (agent):static void nice_agent_class_init(NiceAgentClass * klass)

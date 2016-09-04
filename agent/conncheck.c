@@ -626,8 +626,7 @@ static int priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
                                              component->id, p->remote, p->local, uname, sizeof(uname),
                                              FALSE);
                     uint8_t * password = NULL;
-                    size_t password_len = priv_get_password(agent,
-                                                            agent_find_stream(agent, stream->id), p->remote, &password);
+                    size_t password_len = priv_get_password(agent, agent_find_stream(agent, stream->id), p->remote, &password);
 
                     priority = peer_reflexive_candidate_priority(agent, p->local);
 

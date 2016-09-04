@@ -371,23 +371,6 @@ typedef void (*NiceAgentRecvFunc)(NiceAgent * agent, uint32_t stream_id, uint32_
 NiceAgent * nice_agent_new(GMainContext * ctx);
 
 /**
- * nice_agent_new_reliable:
- * @ctx: The Glib Mainloop Context to use for timers
- * @compat: The compatibility mode of the agent
- *
- * Create a new #NiceAgent in reliable mode. If the connectivity is established
- * through ICE-UDP, then a #PseudoTcpSocket will be transparently used to
- * ensure reliability of the messages.
- * The returned object must be freed with g_object_unref()
- * <para> See also: #NiceAgent::reliable-transport-writable </para>
- *
- * Since: 0.0.11
- *
- * Returns: The new agent GObject
- */
-NiceAgent * nice_agent_new_reliable(GMainContext * ctx);
-
-/**
  * nice_agent_add_local_address:
  * @agent: The #NiceAgent Object
  * @addr: The address to listen to
