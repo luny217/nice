@@ -37,8 +37,6 @@ typedef struct
 void nice_input_message_iter_reset(NiceInputMessageIter * iter);
 int nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, NiceInputMessage * messages, uint32_t n_messages);
 uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter);
-int nice_input_message_iter_compare(const NiceInputMessageIter * a, const NiceInputMessageIter * b);
-
 
 #include "socket.h"
 #include "candidate.h"
@@ -67,7 +65,7 @@ struct _NiceAgent
 {
     GObject parent;                 /* gobject pointer */
     int32_t full_mode;             /* property: full-mode */
-    GTimeVal next_check_tv;         /* property: next conncheck timestamp */
+    g_time_val next_check_tv;         /* property: next conncheck timestamp */
     char * stun_server_ip;         /* property: STUN server IP */
     uint32_t stun_server_port;         /* property: STUN server port */
     int32_t controlling_mode;      /* property: controlling-mode */

@@ -5,6 +5,7 @@
 
 /* note: this is a private header to libnice */
 
+#include "base.h"
 #include "stream.h"
 #include "agent.h"
 
@@ -14,7 +15,7 @@ typedef struct
     NiceCandidateType type;   /* candidate type STUN or TURN */
     NiceSocket * nicesock; /* XXX: should be taken from local cand: existing socket to use */
     NiceAddress server;       /* STUN/TURN server address */
-    GTimeVal next_tick;       /* next tick timestamp */
+	g_time_val next_tick;       /* next tick timestamp */
     int pending;         /* is discovery in progress? */
     int done;            /* is discovery complete? */
     Stream * stream;

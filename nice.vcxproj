@@ -20,7 +20,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -44,8 +44,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>.\glib\lib\glib-2.0\include;.\glib\include\glib-2.0;.\glib\include;.\socket;.;.\stun;.\random;.\agent;$(IncludePath)</IncludePath>
-    <LibraryPath>.\glib\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>.\third\include\glib-2.0;.\socket;.;.\stun;.\random;.\agent;.\glib;$(IncludePath)</IncludePath>
+    <LibraryPath>.\third\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -56,13 +56,14 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HAVE_CONFIG_H;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HAVE_CONFIG_H;_CRT_SECURE_NO_WARNINGS;PCRE_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>iphlpapi.lib;ws2_32.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;ws2_32.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;gmodule-2.0.lib;gthread-2.0.lib;libffi.lib;libiconv.lib;libintl.lib;zlib.lib;Winmm.lib;Dnsapi.lib;pcred.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/NODEFAULTLIB:library %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -93,6 +94,8 @@
     <ClCompile Include="agent\interfaces.c" />
     <ClCompile Include="agent\pseudotcp.c" />
     <ClCompile Include="agent\stream.c" />
+    <ClCompile Include="glib\base.c" />
+    <ClCompile Include="glib\nlist.c" />
     <ClCompile Include="random\random-glib.c" />
     <ClCompile Include="random\random.c" />
     <ClCompile Include="socket\socket.c" />
@@ -126,6 +129,8 @@
     <ClInclude Include="agent\interfaces.h" />
     <ClInclude Include="agent\pseudotcp.h" />
     <ClInclude Include="agent\stream.h" />
+    <ClInclude Include="glib\base.h" />
+    <ClInclude Include="glib\nlist.h" />
     <ClInclude Include="random\random-glib.h" />
     <ClInclude Include="random\random.h" />
     <ClInclude Include="socket\socket-priv.h" />

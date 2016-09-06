@@ -69,12 +69,11 @@ Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
     Component * component;
 
     g_atomic_int_inc(&n_components_created);
-    nice_debug("Created NiceComponent (%u created, %u destroyed)",
-               n_components_created, n_components_destroyed);
+    nice_debug("Created NiceComponent (%u created, %u destroyed)", n_components_created, n_components_destroyed);
 
     component = g_slice_new0(Component);
     component->id = id;
-    component->state = NICE_COMPONENT_STATE_DISCONNECTED;
+    component->state = COMPONENT_STATE_DISCONNECTED;
     component->restart_candidate = NULL;
     component->tcp = NULL;
     component->agent = agent;
@@ -116,7 +115,7 @@ void component_clean_turn_servers(Component * cmp)
         NiceCandidate * candidate = i->data;
         GSList * next = i->next;
 
-        if (candidate->type != NICE_CANDIDATE_TYPE_RELAYED)
+        if (candidate->type != CANDIDATE_TYPE_RELAYED)
         {
             i = next;
             continue;
@@ -291,7 +290,7 @@ component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundatio
     for (i = cmp->local_candidates; i; i = i->next)
     {
         NiceCandidate * candidate = i->data;
-        if (strncmp(candidate->foundation, lfoundation, NICE_CANDIDATE_MAX_FOUNDATION) == 0)
+        if (strncmp(candidate->foundation, lfoundation, CANDIDATE_MAX_FOUNDATION) == 0)
         {
             result.local = candidate;
             break;
@@ -301,7 +300,7 @@ component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundatio
     for (i = cmp->remote_candidates; i; i = i->next)
     {
         NiceCandidate * candidate = i->data;
-        if (strncmp(candidate->foundation, rfoundation, NICE_CANDIDATE_MAX_FOUNDATION) == 0)
+        if (strncmp(candidate->foundation, rfoundation, CANDIDATE_MAX_FOUNDATION) == 0)
         {
             result.remote = candidate;
             break;
@@ -433,11 +432,11 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     for (item = component->local_candidates; item; item = g_slist_next(item))
     {
         NiceCandidate * tmp = item->data;
-        guint64 tmp_prio = 0;
+        uint64_t tmp_prio = 0;
 
         if (tmp->transport != candidate->transport ||
                 tmp->addr.s.addr.sa_family != candidate->addr.s.addr.sa_family ||
-                tmp->type != NICE_CANDIDATE_TYPE_HOST)
+                tmp->type != CANDIDATE_TYPE_HOST)
             continue;
 
         tmp_prio = agent_candidate_pair_priority(agent, tmp, candidate);
@@ -452,14 +451,12 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     if (local == NULL)
         return NULL;
 
-    remote = component_find_remote_candidate(component, &candidate->addr,
-             candidate->transport);
+    remote = component_find_remote_candidate(component, &candidate->addr, candidate->transport);
 
     if (!remote)
     {
         remote = nice_candidate_copy(candidate);
-        component->remote_candidates = g_slist_append(component->remote_candidates,
-                                       remote);
+        component->remote_candidates = g_slist_append(component->remote_candidates, remote);
         agent_signal_new_remote_candidate(agent, remote);
     }
 
@@ -472,8 +469,7 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     return local;
 }
 
-static int32_t
-_find_socket_source(gconstpointer a, gconstpointer b)
+static int32_t _find_socket_source(gconstpointer a, gconstpointer b)
 {
     const SocketSource * source_a = a;
     const NiceSocket * socket_b = b;
@@ -574,8 +570,7 @@ component_detach_socket(Component * component, NiceSocket * nicesock)
     }
 
     /* Find the SocketSource for the socket. */
-    l = g_slist_find_custom(component->socket_sources, nicesock,
-                            _find_socket_source);
+    l = g_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
     if (l == NULL)
         return;
 
@@ -595,27 +590,23 @@ component_detach_socket(Component * component, NiceSocket * nicesock)
  * Must *not* take the agent lock, since it?s called from within
  * component_set_io_context(), which holds the Component?s I/O lock.
  */
-void
-component_detach_all_sockets(Component * component)
+void component_detach_all_sockets(Component * component)
 {
     GSList * i;
 
     for (i = component->socket_sources; i != NULL; i = i->next)
     {
         SocketSource * socket_source = i->data;
-        nice_debug("Detach source %p, socket %p.", socket_source->source,
-                   socket_source->socket);
+        nice_debug("Detach source %p, socket %p.", socket_source->source,  socket_source->socket);
         socket_source_detach(socket_source);
     }
 }
 
-void
-component_free_socket_sources(Component * component)
+void component_free_socket_sources(Component * component)
 {
     nice_debug("Free socket sources for component %p.", component);
 
-    g_slist_free_full(component->socket_sources,
-                      (GDestroyNotify) socket_source_free);
+    g_slist_free_full(component->socket_sources,  (GDestroyNotify) socket_source_free);
     component->socket_sources = NULL;
     component->socket_sources_age++;
 

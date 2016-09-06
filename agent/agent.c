@@ -628,6 +628,7 @@ static void nice_agent_init(NiceAgent * agent)
     agent->reliable = TRUE;
     agent->use_ice_udp = TRUE;
     agent->use_ice_tcp = FALSE;
+	agent->full_mode = TRUE;
 
     agent->rng = nice_rng_new();
     priv_generate_tie_breaker(agent);
@@ -826,7 +827,7 @@ static void pseudo_tcp_socket_create(NiceAgent * agent, Stream * stream, Compone
                                        };
     component->tcp = pseudo_tcp_socket_new(0, &tcp_callbacks);
     component->tcp_writable_cancellable = g_cancellable_new();
-    nice_debug("Agent %p: Create Pseudo Tcp Socket for component %d", agent, component->id);
+    nice_debug("Agent %p : Create Pseudo Tcp Socket for component %d", agent, component->id);
 }
 
 static void priv_pseudo_tcp_error(NiceAgent * agent, Stream * stream,
@@ -840,8 +841,7 @@ static void priv_pseudo_tcp_error(NiceAgent * agent, Stream * stream,
 
     if (component->tcp)
     {
-        agent_signal_component_state_change(agent, stream->id,
-                                            component->id, NICE_COMPONENT_STATE_FAILED);
+        agent_signal_component_state_change(agent, stream->id, component->id, COMPONENT_STATE_FAILED);
         component_detach_all_sockets(component);
         pseudo_tcp_socket_close(component->tcp, TRUE);
     }
@@ -1319,13 +1319,13 @@ static const char * _transport_to_string(NiceCandidateTransport type)
 {
     switch (type)
     {
-        case NICE_CANDIDATE_TRANSPORT_UDP:
+        case CANDIDATE_TRANSPORT_UDP:
             return "UDP";
-        case NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE:
+        case CANDIDATE_TRANSPORT_TCP_ACTIVE:
             return "TCP-ACT";
-        case NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE:
+        case CANDIDATE_TRANSPORT_TCP_PASSIVE:
             return "TCP-PASS";
-        case NICE_CANDIDATE_TRANSPORT_TCP_SO:
+        case CANDIDATE_TRANSPORT_TCP_SO:
             return "TCP-SO";
         default:
             return "???";
@@ -1495,13 +1495,13 @@ void agent_signal_new_selected_pair(NiceAgent * agent, uint32_t stream_id,
 
         nice_debug("Agent %p: Local selected pair: %d:%d %s %s %s:%d %s",
                    agent, stream_id, component_id, lcandidate->foundation,                   
-                   lcandidate->transport == NICE_CANDIDATE_TRANSPORT_UDP ? "UDP" : "???",
-                   ip, port, lcandidate->type == NICE_CANDIDATE_TYPE_HOST ? "HOST" :
-                   lcandidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE ?
+                   lcandidate->transport == CANDIDATE_TRANSPORT_UDP ? "UDP" : "???",
+                   ip, port, lcandidate->type == CANDIDATE_TYPE_HOST ? "HOST" :
+                   lcandidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ?
                    "SRV-RFLX" :
-                   lcandidate->type == NICE_CANDIDATE_TYPE_RELAYED ?
+                   lcandidate->type == CANDIDATE_TYPE_RELAYED ?
                    "RELAYED" :
-                   lcandidate->type == NICE_CANDIDATE_TYPE_PEER_REFLEXIVE ?
+                   lcandidate->type == CANDIDATE_TYPE_PEER_REFLEXIVE ?
                    "PEER-RFLX" : "???");
 
         port = nice_address_get_port(&rcandidate->addr);
@@ -1509,13 +1509,13 @@ void agent_signal_new_selected_pair(NiceAgent * agent, uint32_t stream_id,
 
         nice_debug("Agent %p: Remote selected pair: %d:%d %s %s %s:%d %s",
                    agent, stream_id, component_id, rcandidate->foundation,
-                   rcandidate->transport == NICE_CANDIDATE_TRANSPORT_UDP ? "UDP" : "???",
-                   ip, port, rcandidate->type == NICE_CANDIDATE_TYPE_HOST ? "HOST" :
-                   rcandidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE ?
+                   rcandidate->transport == CANDIDATE_TRANSPORT_UDP ? "UDP" : "???",
+                   ip, port, rcandidate->type == CANDIDATE_TYPE_HOST ? "HOST" :
+                   rcandidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ?
                    "SRV-RFLX" :
-                   rcandidate->type == NICE_CANDIDATE_TYPE_RELAYED ?
+                   rcandidate->type == CANDIDATE_TYPE_RELAYED ?
                    "RELAYED" :
-                   rcandidate->type == NICE_CANDIDATE_TYPE_PEER_REFLEXIVE ?
+                   rcandidate->type == CANDIDATE_TYPE_PEER_REFLEXIVE ?
                    "PEER-RFLX" : "???");
     }
 
@@ -1548,19 +1548,19 @@ const char * nice_component_state_to_string(NiceComponentState state)
 {
     switch (state)
     {
-        case NICE_COMPONENT_STATE_DISCONNECTED:
+        case COMPONENT_STATE_DISCONNECTED:
             return "disconnected";
-        case NICE_COMPONENT_STATE_GATHERING:
+        case COMPONENT_STATE_GATHERING:
             return "gathering";
-        case NICE_COMPONENT_STATE_CONNECTING:
+        case COMPONENT_STATE_CONNECTING:
             return "connecting";
-        case NICE_COMPONENT_STATE_CONNECTED:
+        case COMPONENT_STATE_CONNECTED:
             return "connected";
-        case NICE_COMPONENT_STATE_READY:
+        case COMPONENT_STATE_READY:
             return "ready";
-        case NICE_COMPONENT_STATE_FAILED:
+        case COMPONENT_STATE_FAILED:
             return "failed";
-        case NICE_COMPONENT_STATE_LAST:
+        case COMPONENT_STATE_LAST:
         default:
             return "invalid";
     }
@@ -1574,7 +1574,7 @@ void agent_signal_component_state_change(NiceAgent * agent, uint32_t stream_id, 
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return;
 
-    if (component->state != state && state < NICE_COMPONENT_STATE_LAST)
+    if (component->state != state && state < COMPONENT_STATE_LAST)
     {
         nice_debug("Agent %p : stream %u component %u STATE-CHANGE %s -> %s.", agent,
                    stream_id, component_id, nice_component_state_to_string(component->state),
@@ -1608,7 +1608,7 @@ static void priv_add_new_candidate_discovery_stun(NiceAgent * agent,
 
     cdisco = g_slice_new0(CandidateDiscovery);
 
-    cdisco->type = NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE;
+    cdisco->type = CANDIDATE_TYPE_SERVER_REFLEXIVE;
     cdisco->nicesock = nicesock;
     cdisco->server = server;
     cdisco->stream = stream;
@@ -1634,7 +1634,7 @@ static void priv_add_new_candidate_discovery_turn(NiceAgent * agent,
      *       done later on in the process */
 
     cdisco = g_slice_new0(CandidateDiscovery);
-    cdisco->type = NICE_CANDIDATE_TYPE_RELAYED;
+    cdisco->type = CANDIDATE_TYPE_RELAYED;
     cdisco->nicesock = nicesock;
     cdisco->turn = turn_server_ref(turn);
     cdisco->server = turn->server;
@@ -1706,7 +1706,7 @@ int nice_agent_set_relay_info(NiceAgent * agent, uint32_t stream_id, uint32_t co
     g_return_val_if_fail(server_port, FALSE);
     g_return_val_if_fail(username, FALSE);
     g_return_val_if_fail(password, FALSE);
-    g_return_val_if_fail(type <= NICE_RELAY_TYPE_TURN_TLS, FALSE);
+    g_return_val_if_fail(type <= RELAY_TYPE_TURN_TLS, FALSE);
 
     agent_lock();
 
@@ -1740,7 +1740,7 @@ int nice_agent_set_relay_info(NiceAgent * agent, uint32_t stream_id, uint32_t co
         {
             NiceCandidate * candidate = i->data;
 
-            if (candidate->type == NICE_CANDIDATE_TYPE_HOST)
+            if (candidate->type == CANDIDATE_TYPE_HOST)
                 priv_add_new_candidate_discovery_turn(agent, candidate->sockptr, turn, stream, component_id);
         }
 
@@ -1762,10 +1762,7 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
     GSList * local_addresses = NULL;
     int32_t ret = TRUE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
-
-    agent_lock();
+	agent_lock();
 
     stream = agent_find_stream(agent, stream_id);
     if (stream == NULL)
@@ -1780,8 +1777,6 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
         agent_unlock_and_emit(agent);
         return TRUE;
     }
-
-    nice_debug("Agent %p : In %s mode, starting candidate gathering.", agent, agent->full_mode ? "ICE-FULL" : "ICE-LITE");
 
     /* if no local addresses added, generate them ourselves */
     if (agent->local_addresses == NULL)
@@ -1851,7 +1846,7 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
                         (agent->use_ice_tcp == FALSE && add_type != ADD_HOST_UDP))
                     continue;
 
-				transport = NICE_CANDIDATE_TRANSPORT_UDP;
+				transport = CANDIDATE_TRANSPORT_UDP;
                 start_port = component->min_port;
                 if (component->min_port != 0)
                 {
@@ -2127,8 +2122,7 @@ static int32_t priv_add_remote_candidate(
             candidate->base_addr = *base_addr;
         candidate->priority = priority;
         if (foundation)
-            g_strlcpy(candidate->foundation, foundation,
-                      NICE_CANDIDATE_MAX_FOUNDATION);
+            g_strlcpy(candidate->foundation, foundation, CANDIDATE_MAX_FOUNDATION);
         /* note: username and password must remain the same during
          *       a session; see sect 9.1.2 in ICE ID-19 */
 
@@ -2154,7 +2148,7 @@ static int32_t priv_add_remote_candidate(
     {
         /* case 2: add a new candidate */
 
-        if (type == NICE_CANDIDATE_TYPE_PEER_REFLEXIVE)
+        if (type == CANDIDATE_TYPE_PEER_REFLEXIVE)
         {
             nice_debug("Agent %p : Warning: ignoring externally set peer-reflexive candidate!", agent);
             return FALSE;
@@ -2190,8 +2184,7 @@ static int32_t priv_add_remote_candidate(
         candidate->password = g_strdup(password);
 
         if (foundation)
-            g_strlcpy(candidate->foundation, foundation,
-                      NICE_CANDIDATE_MAX_FOUNDATION);
+            g_strlcpy(candidate->foundation, foundation, CANDIDATE_MAX_FOUNDATION);
     }
 
     if (conn_check_add_for_candidate(agent, stream_id, component, candidate) < 0)
@@ -2448,7 +2441,7 @@ static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream
         {
             NiceCandidate * cand = i->data;
 
-            if (cand->type == NICE_CANDIDATE_TYPE_RELAYED &&
+            if (cand->type == CANDIDATE_TYPE_RELAYED &&
                     cand->stream_id == stream->id &&
                     cand->component_id == component->id)
             {
@@ -3079,10 +3072,10 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
         nice_debug("Agent %p: NiceSocket %p has received HUP", agent,  socket_source->socket);
         if (component->selected_pair.local &&
                 component->selected_pair.local->sockptr == socket_source->socket &&
-                component->state == NICE_COMPONENT_STATE_READY)
+                component->state == COMPONENT_STATE_READY)
         {
             nice_debug("Agent %p: Selected pair socket %p has HUP, declaring failed", agent, socket_source->socket);
-            agent_signal_component_state_change(agent, stream->id, component->id, NICE_COMPONENT_STATE_FAILED);
+            agent_signal_component_state_change(agent, stream->id, component->id, COMPONENT_STATE_FAILED);
         }
 
         component_detach_socket(component, socket_source->socket);
@@ -3367,7 +3360,7 @@ int32_t nice_agent_set_selected_pair(NiceAgent * agent, uint32_t stream_id, uint
     }
 
     /* step: change component state */
-    agent_signal_component_state_change(agent, stream_id, component_id, NICE_COMPONENT_STATE_READY);
+    agent_signal_component_state_change(agent, stream_id, component_id, COMPONENT_STATE_READY);
 
     /* step: set the selected pair */
     component_update_selected_pair(component, &pair);
@@ -3436,11 +3429,11 @@ GSocket * nice_agent_get_selected_socket(NiceAgent * agent, uint32_t stream_id, 
     if (!component->selected_pair.local || !component->selected_pair.remote)
         goto done;
 
-    if (component->selected_pair.local->type == NICE_CANDIDATE_TYPE_RELAYED)
+    if (component->selected_pair.local->type == CANDIDATE_TYPE_RELAYED)
         goto done;
 
     /* ICE-TCP requires RFC4571 framing, even if unreliable */
-    if (component->selected_pair.local->transport != NICE_CANDIDATE_TRANSPORT_UDP)
+    if (component->selected_pair.local->transport != CANDIDATE_TRANSPORT_UDP)
         goto done;
 
     nice_socket = (NiceSocket *)component->selected_pair.local->sockptr;
@@ -3534,7 +3527,7 @@ int32_t nice_agent_set_selected_remote_candidate(NiceAgent * agent, uint32_t str
     }
 
     /* step: change component state */
-    agent_signal_component_state_change(agent, stream_id, component_id, NICE_COMPONENT_STATE_READY);
+    agent_signal_component_state_change(agent, stream_id, component_id, COMPONENT_STATE_READY);
     agent_signal_new_selected_pair(agent, stream_id, component_id, lcandidate, candidate);
 
     ret = TRUE;
@@ -3694,9 +3687,7 @@ static NiceCandidate * _get_default_local_candidate_locked(NiceAgent * agent, St
                 default_candidate = local_candidate;
             }
         }
-        else if (strncmp(local_candidate->foundation,
-                         default_rtp_candidate->foundation,
-                         NICE_CANDIDATE_MAX_FOUNDATION) == 0)
+        else if (strncmp(local_candidate->foundation, default_rtp_candidate->foundation, CANDIDATE_MAX_FOUNDATION) == 0)
         {
             default_candidate = local_candidate;
             break;
@@ -3797,7 +3788,7 @@ int32_t agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t 
 
 NiceComponentState nice_agent_get_component_state(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
 {
-    NiceComponentState state = NICE_COMPONENT_STATE_FAILED;
+    NiceComponentState state = COMPONENT_STATE_FAILED;
     Component * component;
 
     agent_lock();

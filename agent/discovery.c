@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "base.h"
 #include "debug.h"
 #include "agent.h"
 #include "agent-priv.h"
@@ -19,7 +20,7 @@
 #include "stun/usages/turn.h"
 #include "socket.h"
 
-static inline int priv_timer_expired(GTimeVal * timer, GTimeVal * now)
+static inline int priv_timer_expired(g_time_val * timer, g_time_val * now)
 {
     return (now->tv_sec == timer->tv_sec) ?
            now->tv_usec >= timer->tv_usec :
@@ -298,19 +299,17 @@ static uint32_t priv_highest_remote_foundation(Component * component)
 {
     GSList * i;
     uint32_t highest = 1;
-    gchar foundation[NICE_CANDIDATE_MAX_FOUNDATION];
+    char foundation[CANDIDATE_MAX_FOUNDATION];
 
     for (highest = 1;; highest++)
     {
         int taken = FALSE;
 
-        g_snprintf(foundation, NICE_CANDIDATE_MAX_FOUNDATION, "remote-%u",
-                   highest);
+        g_snprintf(foundation, CANDIDATE_MAX_FOUNDATION, "remote-%u",  highest);
         for (i = component->remote_candidates; i; i = i->next)
         {
             NiceCandidate * cand = i->data;
-            if (strncmp(foundation, cand->foundation,
-                        NICE_CANDIDATE_MAX_FOUNDATION) == 0)
+            if (strncmp(foundation, cand->foundation, CANDIDATE_MAX_FOUNDATION) == 0)
             {
                 taken = TRUE;
                 break;
@@ -365,14 +364,14 @@ static void priv_assign_foundation(NiceAgent * agent, NiceCandidate * candidate)
                         candidate->transport == n->transport &&
                         candidate->stream_id == n->stream_id &&
                         nice_address_equal_no_port(&candidate->base_addr, &n->base_addr) &&
-                        (candidate->type != NICE_CANDIDATE_TYPE_RELAYED ||
+                        (candidate->type != CANDIDATE_TYPE_RELAYED ||
                          priv_compare_turn_servers(candidate->turn, n->turn)))
                 {
                     /* note: currently only one STUN server per stream at a
                      *       time is supported, so there is no need to check
                      *       for candidates that would otherwise share the
                      *       foundation, but have different STUN servers */
-                    g_strlcpy(candidate->foundation, n->foundation, NICE_CANDIDATE_MAX_FOUNDATION);
+                    g_strlcpy(candidate->foundation, n->foundation, CANDIDATE_MAX_FOUNDATION);
                     if (n->username)
                     {
                         g_free(candidate->username);
@@ -389,7 +388,7 @@ static void priv_assign_foundation(NiceAgent * agent, NiceCandidate * candidate)
         }
     }
 
-    g_snprintf(candidate->foundation, NICE_CANDIDATE_MAX_FOUNDATION, "%u", agent->next_candidate_id++);
+    g_snprintf(candidate->foundation, CANDIDATE_MAX_FOUNDATION, "%u", agent->next_candidate_id++);
 }
 
 static void priv_assign_remote_foundation(NiceAgent * agent, NiceCandidate * candidate)
@@ -423,8 +422,7 @@ static void priv_assign_remote_foundation(NiceAgent * agent, NiceCandidate * can
                     /* note: No need to check for STUN/TURN servers, as these candidate
                          * will always be peer reflexive, never relayed or serve reflexive.
                          */
-                    g_strlcpy(candidate->foundation, n->foundation,
-                              NICE_CANDIDATE_MAX_FOUNDATION);
+                    g_strlcpy(candidate->foundation, n->foundation, CANDIDATE_MAX_FOUNDATION);
                     if (n->username)
                     {
                         g_free(candidate->username);
@@ -444,15 +442,11 @@ static void priv_assign_remote_foundation(NiceAgent * agent, NiceCandidate * can
     if (component)
     {
         next_remote_id = priv_highest_remote_foundation(component);
-        g_snprintf(candidate->foundation, NICE_CANDIDATE_MAX_FOUNDATION,
-                   "remote-%u", next_remote_id);
+        g_snprintf(candidate->foundation, CANDIDATE_MAX_FOUNDATION, "remote-%u", next_remote_id);
     }
 }
 
-
-static
-void priv_generate_candidate_credentials(NiceAgent * agent,
-        NiceCandidate * candidate)
+static void priv_generate_candidate_credentials(NiceAgent * agent,  NiceCandidate * candidate)
 {
 
     if (agent->compatibility == NICE_COMPATIBILITY_MSN ||
@@ -507,15 +501,15 @@ HostCandidateResult discovery_add_local_host_candidate(
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return res;
 
-    candidate = nice_candidate_new(NICE_CANDIDATE_TYPE_HOST);
-    candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;
+    candidate = nice_candidate_new(CANDIDATE_TYPE_HOST);
+    candidate->transport = CANDIDATE_TRANSPORT_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = component_id;
     candidate->addr = *address;
     candidate->base_addr = *address;    
     candidate->priority = nice_candidate_ice_priority(candidate);
 
-    priv_generate_candidate_credentials(agent, candidate);
+    //priv_generate_candidate_credentials(agent, candidate);
     priv_assign_foundation(agent, candidate);
 
     nicesock = nice_udp_bsd_socket_new(address);   
@@ -570,8 +564,8 @@ NiceCandidate * discovery_add_server_reflexive_candidate(
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return NULL;
 
-    candidate = nice_candidate_new(NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE);
-	candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;
+    candidate = nice_candidate_new(CANDIDATE_TYPE_SERVER_REFLEXIVE);
+	candidate->transport = CANDIDATE_TRANSPORT_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = component_id;
     candidate->addr = *address;
@@ -581,7 +575,7 @@ NiceCandidate * discovery_add_server_reflexive_candidate(
     candidate->sockptr = base_socket;
     candidate->base_addr = base_socket->addr;
 
-    priv_generate_candidate_credentials(agent, candidate);
+    //priv_generate_candidate_credentials(agent, candidate);
     priv_assign_foundation(agent, candidate);
 
     result = priv_add_local_candidate_pruned(agent, stream_id, component, candidate);
@@ -620,8 +614,8 @@ NiceCandidate * discovery_add_relay_candidate(
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return NULL;
 
-    candidate = nice_candidate_new(NICE_CANDIDATE_TYPE_RELAYED);
-    candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;
+    candidate = nice_candidate_new(CANDIDATE_TYPE_RELAYED);
+    candidate->transport = CANDIDATE_TRANSPORT_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = component_id;
     candidate->addr = *address;
@@ -639,7 +633,7 @@ NiceCandidate * discovery_add_relay_candidate(
     candidate->sockptr = relay_socket;
     candidate->base_addr = base_socket->addr;
 
-    priv_generate_candidate_credentials(agent, candidate);
+    //priv_generate_candidate_credentials(agent, candidate);
     priv_assign_foundation(agent, candidate);
 
     if (!priv_add_local_candidate_pruned(agent, stream_id, component, candidate))
@@ -680,9 +674,9 @@ NiceCandidate * discovery_add_peer_reflexive_candidate(
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return NULL;
 
-    candidate = nice_candidate_new(NICE_CANDIDATE_TYPE_PEER_REFLEXIVE);
+    candidate = nice_candidate_new(CANDIDATE_TYPE_PEER_REFLEXIVE);
 
-	candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;
+	candidate->transport = CANDIDATE_TRANSPORT_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = component_id;
     candidate->addr = *address;
@@ -725,7 +719,7 @@ NiceCandidate * discovery_learn_remote_peer_reflexive_candidate(
     NiceAgent * agent,
     Stream * stream,
     Component * component,
-    guint32 priority,
+    uint32_t priority,
     const NiceAddress * remote_address,
     NiceSocket * nicesock,
     NiceCandidate * local,
@@ -733,7 +727,7 @@ NiceCandidate * discovery_learn_remote_peer_reflexive_candidate(
 {
     NiceCandidate * candidate;
 
-    candidate = nice_candidate_new(NICE_CANDIDATE_TYPE_PEER_REFLEXIVE);
+    candidate = nice_candidate_new(CANDIDATE_TYPE_PEER_REFLEXIVE);
 
     candidate->addr = *remote_address;
     candidate->base_addr = *remote_address;
@@ -743,7 +737,7 @@ NiceCandidate * discovery_learn_remote_peer_reflexive_candidate(
         candidate->transport = conn_check_match_transport(local->transport);
     else
     {       
-		candidate->transport = NICE_CANDIDATE_TRANSPORT_UDP;        
+		candidate->transport = CANDIDATE_TRANSPORT_UDP;        
     }
     candidate->sockptr = nicesock;
     candidate->stream_id = stream->id;
@@ -820,17 +814,18 @@ static int priv_discovery_tick_unlocked(void * pointer)
                 nice_debug("Agent %p : discovery - scheduling candidate type %u addr %s.", agent, candidate->type, tmpbuf);
             }
             if (nice_address_is_valid(&candidate->server) &&
-                    (candidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-						candidate->type == NICE_CANDIDATE_TYPE_RELAYED))
+                    (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
+						candidate->type == CANDIDATE_TYPE_RELAYED))
             {
                 agent_signal_component_state_change(agent, candidate->stream->id,
-					candidate->component->id,  NICE_COMPONENT_STATE_GATHERING);
+					candidate->component->id,  COMPONENT_STATE_GATHERING);
 
-                if (candidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE)
+                if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE)
                 {
-                    buffer_len = stun_usage_bind_create(&candidate->stun_agent, &candidate->stun_message, candidate->stun_buffer, sizeof(candidate->stun_buffer));
+                    buffer_len = stun_usage_bind_create(&candidate->stun_agent, &candidate->stun_message, 
+																			candidate->stun_buffer, sizeof(candidate->stun_buffer));
                 }
-                else if (candidate->type == NICE_CANDIDATE_TYPE_RELAYED)
+                else if (candidate->type == CANDIDATE_TYPE_RELAYED)
                 {
                     uint8_t * username = (uint8_t *)candidate->turn->username;
                     uint32_t username_len = strlen(candidate->turn->username);
@@ -863,7 +858,7 @@ static int priv_discovery_tick_unlocked(void * pointer)
                     agent_socket_send(candidate->nicesock, &candidate->server,  buffer_len, (gchar *)candidate->stun_buffer);
 
                     /* case: success, start waiting for the result */
-                    g_get_current_time(&candidate->next_tick);
+                    get_current_time(&candidate->next_tick);
                 }
                 else
                 {
@@ -883,9 +878,9 @@ static int priv_discovery_tick_unlocked(void * pointer)
 
         if (candidate->done != TRUE)
         {
-            GTimeVal now;
+            g_time_val now;
 
-            g_get_current_time(&now);
+            get_current_time(&now);
 
             if (candidate->stun_message.buffer == NULL)
             {
@@ -925,7 +920,7 @@ static int priv_discovery_tick_unlocked(void * pointer)
 
                         /* note: convert from milli to microseconds for g_time_val_add() */
 						candidate->next_tick = now;
-                        g_time_val_add(&candidate->next_tick, timeout * 1000);
+                        time_val_add(&candidate->next_tick, timeout * 1000);
 
                         ++not_done; /* note: retry later */
                         break;
@@ -935,7 +930,7 @@ static int priv_discovery_tick_unlocked(void * pointer)
                         unsigned int timeout = stun_timer_remainder(&candidate->timer);
 
 						candidate->next_tick = now;
-                        g_time_val_add(&candidate->next_tick, timeout * 1000);
+                        time_val_add(&candidate->next_tick, timeout * 1000);
 
                         ++not_done; /* note: retry later */
                         break;
@@ -1005,7 +1000,6 @@ void discovery_schedule(NiceAgent * agent)
 
     if (agent->discovery_unsched_items > 0)
     {
-
         if (agent->discovery_timer_source == NULL)
         {
             /* step: run first iteration immediately */

@@ -82,8 +82,8 @@ gboolean stream_all_components_ready(const Stream * stream)
     {
         Component * component = i->data;
         if (component &&
-                !(component->state == NICE_COMPONENT_STATE_CONNECTED ||
-                  component->state == NICE_COMPONENT_STATE_READY))
+                !(component->state == COMPONENT_STATE_CONNECTED ||
+                  component->state == COMPONENT_STATE_READY))
             return FALSE;
     }
 

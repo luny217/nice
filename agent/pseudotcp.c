@@ -528,9 +528,9 @@ void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level)
     debug_level = level;
 }
 
-static uint32_t get_current_time(PseudoTcpSocket * socket)
+static uint32_t pseudo_tcp_get_current_time(PseudoTcpSocket * socket)
 {
-    if (G_UNLIKELY(socket->priv->current_time != 0))
+    if (socket->priv->current_time != 0)
         return socket->priv->current_time;
 
     return (uint32_t)(g_get_monotonic_time() / 1000);
@@ -872,11 +872,10 @@ pseudo_tcp_socket_notify_mtu(PseudoTcpSocket * self, guint16 mtu)
     }
 }
 
-void
-pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
+void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
-    uint32_t now = get_current_time(self);
+    uint32_t now = pseudo_tcp_get_current_time(self);
 
     if (priv->state == TCP_CLOSED)
         return;
@@ -966,9 +965,7 @@ pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
 
 }
 
-int
-pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self,
-                                const char * buffer, uint32_t len)
+int pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self, const char * buffer, uint32_t len)
 {
     int retval;
 
@@ -1032,7 +1029,7 @@ int pseudo_tcp_socket_notify_message(PseudoTcpSocket * self, NiceInputMessage * 
 int pseudo_tcp_socket_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
-    uint32_t now = get_current_time(self);
+    uint32_t now = pseudo_tcp_get_current_time(self);
     uint32_t snd_buffered;
     uint32_t closed_timeout;
 
@@ -1533,7 +1530,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
         return FALSE;
     }
 
-    now = get_current_time(self);
+    now = pseudo_tcp_get_current_time(self);
     priv->last_traffic = priv->lastrecv = now;
     priv->bOutgoing = FALSE;
 
@@ -2136,7 +2133,7 @@ static int transmit(PseudoTcpSocket * self, SSegment * segment, uint32_t now)
 static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
-    uint32_t now = get_current_time(self);
+    uint32_t now = pseudo_tcp_get_current_time(self);
     int bFirst = TRUE;
 
     if (time_diff(now, priv->lastsend) > (long) priv->rx_rto)

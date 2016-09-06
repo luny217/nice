@@ -223,13 +223,13 @@ GType nice_agent_get_type(void);
 
 
 /**
- * NICE_AGENT_MAX_REMOTE_CANDIDATES:
+ * MAX_REMOTE_CANDIDATES:
  *
  * A hard limit for the number of remote candidates. This
  * limit is enforced to protect against malevolent remote
  * clients.
  */
-#define NICE_AGENT_MAX_REMOTE_CANDIDATES    25
+#define MAX_REMOTE_CANDIDATES    25
 
 /**
  * NiceComponentState:
@@ -248,13 +248,13 @@ GType nice_agent_get_type(void);
  */
 typedef enum
 {
-    NICE_COMPONENT_STATE_DISCONNECTED,
-    NICE_COMPONENT_STATE_GATHERING,
-    NICE_COMPONENT_STATE_CONNECTING,
-    NICE_COMPONENT_STATE_CONNECTED,
-    NICE_COMPONENT_STATE_READY,
-    NICE_COMPONENT_STATE_FAILED,
-    NICE_COMPONENT_STATE_LAST
+    COMPONENT_STATE_DISCONNECTED,
+    COMPONENT_STATE_GATHERING,
+    COMPONENT_STATE_CONNECTING,
+    COMPONENT_STATE_CONNECTED,
+    COMPONENT_STATE_READY,
+    COMPONENT_STATE_FAILED,
+    COMPONENT_STATE_LAST
 } NiceComponentState;
 
 
@@ -277,7 +277,6 @@ typedef enum
     NICE_COMPONENT_TYPE_RTP = 1,
     NICE_COMPONENT_TYPE_RTCP = 2
 } NiceComponentType;
-
 
 /**
  * NiceCompatibility:

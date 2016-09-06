@@ -280,14 +280,14 @@ static void cb_component_state_changed(NiceAgent * agent, uint32_t stream_id, ui
 {
     g_debug("SIGNAL: state changed %d %d %s[%d]\n", stream_id, component_id, state_name[state], state);
 
-    if (state == NICE_COMPONENT_STATE_READY)
+    if (state == COMPONENT_STATE_READY)
     {
         g_mutex_lock(&negotiate_mutex);
         negotiation_done = TRUE;
         g_cond_signal(&negotiate_cond);
         g_mutex_unlock(&negotiate_mutex);
     }
-    else if (state == NICE_COMPONENT_STATE_FAILED)
+    else if (state == COMPONENT_STATE_FAILED)
     {
         g_main_loop_quit(gloop);
     }
@@ -347,9 +347,9 @@ static NiceCandidate * parse_candidate(char * scand, uint32_t stream_id)
     cand = nice_candidate_new(ntype);
     cand->component_id = 1;
     cand->stream_id = stream_id;
-    cand->transport = NICE_CANDIDATE_TRANSPORT_UDP;
-    strncpy(cand->foundation, tokens[0], NICE_CANDIDATE_MAX_FOUNDATION);
-    cand->foundation[NICE_CANDIDATE_MAX_FOUNDATION - 1] = 0;
+    cand->transport = CANDIDATE_TRANSPORT_UDP;
+    strncpy(cand->foundation, tokens[0], CANDIDATE_MAX_FOUNDATION);
+    cand->foundation[CANDIDATE_MAX_FOUNDATION - 1] = 0;
     cand->priority = atoi(tokens[1]);
 
     if (!nice_address_set_from_string(&cand->addr, tokens[2]))

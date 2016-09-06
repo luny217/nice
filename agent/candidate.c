@@ -6,7 +6,23 @@
 #include "agent.h"
 #include "component.h"
 
-G_DEFINE_BOXED_TYPE(NiceCandidate, nice_candidate, nice_candidate_copy, nice_candidate_free);
+//G_DEFINE_BOXED_TYPE(NiceCandidate, nice_candidate, nice_candidate_copy, nice_candidate_free);
+
+GType nice_candidate_get_type(void)
+{
+    static volatile gsize g_define_type_id__volatile = 0;
+    if ((g_once_init_enter((&g_define_type_id__volatile))))
+    {
+        GType g_define_type_id = g_boxed_type_register_static(g_intern_static_string("NiceCandidate"), (GBoxedCopyFunc)nice_candidate_copy, (GBoxedFreeFunc)nice_candidate_free);
+        {
+            {
+                {
+                };
+            }
+        }(g_once_init_leave((&g_define_type_id__volatile), (gsize)(g_define_type_id)));
+    }
+    return g_define_type_id__volatile;
+};
 
 /* (ICE 4.1.1 "Gathering Candidates") ""Every candidate is a transport
  * address. It also has a type and a base. Three types are defined and
@@ -64,28 +80,28 @@ static uint16_t nice_candidate_ice_local_preference(const NiceCandidate * candid
 
     switch (candidate->transport)
     {
-        case NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE:
-            if (candidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-                    candidate->type == NICE_CANDIDATE_TYPE_PREF_NAT_ASSISTED)
-                direction_preference = 4;
-            else
-                direction_preference = 6;
-            break;
-        case NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE:
-            if (candidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-                    candidate->type == NICE_CANDIDATE_TYPE_PREF_NAT_ASSISTED)
-                direction_preference = 2;
-            else
-                direction_preference = 4;
-            break;
-        case NICE_CANDIDATE_TRANSPORT_TCP_SO:
-            if (candidate->type == NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-                    candidate->type == NICE_CANDIDATE_TYPE_PREF_NAT_ASSISTED)
-                direction_preference = 6;
-            else
-                direction_preference = 2;
-            break;
-        case NICE_CANDIDATE_TRANSPORT_UDP:
+	case CANDIDATE_TRANSPORT_TCP_ACTIVE:
+		if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
+			candidate->type == CANDIDATE_TYPE_PREF_NAT_ASSISTED)
+			direction_preference = 4;
+		else
+			direction_preference = 6;
+		break;
+	case CANDIDATE_TRANSPORT_TCP_PASSIVE:
+		if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
+			candidate->type == CANDIDATE_TYPE_PREF_NAT_ASSISTED)
+			direction_preference = 2;
+		else
+			direction_preference = 4;
+		break;
+	case CANDIDATE_TRANSPORT_TCP_SO:
+		if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
+			candidate->type == CANDIDATE_TYPE_PREF_NAT_ASSISTED)
+			direction_preference = 6;
+		else
+			direction_preference = 2;
+		break;
+        case CANDIDATE_TRANSPORT_UDP:
         default:
             return 1;
             break;
@@ -100,24 +116,24 @@ static uint8_t nice_candidate_ice_type_preference(const NiceCandidate * candidat
 
     switch (candidate->type)
     {
-        case NICE_CANDIDATE_TYPE_HOST:
-            type_preference = NICE_CANDIDATE_TYPE_PREF_HOST;
+        case CANDIDATE_TYPE_HOST:
+            type_preference = CANDIDATE_TYPE_PREF_HOST;
             break;
-        case NICE_CANDIDATE_TYPE_PEER_REFLEXIVE:
-            type_preference = NICE_CANDIDATE_TYPE_PREF_PEER_REFLEXIVE;
+        case CANDIDATE_TYPE_PEER_REFLEXIVE:
+            type_preference = CANDIDATE_TYPE_PREF_PEER_REFLEXIVE;
             break;
-        case NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE:            
-                type_preference = NICE_CANDIDATE_TYPE_PREF_SERVER_REFLEXIVE;
+        case CANDIDATE_TYPE_SERVER_REFLEXIVE:
+            type_preference = CANDIDATE_TYPE_PREF_SERVER_REFLEXIVE;
             break;
-        case NICE_CANDIDATE_TYPE_RELAYED:
-            type_preference = NICE_CANDIDATE_TYPE_PREF_RELAYED;
+        case CANDIDATE_TYPE_RELAYED:
+            type_preference = CANDIDATE_TYPE_PREF_RELAYED;
             break;
         default:
             type_preference = 0;
             break;
     }
 
-    if (candidate->transport == NICE_CANDIDATE_TRANSPORT_UDP)
+    if (candidate->transport == CANDIDATE_TRANSPORT_UDP)
     {
         type_preference = type_preference / 2;
     }

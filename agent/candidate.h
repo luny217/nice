@@ -20,18 +20,20 @@
  */
 
 /* Constants for determining candidate priorities */
-#define NICE_CANDIDATE_TYPE_PREF_HOST                 120
-#define NICE_CANDIDATE_TYPE_PREF_PEER_REFLEXIVE       110
-#define NICE_CANDIDATE_TYPE_PREF_NAT_ASSISTED         105
-#define NICE_CANDIDATE_TYPE_PREF_SERVER_REFLEXIVE     100
-#define NICE_CANDIDATE_TYPE_PREF_UDP_TUNNELED          75
-#define NICE_CANDIDATE_TYPE_PREF_RELAYED               10
+#define CANDIDATE_TYPE_PREF_HOST                 120
+#define CANDIDATE_TYPE_PREF_PEER_REFLEXIVE       110
+#define CANDIDATE_TYPE_PREF_NAT_ASSISTED         105
+#define CANDIDATE_TYPE_PREF_SERVER_REFLEXIVE     100
+#define CANDIDATE_TYPE_PREF_UDP_TUNNELED          75
+#define CANDIDATE_TYPE_PREF_RELAYED               10
 
+#if 0
 /* Priority preference constants for MS-ICE compatibility */
 #define NICE_CANDIDATE_TRANSPORT_MS_PREF_UDP           15
 #define NICE_CANDIDATE_TRANSPORT_MS_PREF_TCP            6
 #define NICE_CANDIDATE_DIRECTION_MS_PREF_PASSIVE        2
 #define NICE_CANDIDATE_DIRECTION_MS_PREF_ACTIVE         5
+#endif
 
 /* Max foundation size '1*32ice-char' plus terminating NULL, ICE ID-19  */
 /**
@@ -39,7 +41,7 @@
  *
  * The maximum size a candidate foundation can have.
  */
-#define NICE_CANDIDATE_MAX_FOUNDATION                (32+1)
+#define CANDIDATE_MAX_FOUNDATION                (32+1)
 
 
 /**
@@ -53,10 +55,10 @@
  */
 typedef enum
 {
-    NICE_CANDIDATE_TYPE_HOST,
-    NICE_CANDIDATE_TYPE_SERVER_REFLEXIVE,
-    NICE_CANDIDATE_TYPE_PEER_REFLEXIVE,
-    NICE_CANDIDATE_TYPE_RELAYED,
+    CANDIDATE_TYPE_HOST,
+    CANDIDATE_TYPE_SERVER_REFLEXIVE,
+    CANDIDATE_TYPE_PEER_REFLEXIVE,
+    CANDIDATE_TYPE_RELAYED,
 } NiceCandidateType;
 
 /**
@@ -70,10 +72,10 @@ typedef enum
  */
 typedef enum
 {
-    NICE_CANDIDATE_TRANSPORT_UDP,
-    NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE,
-    NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE,
-    NICE_CANDIDATE_TRANSPORT_TCP_SO,
+    CANDIDATE_TRANSPORT_UDP,
+    CANDIDATE_TRANSPORT_TCP_ACTIVE,
+    CANDIDATE_TRANSPORT_TCP_PASSIVE,
+    CANDIDATE_TRANSPORT_TCP_SO,
 } NiceCandidateTransport;
 
 /**
@@ -86,9 +88,9 @@ typedef enum
  */
 typedef enum
 {
-    NICE_RELAY_TYPE_TURN_UDP,
-    NICE_RELAY_TYPE_TURN_TCP,
-    NICE_RELAY_TYPE_TURN_TLS
+    RELAY_TYPE_TURN_UDP,
+    RELAY_TYPE_TURN_TCP,
+    RELAY_TYPE_TURN_TLS
 } NiceRelayType;
 
 
@@ -152,7 +154,7 @@ struct _NiceCandidate
     uint32_t priority;
     uint32_t stream_id;
     uint32_t component_id;
-    char foundation[NICE_CANDIDATE_MAX_FOUNDATION];
+    char foundation[CANDIDATE_MAX_FOUNDATION];
     char * username;       /* pointer to a nul-terminated username string */
     char * password;       /* pointer to a nul-terminated password string */
     TurnServer * turn;

@@ -21,6 +21,9 @@
     <Filter Include="random">
       <UniqueIdentifier>{a3d73355-3d83-4eb7-b435-2f96a6972d89}</UniqueIdentifier>
     </Filter>
+    <Filter Include="glib">
+      <UniqueIdentifier>{ce401731-6b7f-4eb7-8a15-d3799398d145}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="agent\interfaces.c">
@@ -112,6 +115,12 @@
     </ClCompile>
     <ClCompile Include="random\random-glib.c">
       <Filter>random</Filter>
+    </ClCompile>
+    <ClCompile Include="glib\base.c">
+      <Filter>glib</Filter>
+    </ClCompile>
+    <ClCompile Include="glib\nlist.c">
+      <Filter>glib</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -213,6 +222,12 @@
     </ClInclude>
     <ClInclude Include="stun\stundebug.h">
       <Filter>stun</Filter>
+    </ClInclude>
+    <ClInclude Include="glib\base.h">
+      <Filter>glib</Filter>
+    </ClInclude>
+    <ClInclude Include="glib\nlist.h">
+      <Filter>glib</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
