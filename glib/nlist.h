@@ -1,33 +1,12 @@
-/* GLIB - Library of useful routines for C programming
- * Copyright (C) 1995-1997  Peter Mattis, Spencer Kimball and Josh MacDonald
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
+/* GLIB - Library of useful routines for C programming*/
+ 
 
-/*
- * Modified by the GLib Team and others 1997-2000.  See the AUTHORS
- * file for a list of people on the GLib Team.  See the ChangeLog
- * files for a list of changes.  These files are distributed with
- * GLib at ftp://ftp.gtk.org/pub/gtk/.
- */
+#ifndef __N_LIST_H__
+#define __N_LIST_H__
 
-#ifndef __G_LIST_H__
-#define __G_LIST_H__
-
-#include <glib/gmem.h>
-#include <glib/gnode.h>
-
+//#include <glib/gmem.h>
+//#include <glib/gnode.h>
+#include <stdint.h>
 
 typedef struct _list_st  n_list_t;
 
@@ -41,13 +20,34 @@ struct _list_st
 /* Doubly linked lists
  */
 
+#define  n_slice_new(type)      ((type*)n_slice_alloc(sizeof (type)))
+#define  n_slice_new0(type)     ((type*)n_slice_alloc0(sizeof (type)))
+
+#define n_slice_free(type, mem) \
+do {                                                  \
+  if (1) n_slice_free1 (sizeof (type), (mem));	\
+  else   (void) ((type*) 0 == (mem));	\
+} while(0)
+
+#define n_slice_free_chain(type, mem_chain, next)	\
+do {                                                  \
+  if (1) n_slice_free_chain_with_offset (sizeof (type),		\
+                 (mem_chain), offsetof (type, next)); 	\
+  else   (void) ((type*) 0 == (mem_chain));	\
+} while(0)
+
+#define _n_list_alloc()         n_slice_new (n_list_t)
+#define _n_list_alloc0()        n_slice_new0 (n_list_t)
+#define _n_list_free1(list)     n_slice_free (n_list_t, list)
+
 typedef void(* n_destroy_notify) (void * data);
 
 typedef int32_t(*n_compare_func) (const void * a, const void * b);
+typedef int32_t(*n_compare_data_func)(const void * a, const void * b, void * user_data);
 typedef void * (*n_copy_func) (const void *  src, const void * data);
 typedef void(*n_func) (void * data, void * user_data);
 
-n_list_t * nice_list_alloc (void);
+n_list_t * n_list_alloc (void);
 void n_list_free (n_list_t * list);
 
 void n_list_free_1 (n_list_t * list);
@@ -80,7 +80,7 @@ uint32_t n_list_length(n_list_t * list);
 void n_list_foreach(n_list_t * list, n_func func, void * user_data);
 n_list_t * n_list_sort (n_list_t * list, n_compare_func compare_func);
 n_list_t * n_list_sort_with_data (n_list_t * list, n_compare_func  compare_func, void * user_data) ;
-void * n_list_nth_data (n_list_t * list, guint n);
+void * n_list_nth_data (n_list_t * list, uint32_t n);
 
 #define n_list_previous(list) ((list) ? (((n_list_t *)(list))->prev) : NULL)
 #define n_list_next(list) ((list) ? (((n_list_t *)(list))->next) : NULL)

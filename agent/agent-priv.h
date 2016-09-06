@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "agent.h"
+#include "nlist.h"
 
 /**
  * NiceInputMessageIter:
@@ -71,18 +72,18 @@ struct _NiceAgent
     int32_t controlling_mode;      /* property: controlling-mode */
     uint32_t timer_ta;                 /* property: timer Ta */
     uint32_t max_conn_checks;          /* property: max connectivity checks */
-    GSList * local_addresses;        /* list of NiceAddresses for local interfaces */
-    GSList * streams_list;               /* list of Stream objects */
+	n_list_t * local_addresses;        /* list of NiceAddresses for local interfaces */
+	n_list_t * streams_list;               /* list of Stream objects */
     GMainContext * main_context;    /* main context pointer */
     uint32_t next_candidate_id;        /* id of next created candidate */
     uint32_t next_stream_id;           /* id of next created candidate */
     NiceRNG * rng;                  /* random number generator */
-    GSList * discovery_list;        /* list of CandidateDiscovery items */
+	n_list_t * discovery_list;        /* list of CandidateDiscovery items */
     uint32_t discovery_unsched_items;  /* number of discovery items unscheduled */
     GSource * discovery_timer_source; /* source of discovery timer */
     GSource * conncheck_timer_source; /* source of conncheck timer */
     GSource * keepalive_timer_source; /* source of keepalive timer */
-    GSList * refresh_list;        /* list of CandidateRefresh items */
+	n_list_t * refresh_list;        /* list of CandidateRefresh items */
     uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
     NiceCompatibility compatibility; /* property: Compatibility mode */
     int32_t media_after_tick;       /* Received media after keepalive tick */

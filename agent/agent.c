@@ -27,7 +27,10 @@
 #include "interfaces.h"
 #include "pseudotcp.h"
 
-/* Maximum size of a UDP packet??s payload, as the packet??s length field is 16b
+#include "base.h"
+#include "nlist.h"
+
+/* Maximum size of a UDP packet's payload, as the packet's length field is 16b
  * wide. */
 #define MAX_BUFFER_SIZE ((1 << 16) - 1)  /* 65535 */
 
@@ -241,7 +244,7 @@ NiceTurnSocketCompatibility agent_to_turn_socket_compatibility(NiceAgent * agent
 
 Stream * agent_find_stream(NiceAgent * agent, uint32_t stream_id)
 {
-    GSList * i;
+	n_list_t * i;
 
     for (i = agent->streams_list; i; i = i->next)
     {
@@ -725,7 +728,7 @@ void nice_agent_init_stun_agent(NiceAgent * agent, StunAgent * stun_agent)
 
 static void nice_agent_reset_all_stun_agents(NiceAgent * agent, int32_t only_software)
 {
-    GSList * stream_item, *component_item;
+    n_list_t * stream_item, *component_item;
 
     for (stream_item = agent->streams_list; stream_item;
             stream_item = stream_item->next)
@@ -1335,7 +1338,7 @@ static const char * _transport_to_string(NiceCandidateTransport type)
 void agent_gathering_done(NiceAgent * agent)
 {
 
-    GSList * i, *j, *k, *l, *m;
+	n_list_t * i, *j, *k, *l, *m;
 
     for (i = agent->streams_list; i; i = i->next)
     {
@@ -1384,7 +1387,7 @@ void agent_gathering_done(NiceAgent * agent)
 
 void agent_signal_gathering_done(NiceAgent * agent)
 {
-    GSList * i;
+	n_list_t * i;
 
     for (i = agent->streams_list; i; i = i->next)
     {
@@ -1618,7 +1621,7 @@ static void priv_add_new_candidate_discovery_stun(NiceAgent * agent,
 
     nice_debug("Agent %p : Adding new srv-rflx candidate discovery %p", agent, cdisco);
 
-    agent->discovery_list = g_slist_append(agent->discovery_list, cdisco);
+    agent->discovery_list = n_list_append(agent->discovery_list, cdisco);
     ++agent->discovery_unsched_items;
 }
 
@@ -1646,7 +1649,7 @@ static void priv_add_new_candidate_discovery_turn(NiceAgent * agent,
     stun_agent_init(&cdisco->stun_agent, STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS);
 
     nice_debug("Agent %p : Adding new relay-rflx candidate discovery %p", agent, cdisco);
-    agent->discovery_list = g_slist_append(agent->discovery_list, cdisco);
+    agent->discovery_list = n_list_append(agent->discovery_list, cdisco);
     ++agent->discovery_unsched_items;
 }
 
@@ -1662,7 +1665,7 @@ uint32_t nice_agent_add_stream(NiceAgent * agent, uint32_t n_components)
     agent_lock();
     stream = stream_new(n_components, agent);
 
-    agent->streams_list = g_slist_append(agent->streams_list, stream);
+    agent->streams_list = n_list_append(agent->streams_list, stream);
     stream->id = agent->next_stream_id++;
     nice_debug("Agent %p : allocating stream id %u (%p)", agent, stream->id, stream);
     if (agent->reliable)
@@ -1732,7 +1735,7 @@ int nice_agent_set_relay_info(NiceAgent * agent, uint32_t stream_id, uint32_t co
 
     if (stream->gathering_started)
     {
-        GSList * i;
+		n_list_t * i;
 
         stream->gathering = TRUE;
 
@@ -1757,9 +1760,9 @@ done:
 int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
 {
     uint32_t cid;
-    GSList * i;
+	n_list_t * i;
     Stream * stream;
-    GSList * local_addresses = NULL;
+	n_list_t * local_addresses = NULL;
     int32_t ret = TRUE;
 
 	agent_lock();
@@ -1781,17 +1784,17 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
     /* if no local addresses added, generate them ourselves */
     if (agent->local_addresses == NULL)
     {
-        GList * addresses = nice_interfaces_get_local_ips(FALSE);
-        GList * item;
+		n_list_t * addresses = nice_interfaces_get_local_ips(FALSE);
+		n_list_t * item;
 
-        for (item = addresses; item; item = g_list_next(item))
+        for (item = addresses; item; item = n_list_next(item))
         {
             const char * addr_string = item->data;
             NiceAddress * addr = nice_address_new();
 
             if (nice_address_set_from_string(addr, addr_string))
             {
-                local_addresses = g_slist_append(local_addresses, addr);
+                local_addresses = n_list_append(local_addresses, addr);
             }
             else
             {
@@ -1800,8 +1803,8 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
             }
         }
 
-        g_list_foreach(addresses, (GFunc) g_free, NULL);
-        g_list_free(addresses);
+        n_list_foreach(addresses, (GFunc) g_free, NULL);
+        n_list_free(addresses);
     }
     else
     {
@@ -1810,7 +1813,7 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
             NiceAddress * addr = i->data;
             NiceAddress * dupaddr = nice_address_dup(addr);
 
-            local_addresses = g_slist_append(local_addresses, dupaddr);
+            local_addresses = n_list_append(local_addresses, dupaddr);
         }
     }
 
@@ -1953,7 +1956,7 @@ error:
             i;
             i = i->next)
         nice_address_free(i->data);
-    g_slist_free(local_addresses);
+    n_list_free(local_addresses);
 
     if (ret == FALSE)
     {
@@ -1971,7 +1974,7 @@ error:
 
                 nice_candidate_free(candidate);
             }
-            g_slist_free(component->local_candidates);
+            n_list_free(component->local_candidates);
             component->local_candidates = NULL;
         }
         discovery_prune_stream(agent, stream_id);
@@ -2934,7 +2937,7 @@ done:
 
 int32_t nice_agent_restart(NiceAgent * agent)
 {
-    GSList * i;
+	n_list_t * i;
 
     agent_lock();
 
@@ -2981,7 +2984,7 @@ done:
 
 static void nice_agent_dispose(GObject * object)
 {
-    GSList * i;
+	n_list_t * i;
     QueuedSignal * sig;
     NiceAgent * agent = NICE_AGENT(object);
 
@@ -3003,7 +3006,7 @@ static void nice_agent_dispose(GObject * object)
         nice_address_free(a);
     }
 
-    g_slist_free(agent->local_addresses);
+    n_list_free(agent->local_addresses); 
     agent->local_addresses = NULL;
 
     for (i = agent->streams_list; i; i = i->next)
@@ -3014,7 +3017,7 @@ static void nice_agent_dispose(GObject * object)
         stream_free(s);
     }
 
-    g_slist_free(agent->streams_list);
+    n_list_free(agent->streams_list);
     agent->streams_list = NULL;
 
     while ((sig = g_queue_pop_head(&agent->pending_signals)))
@@ -3022,7 +3025,7 @@ static void nice_agent_dispose(GObject * object)
         free_queued_signal(sig);
     }
 
-    g_free(agent->stun_server_ip);
+    free(agent->stun_server_ip);
     agent->stun_server_ip = NULL;
 
     nice_rng_free(agent->rng);
@@ -3583,7 +3586,7 @@ done:
 int32_t nice_agent_set_stream_name(NiceAgent * agent, uint32_t stream_id, const char * name)
 {
     Stream * stream_to_name = NULL;
-    GSList * i;
+	n_list_t * i;
     int32_t ret = FALSE;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);

@@ -1,10 +1,10 @@
 /* GLIB - Library of useful routines for C programming*/
 
-#include "config.h"
-
+#include <stdio.h>
+#include<stdlib.h>
+#include <string.h>
 #include "nlist.h"
-//#include "gslice.h"
-//#include "gmessages.h"
+
 
 /**
  * n_list_t:
@@ -17,9 +17,36 @@
  * The #n_list_t struct is used for each element in a doubly-linked list.
  **/
 
-#define _n_list_alloc()         n_slice_new (n_list_t)
-#define _n_list_alloc0()        n_slice_new0 (n_list_t)
-#define _n_list_free1(list)     n_slice_free (n_list_t, list)
+void * n_slice_alloc(uint32_t mem_size)
+{
+	void  * mem;
+	mem = malloc(mem_size);
+	return mem;
+}
+
+void * n_slice_alloc0(uint32_t mem_size)
+{
+	void * mem = n_slice_alloc(mem_size);
+	if (mem)
+		memset(mem, 0, mem_size);
+	return mem;
+}
+
+void n_slice_free_chain_with_offset(uint32_t mem_size, void * mem_chain, uint32_t next_offset)
+{
+	void  * slice = mem_chain;
+	while (slice)
+	{
+		uint8_t * current = slice;
+		slice = *(void **)(current + next_offset);
+		free(current);
+	}
+}
+
+void n_slice_free1(uint32_t mem_size, void * mem_block)
+{
+	free(mem_block);
+}
 
 /**
  * n_list_alloc:
@@ -45,8 +72,7 @@ n_list_t * n_list_alloc(void)
  * If list elements contain dynamically-allocated memory, you should
  * either use n_list_free_full() or free them manually first.
  */
-void
-n_list_free(n_list_t * list)
+void n_list_free(n_list_t * list)
 {
     n_slice_free_chain(n_list_t, list, next);
 }
@@ -66,8 +92,7 @@ n_list_free(n_list_t * list)
  *
  * Another name for n_list_free_1().
  **/
-void
-n_list_free_1(n_list_t * list)
+void n_list_free_1(n_list_t * list)
 {
     _n_list_free1(list);
 }
@@ -82,9 +107,7 @@ n_list_free_1(n_list_t * list)
  *
  * Since: 2.28
  */
-void
-n_list_free_full(n_list_t     *     list,
-                 GDestroyNotify  free_func)
+void n_list_free_full(n_list_t * list, n_destroy_notify  free_func)
 {
     n_list_foreach(list, (n_func) free_func, NULL);
     n_list_free(list);
@@ -169,9 +192,7 @@ n_list_t * n_list_append(n_list_t * list, void  * data)
  * Returns: a pointer to the newly prepended element, which is the new
  *     start of the #n_list_t
  */
-n_list_t *
-n_list_prepend(n_list_t  *  list,
-               void  * data)
+n_list_t * n_list_prepend(n_list_t  *  list, void  * data)
 {
     n_list_t * new_list;
 
@@ -204,10 +225,7 @@ n_list_prepend(n_list_t  *  list,
  *
  * Returns: the (possibly changed) start of the #n_list_t
  */
-n_list_t *
-n_list_insert(n_list_t  *  list,
-              void  * data,
-              gint      position)
+n_list_t * n_list_insert(n_list_t  *  list,  void  * data,  int32_t  position)
 {
     n_list_t * new_list;
     n_list_t * tmp_list;
@@ -242,16 +260,12 @@ n_list_insert(n_list_t  *  list,
  *
  * Returns: the (possibly changed) start of the #n_list_t
  */
-n_list_t *
-n_list_insert_before(n_list_t  *  list,
-                     n_list_t  *  sibling,
-                     void  * data)
+n_list_t * n_list_insert_before(n_list_t  *  list,  n_list_t  *  sibling,  void  * data)
 {
     if (!list)
     {
         list = n_list_alloc();
         list->data = data;
-        n_return_val_if_fail(sibling == NULL, list);
         return list;
     }
     else if (sibling)
@@ -270,7 +284,6 @@ n_list_insert_before(n_list_t  *  list,
         }
         else
         {
-            n_return_val_if_fail(sibling == list, node);
             return node;
         }
     }
@@ -310,9 +323,7 @@ n_list_insert_before(n_list_t  *  list,
  *
  * Returns: the start of the new #n_list_t, which equals @list1 if not %NULL
  */
-n_list_t *
-n_list_concat(n_list_t * list1,
-              n_list_t * list2)
+n_list_t * n_list_concat(n_list_t * list1, n_list_t * list2)
 {
     n_list_t * tmp_list;
 
@@ -329,9 +340,7 @@ n_list_concat(n_list_t * list1,
     return list1;
 }
 
-static inline n_list_t *
-_n_list_remove_link(n_list_t * list,
-                    n_list_t * link)
+static inline n_list_t * _n_list_remove_link(n_list_t * list, n_list_t * link)
 {
     if (link == NULL)
         return list;
@@ -341,14 +350,14 @@ _n_list_remove_link(n_list_t * list,
         if (link->prev->next == link)
             link->prev->next = link->next;
         else
-            n_warning("corrupted double-linked list detected");
+			printf("corrupted double-linked list detected");
     }
     if (link->next)
     {
         if (link->next->prev == link)
             link->next->prev = link->prev;
         else
-            n_warning("corrupted double-linked list detected");
+			printf("corrupted double-linked list detected");
     }
 
     if (link == list)
@@ -371,9 +380,7 @@ _n_list_remove_link(n_list_t * list,
  *
  * Returns: the (possibly changed) start of the #n_list_t
  */
-n_list_t *
-n_list_remove(n_list_t     *    list,
-              const void *  data)
+n_list_t * n_list_remove(n_list_t * list,  const void *  data)
 {
     n_list_t * tmp;
 
@@ -596,7 +603,7 @@ n_list_t * n_list_reverse(n_list_t * list)
  * Returns: the element, or %NULL if the position is off
  *     the end of the #n_list_t
  */
-n_list_t * n_list_nth(n_list_t * list, guint  n)
+n_list_t * n_list_nth(n_list_t * list, uint32_t  n)
 {
     while ((n-- > 0) && list)
         list = list->next;
@@ -614,7 +621,7 @@ n_list_t * n_list_nth(n_list_t * list, guint  n)
  * Returns: the element, or %NULL if the position is
  *     off the end of the #n_list_t
  */
-n_list_t * n_list_nth_prev(n_list_t * list, guint n)
+n_list_t * n_list_nth_prev(n_list_t * list, uint32_t n)
 {
     while ((n-- > 0) && list)
         list = list->prev;
@@ -636,7 +643,7 @@ n_list_t * n_list_nth_prev(n_list_t * list, guint n)
  * Returns: the element's data, or %NULL if the position
  *     is off the end of the #n_list_t
  */
-void * n_list_nth_data(n_list_t * list, guint  n)
+void * n_list_nth_data(n_list_t * list, uint32_t  n)
 {
     while ((n-- > 0) && list)
         list = list->next;
@@ -683,15 +690,12 @@ n_list_t * n_list_find(n_list_t * list, const void * data)
  */
 n_list_t * n_list_find_custom(n_list_t * list, const void * data, n_compare_func func)
 {
-    n_return_val_if_fail(func != NULL, list);
-
     while (list)
     {
         if (! func(list->data, data))
             return list;
         list = list->next;
     }
-
     return NULL;
 }
 
@@ -706,11 +710,10 @@ n_list_t * n_list_find_custom(n_list_t * list, const void * data, n_compare_func
  * Returns: the position of the element in the #n_list_t,
  *     or -1 if the element is not found
  */
-gint n_list_position(n_list_t * list, n_list_t * llink)
+int32_t n_list_position(n_list_t * list, n_list_t * llink)
 {
-    gint i;
+	int32_t i = 0;
 
-    i = 0;
     while (list)
     {
         if (list == llink)
@@ -718,7 +721,6 @@ gint n_list_position(n_list_t * list, n_list_t * llink)
         i++;
         list = list->next;
     }
-
     return -1;
 }
 
@@ -733,11 +735,10 @@ gint n_list_position(n_list_t * list, n_list_t * llink)
  * Returns: the index of the element containing the data,
  *     or -1 if the data is not found
  */
-gint n_list_index(n_list_t * list, const void *  data)
+int32_t n_list_index(n_list_t * list, const void *  data)
 {
-    gint i;
+	int32_t i = 0;
 
-    i = 0;
     while (list)
     {
         if (list->data == data)
@@ -745,7 +746,6 @@ gint n_list_index(n_list_t * list, const void *  data)
         i++;
         list = list->next;
     }
-
     return -1;
 }
 
@@ -802,9 +802,9 @@ n_list_t * n_list_first(n_list_t * list)
  *
  * Returns: the number of elements in the #n_list_t
  */
-guint n_list_length(n_list_t * list)
+uint32_t n_list_length(n_list_t * list)
 {
-    guint length;
+    uint32_t length;
 
     length = 0;
     while (list)
@@ -846,9 +846,7 @@ static n_list_t * n_list_insert_sorted_real(n_list_t * list, void * data, n_func
 {
     n_list_t * tmp_list = list;
     n_list_t * new_list;
-    gint cmp;
-
-    n_return_val_if_fail(func != NULL, list);
+	int32_t cmp;
 
     if (!list)
     {
@@ -857,13 +855,13 @@ static n_list_t * n_list_insert_sorted_real(n_list_t * list, void * data, n_func
         return new_list;
     }
 
-    cmp = ((n_compare_func) func)(data, tmp_list->data, user_data);
+    cmp = ((n_compare_data_func) func)(data, tmp_list->data, user_data);
 
     while ((tmp_list->next) && (cmp > 0))
     {
         tmp_list = tmp_list->next;
 
-        cmp = ((n_compare_func) func)(data, tmp_list->data, user_data);
+        cmp = ((n_compare_data_func) func)(data, tmp_list->data, user_data);
     }
 
     new_list = _n_list_alloc0();
@@ -944,14 +942,14 @@ n_list_t * n_list_insert_sorted_with_data(n_list_t * list, void * data, n_compar
 static n_list_t * n_list_sort_merge(n_list_t * l1, n_list_t * l2, n_func compare_func, void * user_data)
 {
     n_list_t list, *l, *lprev;
-    gint cmp;
+    int32_t cmp;
 
     l = &list;
     lprev = NULL;
 
     while (l1 && l2)
     {
-        cmp = ((n_compare_func) compare_func)(l1->data, l2->data, user_data);
+        cmp = ((n_compare_data_func) compare_func)(l1->data, l2->data, user_data);
 
         if (cmp <= 0)
         {

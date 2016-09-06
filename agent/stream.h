@@ -10,6 +10,7 @@ typedef struct _Stream Stream;
 
 #include "component.h"
 #include "random.h"
+#include "nlist.h"
 
 /* Maximum and default sizes for ICE attributes,
  * last updated from ICE ID-19
@@ -27,8 +28,8 @@ struct _Stream
     uint32_t id;
     uint32_t n_components;
     int initial_binding_request_received;
-    GSList * components; /* list of 'Component' structs */
-    GSList * conncheck_list;        /* list of CandidateCheckPair items */
+	n_list_t * components; /* list of 'Component' structs */
+	n_list_t * conncheck_list;        /* list of CandidateCheckPair items */
     char local_ufrag[NICE_STREAM_MAX_UFRAG];
     char local_password[NICE_STREAM_MAX_PWD];
     char remote_ufrag[NICE_STREAM_MAX_UFRAG];
@@ -38,7 +39,7 @@ struct _Stream
     int tos;
 };
 
-Stream * stream_new(guint n_components, NiceAgent * agent);
+Stream * stream_new(uint32_t n_components, NiceAgent * agent);
 void stream_close(Stream * stream);
 void stream_free(Stream * stream);
 int stream_all_components_ready(const Stream * stream);

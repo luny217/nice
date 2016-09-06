@@ -16,6 +16,7 @@ typedef struct _Component Component;
 #include "pseudotcp.h"
 #include "stream.h"
 #include "socket.h"
+#include "nlist.h"
 
 /* (ICE 4.1.1.1, ID-19)
  * ""For RTP-based media streams, the RTP itself has a component
@@ -102,11 +103,11 @@ struct _Component
     NiceComponentType type;
     uint32_t id;                    /* component id */
     NiceComponentState state;
-    GSList * local_candidates;   /* list of NiceCandidate objs */
-    GSList * remote_candidates;  /* list of NiceCandidate objs */
-    GSList * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
+	n_list_t * local_candidates;   /* list of NiceCandidate objs */
+	n_list_t * remote_candidates;  /* list of NiceCandidate objs */
+	n_list_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
     uint32_t socket_sources_age;    /* incremented when socket_sources changes */
-    GSList * incoming_checks;    /* list of IncomingCheck objs */
+	n_list_t * incoming_checks;    /* list of IncomingCheck objs */
     GList * turn_servers;            /* List of TurnServer objs */
     CandidatePair selected_pair; /* independent from checklists,
 				    see ICE 11.1. "Sending Media" (ID-19) */
