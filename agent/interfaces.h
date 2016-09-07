@@ -15,6 +15,7 @@
  */
 
 #include <glib.h>
+#include "nlist.h"
 
 /**
  * nice_interfaces_get_ip_for_interface:
@@ -26,7 +27,7 @@
  * Returns: (nullable) (transfer full): a newly-allocated string with the IP
  * address
  */
-gchar * nice_interfaces_get_ip_for_interface (gchar *interface_name);
+char * nice_interfaces_get_ip_for_interface (char *interface_name);
 
 
 /**
@@ -35,11 +36,11 @@ gchar * nice_interfaces_get_ip_for_interface (gchar *interface_name);
  *
  * Get a list of local ipv4 interface addresses
  *
- * Returns: (element-type utf8) (transfer full): a newly-allocated #GList of
+ * Returns: (element-type utf8) (transfer full): a newly-allocated #n_dlist_t  of
  * strings. The caller must free it.
  */
 
-GList * nice_interfaces_get_local_ips (gboolean include_loopback);
+n_dlist_t  * nice_interfaces_get_local_ips (gboolean include_loopback);
 
 
 /**
@@ -47,9 +48,9 @@ GList * nice_interfaces_get_local_ips (gboolean include_loopback);
  *
  * Get the list of local interfaces
  *
- * Returns: (element-type utf8) (transfer full): a newly-allocated #GList of
+ * Returns: (element-type utf8) (transfer full): a newly-allocated #n_dlist_t  of
  * strings. The caller must free it.
  */
-GList * nice_interfaces_get_local_interfaces (void);
+n_dlist_t  * nice_interfaces_get_local_interfaces (void);
 
 #endif /* __LIBNICE_INTERFACES_H__ */

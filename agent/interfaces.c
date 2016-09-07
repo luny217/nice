@@ -25,7 +25,7 @@
 #include <iphlpapi.h>
 #endif
 
-static gchar * sockaddr_to_string(const struct sockaddr * addr)
+static char * sockaddr_to_string(const struct sockaddr * addr)
 {
     char addr_as_string[INET6_ADDRSTRLEN + 1];
     size_t addr_len;
@@ -54,9 +54,9 @@ static gchar * sockaddr_to_string(const struct sockaddr * addr)
 
 #ifdef G_OS_UNIX
 
-GList * nice_interfaces_get_local_interfaces(void)
+n_dlist_t  * nice_interfaces_get_local_interfaces(void)
 {
-    GList * interfaces = NULL;
+    n_dlist_t  * interfaces = NULL;
     struct ifaddrs * ifa, *results;
 
     if (getifaddrs(&results) < 0)
@@ -86,7 +86,7 @@ GList * nice_interfaces_get_local_interfaces(void)
     return interfaces;
 }
 
-static gboolean nice_interfaces_is_private_ip(const struct sockaddr * _sa)
+static int nice_interfaces_is_private_ip(const struct sockaddr * _sa)
 {
     union
     {
@@ -118,13 +118,13 @@ static gboolean nice_interfaces_is_private_ip(const struct sockaddr * _sa)
     return FALSE;
 }
 
-static GList * add_ip_to_list(GList * list, gchar * ip, gboolean append)
+static n_dlist_t  * add_ip_to_list(n_dlist_t  * list, char * ip, int append)
 {
-    GList * i;
+    n_dlist_t  * i;
 
     for (i = list; i; i = i->next)
     {
-        gchar * addr = (gchar *) i->data;
+        char * addr = (char *) i->data;
 
         if (g_strcmp0(addr, ip) == 0)
             return list;
@@ -135,11 +135,11 @@ static GList * add_ip_to_list(GList * list, gchar * ip, gboolean append)
         return g_list_prepend(list, ip);
 }
 
-GList * nice_interfaces_get_local_ips(gboolean include_loopback)
+n_dlist_t  * nice_interfaces_get_local_ips(int include_loopback)
 {
-    GList * ips = NULL;
+    n_dlist_t  * ips = NULL;
     struct ifaddrs * ifa, *results;
-    GList * loopbacks = NULL;
+    n_dlist_t  * loopbacks = NULL;
 
 
     if (getifaddrs(&results) < 0)
@@ -148,7 +148,7 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
     /* Loop through the interface list and get the IP address of each IF */
     for (ifa = results; ifa; ifa = ifa->ifa_next)
     {
-        gchar * addr_string;
+        char * addr_string;
 
         /* no ip address from interface that is down */
         if ((ifa->ifa_flags & IFF_UP) == 0)
@@ -192,12 +192,12 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
     freeifaddrs(results);
 
     if (loopbacks)
-        ips = g_list_concat(ips, loopbacks);
+        ips = n_dlist_concat(ips, loopbacks);
 
     return ips;
 }
 
-gchar * nice_interfaces_get_ip_for_interface(gchar * interface_name)
+char * nice_interfaces_get_ip_for_interface(char * interface_name)
 {
     struct ifreq ifr;
     union
@@ -205,7 +205,7 @@ gchar * nice_interfaces_get_ip_for_interface(gchar * interface_name)
         struct sockaddr * addr;
         struct sockaddr_in * in;
     } sa;
-    gint sockfd;
+    int32_t  sockfd;
 
     g_return_val_if_fail(interface_name != NULL, NULL);
 
@@ -235,11 +235,11 @@ gchar * nice_interfaces_get_ip_for_interface(gchar * interface_name)
 
 #else ifdef G_OS_WIN32
 
-GList * nice_interfaces_get_local_interfaces(void)
+n_dlist_t  * nice_interfaces_get_local_interfaces(void)
 {
     ULONG size = 0;
     PMIB_IFTABLE if_table;
-    GList * ret = NULL;
+    n_dlist_t  * ret = NULL;
 
     GetIfTable(NULL, &size, TRUE);
 
@@ -253,7 +253,7 @@ GList * nice_interfaces_get_local_interfaces(void)
         DWORD i;
         for (i = 0; i < if_table->dwNumEntries; i++)
         {
-            ret = g_list_prepend(ret, g_strdup((gchar *)if_table->table[i].bDescr));
+            ret = n_dlist_prepend(ret, g_strdup((char *)if_table->table[i].bDescr));
         }
     }
 
@@ -262,14 +262,14 @@ GList * nice_interfaces_get_local_interfaces(void)
     return ret;
 }
 
-GList * nice_interfaces_get_local_ips(gboolean include_loopback)
+n_dlist_t  * nice_interfaces_get_local_ips(int include_loopback)
 {
     IP_ADAPTER_ADDRESSES * addresses = NULL, *a;
     ULONG status;
     guint iterations;
     ULONG addresses_size;
     DWORD pref = 0;
-    GList * ret = NULL;
+    n_dlist_t  * ret = NULL;
 
 #define MAX_TRIES 3
 #define INITIAL_BUFFER_SIZE 15000
@@ -334,7 +334,7 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
         /* Grab the interfaces unicast addresses. */
         for (unicast = a->FirstUnicastAddress; unicast != NULL; unicast = unicast->Next)
         {
-            gchar * addr_string;
+            char * addr_string;
 
             addr_string = sockaddr_to_string(unicast->Address.lpSockaddr);
             if (addr_string == NULL)
@@ -346,9 +346,9 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
             nice_debug("IP address: %s", addr_string);
 
             if (a->IfIndex == pref || a->Ipv6IfIndex == pref)
-                ret = g_list_prepend(ret, addr_string);
+                ret = n_dlist_prepend(ret, addr_string);
             else
-                ret = g_list_append(ret, addr_string);
+                ret = n_dlist_append(ret, addr_string);
         }
     }
 
@@ -363,11 +363,11 @@ GList * nice_interfaces_get_local_ips(gboolean include_loopback)
 // Source for idx's type (Was IF_INDEX):
 // http://msdn.microsoft.com/en-us/library/aa366836(v=VS.85).aspx
 // (Title: MIB_IFROW structure)
-static gchar * win32_get_ip_for_interface(DWORD idx)
+static char * win32_get_ip_for_interface(DWORD idx)
 {
     ULONG size = 0;
     PMIB_IPADDRTABLE ip_table;
-    gchar * ret = NULL;
+    char * ret = NULL;
 
     GetIpAddrTable(NULL, &size, TRUE);
 
@@ -399,11 +399,11 @@ static gchar * win32_get_ip_for_interface(DWORD idx)
     return ret;
 }
 
-gchar * nice_interfaces_get_ip_for_interface(gchar * interface_name)
+char * nice_interfaces_get_ip_for_interface(char * interface_name)
 {
     ULONG size = 0;
     PMIB_IFTABLE if_table;
-    gchar * ret = NULL;
+    char * ret = NULL;
 
     GetIfTable(NULL, &size, TRUE);
 
@@ -415,7 +415,7 @@ gchar * nice_interfaces_get_ip_for_interface(gchar * interface_name)
     if (GetIfTable(if_table, &size, TRUE) == ERROR_SUCCESS)
     {
         DWORD i;
-        gchar * tmp_str;
+        char * tmp_str;
         for (i = 0; i < if_table->dwNumEntries; i++)
         {
             tmp_str = g_utf16_to_utf8(

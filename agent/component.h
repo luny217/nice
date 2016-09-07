@@ -103,14 +103,13 @@ struct _Component
     NiceComponentType type;
     uint32_t id;                    /* component id */
     NiceComponentState state;
-	n_list_t * local_candidates;   /* list of NiceCandidate objs */
-	n_list_t * remote_candidates;  /* list of NiceCandidate objs */
-	n_list_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
+	n_slist_t * local_candidates;   /* list of NiceCandidate objs */
+	n_slist_t * remote_candidates;  /* list of NiceCandidate objs */
+	n_slist_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
     uint32_t socket_sources_age;    /* incremented when socket_sources changes */
-	n_list_t * incoming_checks;    /* list of IncomingCheck objs */
-    GList * turn_servers;            /* List of TurnServer objs */
-    CandidatePair selected_pair; /* independent from checklists,
-				    see ICE 11.1. "Sending Media" (ID-19) */
+	n_slist_t * incoming_checks;    /* list of IncomingCheck objs */
+	n_dlist_t * turn_servers;            /* List of TurnServer objs */
+    CandidatePair selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
     NiceCandidate * restart_candidate; /* for storing active remote candidate during a restart */
     NiceCandidate * turn_candidate; /* for storing active turn candidate if turn servers have been cleared */
     /* I/O handling. The main context must always be non-NULL, and is used for all
@@ -161,7 +160,7 @@ struct _Component
     int tcp_readable;
     GCancellable * tcp_writable_cancellable;
 
-    GIOStream * iostream;
+    //GIOStream * iostream;
 
     uint32_t min_port;
     uint32_t max_port;

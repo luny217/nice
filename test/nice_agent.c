@@ -23,7 +23,7 @@
 static GMainLoop * gloop;
 static char * stun_addr = "107.191.106.104";
 static uint32_t stun_port = 3478;
-static int controlling = 0;
+static int controlling = 1;
 static int exit_thread, candidate_gathering_done, negotiation_done;
 static GMutex gather_mutex, negotiate_mutex;
 static GCond gather_cond, negotiate_cond;
@@ -102,7 +102,7 @@ static void * example_thread(void * data)
     {
         //g_object_set(agent, "stun-server", stun_addr, NULL);
         //g_object_set(agent, "stun-server-port", stun_port, NULL);
-		agent->stun_server_ip = stun_addr;
+		agent->stun_server_ip = g_strdup(stun_addr);
 		agent->stun_server_port = stun_port;
     }
     //g_object_set(agent, "controlling-mode", controlling, NULL);
@@ -156,7 +156,7 @@ static void * example_thread(void * data)
             rval = parse_remote_data(agent, stream_id, 1, line);
             if (rval == EXIT_SUCCESS)
             {
-                g_free(line);
+                n_free(line);
                 break;
             }
             else
@@ -166,7 +166,7 @@ static void * example_thread(void * data)
                 printf("> ");
                 fflush(stdout);
             }
-            g_free(line);
+            n_free(line);
         }
         else if (s == G_IO_STATUS_AGAIN)
         {
@@ -240,7 +240,7 @@ resend:
 			if (s == G_IO_STATUS_NORMAL)
 			{
 				nice_agent_send(agent, stream_id, 1, strlen(line), line);
-				g_free(line);
+				n_free(line);
 				printf("> ");
 				fflush(stdout);
 			}
@@ -374,7 +374,7 @@ static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t comp
     char * local_ufrag = NULL;
     char * local_password = NULL;
     char ipaddr[INET6_ADDRSTRLEN];
-    GSList * cand_lists = NULL, *item;
+	n_slist_t * cand_lists = NULL, *item;
 
     if (!nice_agent_get_local_credentials(agent, stream_id,  &local_ufrag, &local_password))
         goto end;
@@ -404,11 +404,11 @@ static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t comp
 
 end:
     if (local_ufrag)
-        g_free(local_ufrag);
+        free(local_ufrag);
     if (local_password)
-        g_free(local_password);
+        free(local_password);
     if (cand_lists)
-        g_slist_free_full(cand_lists, (GDestroyNotify)&nice_candidate_free);
+        n_slist_free_full(cand_lists, (GDestroyNotify)&nice_candidate_free);
 
     return result;
 }
@@ -416,7 +416,7 @@ end:
 
 static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, char * line)
 {
-    GSList * remote_candidates = NULL;
+    n_slist_t  * remote_candidates = NULL;
     char ** line_argv = NULL;
     const char * ufrag = NULL;
     const char * passwd = NULL;
@@ -448,7 +448,7 @@ static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t com
                 g_message("failed to parse candidate: %s", line_argv[i]);
                 goto end;
             }
-            remote_candidates = g_slist_prepend(remote_candidates, c);
+            remote_candidates = n_slist_prepend(remote_candidates, c);
         }
     }
     if (ufrag == NULL || passwd == NULL || remote_candidates == NULL)
@@ -476,7 +476,7 @@ end:
     if (line_argv != NULL)
         g_strfreev(line_argv);
     if (remote_candidates != NULL)
-        g_slist_free_full(remote_candidates, (GDestroyNotify)&nice_candidate_free);
+        n_slist_free_full(remote_candidates, (n_destroy_notify)&nice_candidate_free);
 
     return result;
 }

@@ -415,7 +415,7 @@ struct _PseudoTcpSocketPrivate
     uint32_t last_traffic;
 
     // Incoming data
-    GList * rlist;
+    n_dlist_t * rlist;
     uint32_t rbuf_len, rcv_nxt, rcv_wnd, lastrecv;
     uint8_t rwnd_scale; // Window scale factor
     PseudoTcpFifo rbuf;
@@ -695,12 +695,11 @@ pseudo_tcp_socket_set_property(GObject * object,
     }
 }
 
-static void
-pseudo_tcp_socket_finalize(GObject * object)
+static void pseudo_tcp_socket_finalize(GObject * object)
 {
     PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
     PseudoTcpSocketPrivate * priv = self->priv;
-    GList * i;
+    n_dlist_t * i;
     SSegment * sseg;
 
     if (priv == NULL)
@@ -712,15 +711,15 @@ pseudo_tcp_socket_finalize(GObject * object)
     for (i = priv->rlist; i; i = i->next)
     {
         RSegment * rseg = i->data;
-        g_slice_free(RSegment, rseg);
+        n_slice_free(RSegment, rseg);
     }
-    g_list_free(priv->rlist);
+    n_dlist_free(priv->rlist);
     priv->rlist = NULL;
 
     pseudo_tcp_fifo_clear(&priv->rbuf);
     pseudo_tcp_fifo_clear(&priv->sbuf);
 
-    g_free(priv);
+    free(priv);
     self->priv = NULL;
 
     if (G_OBJECT_CLASS(pseudo_tcp_socket_parent_class)->finalize)
@@ -728,8 +727,7 @@ pseudo_tcp_socket_finalize(GObject * object)
 }
 
 
-static void
-pseudo_tcp_socket_init(PseudoTcpSocket * obj)
+static void pseudo_tcp_socket_init(PseudoTcpSocket * obj)
 {
     /* Use g_new0, and do not use g_object_set_private because the size of
      * our private data is too big (150KB+) and the g_slice_allow cannot allocate
@@ -1969,13 +1967,12 @@ static int process(PseudoTcpSocket * self, Segment * seg)
             uint32_t nOffset = seg->seq - priv->rcv_nxt;
             uint32_t res;
 
-            res = pseudo_tcp_fifo_write_offset(&priv->rbuf, (uint8_t *) seg->data,
-                                               seg->len, nOffset);
+            res = pseudo_tcp_fifo_write_offset(&priv->rbuf, (uint8_t *) seg->data,  seg->len, nOffset);
             g_assert(res == seg->len);
 
             if (seg->seq == priv->rcv_nxt)
             {
-                GList * iter = NULL;
+                n_dlist_t * iter = NULL;
 
                 pseudo_tcp_fifo_consume_write_buffer(&priv->rbuf, seg->len);
                 priv->rcv_nxt += seg->len;
@@ -1983,8 +1980,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
                 bNewData = TRUE;
 
                 iter = priv->rlist;
-                while (iter &&
-                        SMALLER_OR_EQUAL(((RSegment *)iter->data)->seq, priv->rcv_nxt))
+                while (iter &&  SMALLER_OR_EQUAL(((RSegment *)iter->data)->seq, priv->rcv_nxt))
                 {
                     RSegment * data = (RSegment *)(iter->data);
                     if (LARGER(data->seq + data->len, priv->rcv_nxt))
@@ -1997,14 +1993,14 @@ static int process(PseudoTcpSocket * self, Segment * seg)
                         priv->rcv_nxt += nAdjust;
                         priv->rcv_wnd -= nAdjust;
                     }
-                    g_slice_free(RSegment, priv->rlist->data);
-                    priv->rlist = g_list_delete_link(priv->rlist, priv->rlist);
+                    n_slice_free(RSegment, priv->rlist->data);
+                    priv->rlist = n_dlist_delete_link(priv->rlist, priv->rlist);
                     iter = priv->rlist;
                 }
             }
             else
             {
-                GList * iter = NULL;
+                n_dlist_t * iter = NULL;
                 RSegment * rseg = g_slice_new0(RSegment);
 
                 DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Saving %u bytes (%u -> %u)",
@@ -2014,9 +2010,9 @@ static int process(PseudoTcpSocket * self, Segment * seg)
                 iter = priv->rlist;
                 while (iter && SMALLER(((RSegment *)iter->data)->seq, rseg->seq))
                 {
-                    iter = g_list_next(iter);
+                    iter = n_dlist_next(iter);
                 }
-                priv->rlist = g_list_insert_before(priv->rlist, iter, rseg);
+                priv->rlist = n_dlist_insert_before(priv->rlist, iter, rseg);
             }
         }
     }
@@ -2150,7 +2146,7 @@ static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
         uint32_t nUseable;
         uint32_t nAvailable;
         uint32_t snd_buffered;
-        GList * iter;
+        n_dlist_t * iter;
         SSegment * sseg;
 
         cwnd = priv->cwnd;

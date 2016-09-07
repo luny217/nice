@@ -43,10 +43,10 @@ void nice_candidate_free(NiceCandidate * candidate)
     /* better way of checking if socket is allocated? */
 
     if (candidate->username)
-        g_free(candidate->username);
+        n_free(candidate->username);
 
     if (candidate->password)
-        g_free(candidate->password);
+        n_free(candidate->password);
 
     if (candidate->turn)
         turn_server_unref(candidate->turn);

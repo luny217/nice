@@ -17,7 +17,7 @@ static void component_deschedule_io_callback(Component * component);
 
 void incoming_check_free(IncomingCheck * icheck)
 {
-    g_free(icheck->username);
+    n_free(icheck->username);
     g_slice_free(IncomingCheck, icheck);
 }
 
@@ -71,7 +71,7 @@ Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
     g_atomic_int_inc(&n_components_created);
     nice_debug("Created NiceComponent (%u created, %u destroyed)", n_components_created, n_components_destroyed);
 
-    component = g_slice_new0(Component);
+    component = n_slice_new0(Component);
     component->id = id;
     component->state = COMPONENT_STATE_DISCONNECTED;
     component->restart_candidate = NULL;
@@ -105,15 +105,15 @@ Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
 
 void component_clean_turn_servers(Component * cmp)
 {
-    GSList * i;
+	n_slist_t * i;
 
-    g_list_free_full(cmp->turn_servers, (GDestroyNotify) turn_server_unref);
+    n_dlist_free_full(cmp->turn_servers, (n_destroy_notify) turn_server_unref);
     cmp->turn_servers = NULL;
 
     for (i = cmp->local_candidates; i;)
     {
         NiceCandidate * candidate = i->data;
-        GSList * next = i->next;
+		n_slist_t  * next = i->next;
 
         if (candidate->type != CANDIDATE_TYPE_RELAYED)
         {
@@ -155,7 +155,7 @@ void component_clean_turn_servers(Component * cmp)
             agent_remove_local_candidate(cmp->agent, candidate);
             nice_candidate_free(candidate);
         }
-        cmp->local_candidates = g_slist_delete_link(cmp->local_candidates, i);
+        cmp->local_candidates = n_slist_delete_link(cmp->local_candidates, i);
         i = next;
     }
 }
@@ -204,13 +204,13 @@ void component_close(Component * cmp)
     {
         agent_remove_local_candidate(cmp->agent, cmp->local_candidates->data);
         nice_candidate_free(cmp->local_candidates->data);
-        cmp->local_candidates = g_slist_delete_link(cmp->local_candidates, cmp->local_candidates);
+        cmp->local_candidates = n_slist_delete_link(cmp->local_candidates, cmp->local_candidates);
     }
 
-    g_slist_free_full(cmp->remote_candidates, (GDestroyNotify) nice_candidate_free);
+    n_slist_free_full(cmp->remote_candidates, (n_destroy_notify) nice_candidate_free);
     cmp->remote_candidates = NULL;
     component_free_socket_sources(cmp);
-    g_slist_free_full(cmp->incoming_checks, (GDestroyNotify) incoming_check_free);
+    n_slist_free_full(cmp->incoming_checks, (n_destroy_notify) incoming_check_free);
     cmp->incoming_checks = NULL;
 
     component_clean_turn_servers(cmp);
@@ -236,7 +236,7 @@ void component_close(Component * cmp)
 
     while ((vec = g_queue_pop_head(&cmp->queued_tcp_packets)) != NULL)
     {
-        g_free((void *) vec->buffer);
+        n_free((void *) vec->buffer);
         g_slice_free(GOutputVector, vec);
     }
 }
@@ -252,7 +252,7 @@ void component_free(Component * cmp)
 
     g_clear_object(&cmp->tcp);
     g_clear_object(&cmp->stop_cancellable);
-    g_clear_object(&cmp->iostream);
+    //g_clear_object(&cmp->iostream);
     g_mutex_clear(&cmp->io_mutex);
 
     if (cmp->stop_cancellable_source != NULL)
@@ -284,7 +284,7 @@ void component_free(Component * cmp)
 int
 component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair)
 {
-    GSList * i;
+    n_slist_t  * i;
     CandidatePair result = { 0, };
 
     for (i = cmp->local_candidates; i; i = i->next)
@@ -325,7 +325,7 @@ component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundatio
 void
 component_restart(Component * cmp)
 {
-    GSList * i;
+    n_slist_t  * i;
 
     for (i = cmp->remote_candidates; i; i = i->next)
     {
@@ -343,11 +343,11 @@ component_restart(Component * cmp)
         else
             nice_candidate_free(candidate);
     }
-    g_slist_free(cmp->remote_candidates),
+    n_slist_free(cmp->remote_candidates),
                  cmp->remote_candidates = NULL;
 
-    g_slist_free_full(cmp->incoming_checks,
-                      (GDestroyNotify) incoming_check_free);
+    n_slist_free_full(cmp->incoming_checks,
+                      (n_destroy_notify) incoming_check_free);
     cmp->incoming_checks = NULL;
 
     /* Reset the priority to 0 to make sure we get a new pair */
@@ -364,8 +364,8 @@ void component_update_selected_pair(Component * component, const CandidatePair *
 {
     g_assert(component);
     g_assert(pair);
-    nice_debug("setting SELECTED PAIR for component %u: %s:%s (prio:%"
-               G_GUINT64_FORMAT ").", component->id, pair->local->foundation,
+    nice_debug("[%s agent:0x%p]: setting SELECTED PAIR for component %u: %s:%s (prio:%"
+               G_GUINT64_FORMAT ")", G_STRFUNC, component->agent, component->id, pair->local->foundation,
                pair->remote->foundation, pair->priority);
 
     if (component->selected_pair.local &&
@@ -398,7 +398,7 @@ void component_update_selected_pair(Component * component, const CandidatePair *
 NiceCandidate *
 component_find_remote_candidate(const Component * component, const NiceAddress * addr, NiceCandidateTransport transport)
 {
-    GSList * i;
+    n_slist_t  * i;
 
     for (i = component->remote_candidates; i; i = i->next)
     {
@@ -425,11 +425,11 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     NiceCandidate * local = NULL;
     NiceCandidate * remote = NULL;
     guint64 priority = 0;
-    GSList * item = NULL;
+    n_slist_t  * item = NULL;
 
     g_assert(candidate != NULL);
 
-    for (item = component->local_candidates; item; item = g_slist_next(item))
+    for (item = component->local_candidates; item; item = n_slist_next(item))
     {
         NiceCandidate * tmp = item->data;
         uint64_t tmp_prio = 0;
@@ -456,7 +456,7 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     if (!remote)
     {
         remote = nice_candidate_copy(candidate);
-        component->remote_candidates = g_slist_append(component->remote_candidates, remote);
+        component->remote_candidates = n_slist_append(component->remote_candidates, remote);
         agent_signal_new_remote_candidate(agent, remote);
     }
 
@@ -481,7 +481,7 @@ static int32_t _find_socket_source(gconstpointer a, gconstpointer b)
  * It creates and attaches a source to the components context. */
 void component_attach_socket(Component * component, NiceSocket * nicesock)
 {
-    GSList * l;
+    n_slist_t  * l;
     SocketSource * socket_source;
 
     g_assert(component != NULL);
@@ -498,7 +498,7 @@ void component_attach_socket(Component * component, NiceSocket * nicesock)
      * Whenever a source is added or remove to socket_sources, socket_sources_age
      * must be incremented.
      */
-    l = g_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
+    l = n_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
     if (l != NULL)
     {
         socket_source = l->data;
@@ -508,7 +508,7 @@ void component_attach_socket(Component * component, NiceSocket * nicesock)
         socket_source = g_slice_new0(SocketSource);
         socket_source->socket = nicesock;
         socket_source->component = component;
-        component->socket_sources = g_slist_prepend(component->socket_sources, socket_source);
+        component->socket_sources = n_slist_prepend(component->socket_sources, socket_source);
         component->socket_sources_age++;
     }
 
@@ -524,7 +524,7 @@ void component_attach_socket(Component * component, NiceSocket * nicesock)
 static void
 component_reattach_all_sockets(Component * component)
 {
-    GSList * i;
+    n_slist_t  * i;
 
     for (i = component->socket_sources; i != NULL; i = i->next)
     {
@@ -548,7 +548,7 @@ component_reattach_all_sockets(Component * component)
 void
 component_detach_socket(Component * component, NiceSocket * nicesock)
 {
-    GSList * l;
+    n_slist_t  * l;
     SocketSource * socket_source;
 
     nice_debug("Detach socket %p.", nicesock);
@@ -557,12 +557,12 @@ component_detach_socket(Component * component, NiceSocket * nicesock)
     for (l = component->incoming_checks; l != NULL;)
     {
         IncomingCheck * icheck = l->data;
-        GSList * next = l->next;
+        n_slist_t  * next = l->next;
 
         if (icheck->local_socket == nicesock)
         {
             component->incoming_checks =
-                g_slist_delete_link(component->incoming_checks, l);
+                n_slist_delete_link(component->incoming_checks, l);
             incoming_check_free(icheck);
         }
 
@@ -570,13 +570,13 @@ component_detach_socket(Component * component, NiceSocket * nicesock)
     }
 
     /* Find the SocketSource for the socket. */
-    l = g_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
+    l = n_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
     if (l == NULL)
         return;
 
     /* Detach the source. */
     socket_source = l->data;
-    component->socket_sources = g_slist_delete_link(component->socket_sources, l);
+    component->socket_sources = n_slist_delete_link(component->socket_sources, l);
     component->socket_sources_age++;
 
     socket_source_detach(socket_source);
@@ -592,7 +592,7 @@ component_detach_socket(Component * component, NiceSocket * nicesock)
  */
 void component_detach_all_sockets(Component * component)
 {
-    GSList * i;
+    n_slist_t  * i;
 
     for (i = component->socket_sources; i != NULL; i = i->next)
     {
@@ -606,7 +606,7 @@ void component_free_socket_sources(Component * component)
 {
     nice_debug("Free socket sources for component %p.", component);
 
-    g_slist_free_full(component->socket_sources,  (GDestroyNotify) socket_source_free);
+    n_slist_free_full(component->socket_sources,  (n_destroy_notify) socket_source_free);
     component->socket_sources = NULL;
     component->socket_sources_age++;
 
@@ -712,7 +712,7 @@ IOCallbackData * io_callback_data_new(const uint8_t * buf, uint32_t buf_len)
 
 void io_callback_data_free(IOCallbackData * data)
 {
-    g_free(data->buf);
+    n_free(data->buf);
     g_slice_free(IOCallbackData, data);
 }
 
@@ -841,7 +841,7 @@ void component_emit_io_callback(Component * component,  const uint8_t * buf, uin
         data = io_callback_data_new(buf, buf_len);
         g_queue_push_tail(&component->pending_io_messages, data);  /* transfer ownership */
 
-        nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
+        nice_debug("[%s agent:0x%p]:: **WARNING: SLOW PATH**", G_STRFUNC, agent);
         component_schedule_io_callback(component);
         g_mutex_unlock(&component->io_mutex);
     }
@@ -915,8 +915,8 @@ void turn_server_unref(TurnServer * turn)
 
     if (turn->ref_count == 0)
     {
-        g_free(turn->username);
-        g_free(turn->password);
+        n_free(turn->username);
+        n_free(turn->password);
         g_slice_free(TurnServer, turn);
     }
 }

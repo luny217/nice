@@ -28,8 +28,8 @@ struct _Stream
     uint32_t id;
     uint32_t n_components;
     int initial_binding_request_received;
-	n_list_t * components; /* list of 'Component' structs */
-	n_list_t * conncheck_list;        /* list of CandidateCheckPair items */
+	n_slist_t * components; /* list of 'Component' structs */
+	n_slist_t * conncheck_list;        /* list of CandidateCheckPair items */
     char local_ufrag[NICE_STREAM_MAX_UFRAG];
     char local_password[NICE_STREAM_MAX_PWD];
     char remote_ufrag[NICE_STREAM_MAX_UFRAG];
