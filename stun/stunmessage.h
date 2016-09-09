@@ -856,7 +856,7 @@ int stun_message_validate_buffer_length(const uint8_t * msg, size_t length,  boo
  * functions, providing multiple buffers which store logically contiguous
  * received data.
  *
- * This is guaranteed to be layed out identically in memory to #GInputVector.
+ * This is guaranteed to be layed out identically in memory to #n_invector_t.
  *
  * Since: 0.1.5
  */

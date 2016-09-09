@@ -122,12 +122,13 @@ typedef struct _NiceAgent NiceAgent;
 #include "candidate.h"
 #include "debug.h"
 #include "nlist.h"
+#include "nqueue.h"
 
 //G_BEGIN_DECLS
 
 /**
  * n_input_msg_t:
- * @buffers: (array length=n_buffers): unowned array of #GInputVector buffers to
+ * @buffers: (array length=n_buffers): unowned array of #n_invector_t buffers to
  * store data in for this message
  * @n_buffers: number of #GInputVectors in @buffers, or -1 to indicate @buffers
  * is %NULL-terminated
@@ -141,7 +142,7 @@ typedef struct _NiceAgent NiceAgent;
  * packet as received from the OS.
  *
  * @n_buffers may be -1 to indicate that @buffers is terminated by a
- * #GInputVector with a %NULL buffer pointer.
+ * #n_invector_t with a %NULL buffer pointer.
  *
  * By providing arrays of #NiceInputMessages to functions like
  * nice_agent_recv_messages(), multiple messages may be received with a single
@@ -153,7 +154,7 @@ typedef struct _NiceAgent NiceAgent;
  */
 typedef struct
 {
-    GInputVector * buffers;
+    n_invector_t * buffers;
     int32_t n_buffers;  /* may be -1 to indicate @buffers is NULL-terminated */
     NiceAddress * from; /* return location for address of message sender */
     uint32_t length;  /* sum of the lengths of @buffers */

@@ -17,9 +17,9 @@
 
 
 static void socket_close(NiceSocket * sock);
-static gint socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
-static gint socket_send_messages(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
-static gint socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
+static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
+static int32_t socket_send_messages(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
+static int32_t socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
 static int socket_is_reliable(NiceSocket * sock);
 static int socket_can_send(NiceSocket * sock, NiceAddress * addr);
 static void socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data);
@@ -159,8 +159,8 @@ static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_mess
         n_input_msg_t * recv_message = &recv_messages[i];
         GSocketAddress * gaddr = NULL;
         GError * gerr = NULL;
-        gssize recvd;
-        gint flags = G_SOCKET_MSG_NONE;
+        int32_t recvd;
+        int32_t flags = G_SOCKET_MSG_NONE;
 
         recvd = g_socket_receive_message(sock->fileno,
                                          (recv_message->from != NULL) ? &gaddr : NULL,
@@ -210,7 +210,7 @@ static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, co
 {
     struct UdpBsdSocketPrivate * priv = sock->priv;
     GError * child_error = NULL;
-    gssize len;
+    int32_t len;
 
     /* Socket has been closed: */
     if (priv == NULL)
@@ -266,7 +266,7 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
     for (i = 0; i < n_messages; i++)
     {
         const n_output_msg_t * message = &messages[i];
-        gssize len;
+        int32_t len;
 
         len = socket_send_message(sock, to, message);
 

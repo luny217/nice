@@ -47,7 +47,7 @@ static void nice_debug_input_message_composition(const n_input_msg_t * messages,
 static void nice_agent_init(NiceAgent * self);
 static void nice_agent_class_init(NiceAgentClass * klass);
 static gpointer nice_agent_parent_class = ((void *)0);
-static gint NiceAgent_private_offset;
+static int32_t NiceAgent_private_offset;
 static void nice_agent_class_intern_init(gpointer klass)
 {
     nice_agent_parent_class = g_type_class_peek_parent(klass);
@@ -897,7 +897,7 @@ pst_recv_messages(PseudoTcpSocket * self,
                 (message->n_buffers < 0 && message->buffers[iter->buffer].buffer != NULL);
                 iter->buffer++)
         {
-            GInputVector * buffer = &message->buffers[iter->buffer];
+            n_invector_t * buffer = &message->buffers[iter->buffer];
 
             do
             {
@@ -2476,7 +2476,7 @@ static void nice_debug_input_message_composition(const n_input_msg_t * messages,
                 (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
                 j++)
         {
-            GInputVector * buffer = &message->buffers[j];
+            n_invector_t * buffer = &message->buffers[j];
 
             nice_debug("[%s agent:0x%p]: Buffer %p (length: %" G_GSIZE_FORMAT ")", G_STRFUNC, NULL, buffer->buffer, buffer->size);
         }
@@ -3014,7 +3014,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
          * memcpy()s can be achieved (for in-order packet delivery) by emittin the
          * I/O callback directly from the pseudo-TCP receive buffer. */
         uint8_t local_body_buf[MAX_BUFFER_SIZE];
-        GInputVector local_bufs[] =
+        n_invector_t local_bufs[] =
         {
             { local_header_buf, sizeof(local_header_buf) },
             { local_body_buf, sizeof(local_body_buf) },
@@ -3042,9 +3042,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
              * @local_bufs then, for pseudo-TCP, emit I/O callbacks or copy it into
              * component->recv_messages in pst_readable(). STUN packets
              * will be parsed in-place. */
-            retval = agent_recv_message_unlocked(agent, stream, component, socket_source->socket, &local_message);
-
-            nice_debug("[%s agent:0x%p]: received %d valid messages with %d bytes", G_STRFUNC, agent, retval, local_message.length);
+            retval = agent_recv_message_unlocked(agent, stream, component, socket_source->socket, &local_message);          
 
             /* Dont expect any valid messages to escape pst_readable()
              * when in reliable mode. */
@@ -3063,6 +3061,8 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
                 break;
             }
 
+			nice_debug("[%s agent:0x%p]: received %d valid messages with %d bytes", G_STRFUNC, agent, retval, local_message.length);
+
             has_io_callback = component_has_io_callback(component);
         }
     }
@@ -3071,7 +3071,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
         while (has_io_callback)
         {
             uint8_t local_buf[MAX_BUFFER_SIZE];
-            GInputVector local_bufs = { local_buf, sizeof(local_buf) };
+            n_invector_t local_bufs = { local_buf, sizeof(local_buf) };
             n_input_msg_t local_message = { &local_bufs, 1, NULL, 0 };
             RecvStatus retval;
 

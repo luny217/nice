@@ -269,7 +269,7 @@ gboolean pst_connect(PseudoTcpSocket * self);
  *
  * Since: 0.0.11
  */
-gint  pst_recv(PseudoTcpSocket * self, char * buffer, size_t len);
+int32_t  pst_recv(PseudoTcpSocket * self, char * buffer, size_t len);
 
 
 /**
@@ -293,7 +293,7 @@ gint  pst_recv(PseudoTcpSocket * self, char * buffer, size_t len);
  *
  * Since: 0.0.11
  */
-gint pst_send(PseudoTcpSocket * self, const char * buffer,
+int32_t pst_send(PseudoTcpSocket * self, const char * buffer,
                             guint32 len);
 
 
@@ -478,7 +478,7 @@ void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level);
  * Since: 0.1.5
  */
 
-gint pst_get_available_bytes(PseudoTcpSocket * self);
+int32_t pst_get_available_bytes(PseudoTcpSocket * self);
 
 /**
  * pst_can_send:

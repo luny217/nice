@@ -158,7 +158,7 @@ int32_t nice_socket_send_messages_reliable(NiceSocket * sock, const NiceAddress 
  * -1 on error. */
 int32_t nice_socket_recv(NiceSocket * sock, NiceAddress * from, uint32_t len, char * buf)
 {
-    GInputVector local_buf = { buf, len };
+    n_invector_t local_buf = { buf, len };
     n_input_msg_t local_message = { &local_buf, 1, from, 0};
     int32_t ret;
 

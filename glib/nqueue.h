@@ -55,7 +55,7 @@ n_dlist_t *  n_queue_find_custom(n_queue_t * queue, const void * data, n_compare
 void n_queue_sort(n_queue_t * queue, n_compare_data_func  compare_func, void * user_data);
 void n_queue_push_head(n_queue_t * queue,	void * data);
 void n_queue_push_tail(n_queue_t * queue, void * data);
-void n_queue_push_nth(n_queue_t * queue, void * data, int32_t n);
+void n_queue_push_nth(n_queue_t * queue, void * data, uint32_t n);
 void * n_queue_pop_head(n_queue_t * queue);
 void * n_queue_pop_tail(n_queue_t * queue);
 void * n_queue_pop_nth(n_queue_t * queue, uint32_t n);
@@ -81,5 +81,13 @@ n_dlist_t * n_queue_peek_nth_link(n_queue_t * queue, uint32_t n);
 int32_t n_queue_link_index(n_queue_t * queue, n_dlist_t * link_);
 void n_queue_unlink(n_queue_t * queue, n_dlist_t * link_);
 void n_queue_delete_link(n_queue_t * queue, n_dlist_t * link_);
+
+typedef struct _invector_st n_invector_t;
+
+struct _invector_st
+{
+	void * buffer;
+	uint32_t size;
+};
 
 #endif /* __G_QUEUE_H__ */
