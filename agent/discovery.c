@@ -478,12 +478,9 @@ static void priv_generate_candidate_credentials(NiceAgent * agent,  NiceCandidat
     }
 }
 
-/*
- * Creates a local host candidate for 'component_id' of stream
- * 'stream_id'.
- *
- * @return pointer to the created candidate, or NULL on error
- */
+ /* 为 stream_id 的 component_id 创建一个本地主机候选地址
+ *  成功输出候选指针, 失败为NULL*/
+
 HostCandidateResult discovery_add_local_host_candidate(
     NiceAgent * agent,
     uint32_t stream_id,
@@ -495,7 +492,7 @@ HostCandidateResult discovery_add_local_host_candidate(
     Component * component;
     Stream * stream;
     NiceSocket * nicesock = NULL;
-    HostCandidateResult res = HOST_CANDIDATE_FAILED;
+    HostCandidateResult res = CANDIDATE_FAILED;
 
     if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         return res;
@@ -505,7 +502,7 @@ HostCandidateResult discovery_add_local_host_candidate(
     candidate->stream_id = stream_id;
     candidate->component_id = component_id;
     candidate->addr = *address;
-    candidate->base_addr = *address;    
+    candidate->base_addr = *address;
     candidate->priority = nice_candidate_ice_priority(candidate);
 
     //priv_generate_candidate_credentials(agent, candidate);
@@ -514,7 +511,7 @@ HostCandidateResult discovery_add_local_host_candidate(
     nicesock = nice_udp_bsd_socket_new(address);   
     if (!nicesock)
     {
-        res = HOST_CANDIDATE_CANT_CREATE_SOCKET;
+        res = CANDIDATE_CANT_CREATE_SOCKET;
         goto errors;
     }
 
@@ -524,7 +521,7 @@ HostCandidateResult discovery_add_local_host_candidate(
 
     if (!priv_add_local_candidate_pruned(agent, stream_id, component, candidate))
     {
-        res = HOST_CANDIDATE_REDUNDANT;
+        res = CANDIDATE_REDUNDANT;
         goto errors;
     }
 
@@ -533,7 +530,7 @@ HostCandidateResult discovery_add_local_host_candidate(
 
     *outcandidate = candidate;
 
-    return HOST_CANDIDATE_SUCCESS;
+    return CANDIDATE_SUCCESS;
 
 errors:
     nice_candidate_free(candidate);

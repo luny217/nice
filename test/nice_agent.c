@@ -118,6 +118,8 @@ static void * example_thread(void * data)
     if (stream_id == 0)
         g_error("Failed to add stream");
 
+	nice_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
+
     // Attach to the component to receive the data
     // Without this call, candidates cannot be gathered
     nice_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);

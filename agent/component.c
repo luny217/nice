@@ -32,7 +32,7 @@ static void socket_source_attach(SocketSource * socket_source, GMainContext * co
     g_source_set_callback(source, (GSourceFunc) component_io_cb, socket_source, NULL);
 
     /* Add the source. */
-    nice_debug("Attaching source %p (socket %p, FD %d) to context %p", source,
+    nice_debug("[%s agent:0x%p]: Attaching source %p (socket %p, FD %d) to context %p", G_STRFUNC, NULL, source,
                socket_source->socket, g_socket_get_fd(socket_source->socket->fileno), context);
 
     g_assert(socket_source->source == NULL);
@@ -513,7 +513,7 @@ void component_attach_socket(Component * component, NiceSocket * nicesock)
     }
 
     /* Create and attach a source */
-    nice_debug("Component %p (agent %p): Attach source (stream %u).", component, component->agent, component->stream->id);
+    nice_debug("[%s agent:0x%p]: Component %p: Attach source (stream %u)", G_STRFUNC, component->agent, component, component->stream->id);
     socket_source_attach(socket_source, component->ctx);
 }
 

@@ -27,7 +27,7 @@
  * Returns: (nullable) (transfer full): a newly-allocated string with the IP
  * address
  */
-char * nice_interfaces_get_ip_for_interface (char *interface_name);
+char * n_get_ip_for_interface (char *interface_name);
 
 
 /**
@@ -40,7 +40,7 @@ char * nice_interfaces_get_ip_for_interface (char *interface_name);
  * strings. The caller must free it.
  */
 
-n_dlist_t  * nice_interfaces_get_local_ips (gboolean include_loopback);
+n_dlist_t  * n_get_local_ips (int include_loopback);
 
 
 /**
@@ -51,6 +51,6 @@ n_dlist_t  * nice_interfaces_get_local_ips (gboolean include_loopback);
  * Returns: (element-type utf8) (transfer full): a newly-allocated #n_dlist_t  of
  * strings. The caller must free it.
  */
-n_dlist_t  * nice_interfaces_get_local_interfaces (void);
+n_dlist_t  * n_get_local_interfaces (void);
 
 #endif /* __LIBNICE_INTERFACES_H__ */

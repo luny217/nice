@@ -18,11 +18,11 @@
 
 static void socket_close(NiceSocket * sock);
 static gint socket_recv_messages(NiceSocket * sock,
-                                 NiceInputMessage * recv_messages, guint n_recv_messages);
+                                 NiceInputMessage * recv_messages, uint32_t n_recv_messages);
 static gint socket_send_messages(NiceSocket * sock, const NiceAddress * to,
-                                 const NiceOutputMessage * messages, guint n_messages);
+                                 const NiceOutputMessage * messages, uint32_t n_messages);
 static gint socket_send_messages_reliable(NiceSocket * sock,
-        const NiceAddress * to, const NiceOutputMessage * messages, guint n_messages);
+        const NiceAddress * to, const NiceOutputMessage * messages, uint32_t n_messages);
 static gboolean socket_is_reliable(NiceSocket * sock);
 static gboolean socket_can_send(NiceSocket * sock, NiceAddress * addr);
 static void socket_set_writable_callback(NiceSocket * sock,
@@ -148,11 +148,9 @@ socket_close(NiceSocket * sock)
     }
 }
 
-static gint
-socket_recv_messages(NiceSocket * sock,
-                     NiceInputMessage * recv_messages, guint n_recv_messages)
+static int32_t socket_recv_messages(NiceSocket * sock, NiceInputMessage * recv_messages, uint32_t n_recv_messages)
 {
-    guint i;
+    uint32_t i;
     gboolean error = FALSE;
 
     /* Socket has been closed: */
@@ -213,9 +211,7 @@ socket_recv_messages(NiceSocket * sock,
     return i;
 }
 
-static gssize
-socket_send_message(NiceSocket * sock, const NiceAddress * to,
-                    const NiceOutputMessage * message)
+static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, const NiceOutputMessage * message)
 {
     struct UdpBsdSocketPrivate * priv = sock->priv;
     GError * child_error = NULL;
@@ -262,11 +258,11 @@ socket_send_message(NiceSocket * sock, const NiceAddress * to,
     return len;
 }
 
-static gint
+static int32_t
 socket_send_messages(NiceSocket * sock, const NiceAddress * to,
-                     const NiceOutputMessage * messages, guint n_messages)
+                     const NiceOutputMessage * messages, uint32_t n_messages)
 {
-    guint i;
+    uint32_t i;
 
     /* Socket has been closed: */
     if (sock->priv == NULL)
@@ -296,28 +292,23 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
     return i;
 }
 
-static gint
-socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
-                              const NiceOutputMessage * messages, guint n_messages)
+static int32_t socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
+                              const NiceOutputMessage * messages, uint32_t n_messages)
 {
     return -1;
 }
 
-static gboolean
-socket_is_reliable(NiceSocket * sock)
+static int socket_is_reliable(NiceSocket * sock)
 {
     return FALSE;
 }
 
-static gboolean
-socket_can_send(NiceSocket * sock, NiceAddress * addr)
+static int socket_can_send(NiceSocket * sock, NiceAddress * addr)
 {
     return TRUE;
 }
 
-static void
-socket_set_writable_callback(NiceSocket * sock,
-                             NiceSocketWritableCb callback, gpointer user_data)
+static void socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data)
 {
 }
 

@@ -42,9 +42,7 @@ static char * sockaddr_to_string(const struct sockaddr * addr)
             return NULL;
     }
 
-    if (getnameinfo(addr, addr_len,
-                    addr_as_string, sizeof(addr_as_string), NULL, 0,
-                    NI_NUMERICHOST) != 0)
+    if (getnameinfo(addr, addr_len, addr_as_string, sizeof(addr_as_string), NULL, 0, NI_NUMERICHOST) != 0)
     {
         return NULL;
     }
@@ -130,9 +128,9 @@ static n_dlist_t  * add_ip_to_list(n_dlist_t  * list, char * ip, int append)
             return list;
     }
     if (append)
-        return g_list_append(list, ip);
+        return n_dlist_append(list, ip);
     else
-        return g_list_prepend(list, ip);
+        return n_dlist_prepend(list, ip);
 }
 
 n_dlist_t  * nice_interfaces_get_local_ips(int include_loopback)
@@ -235,7 +233,7 @@ char * nice_interfaces_get_ip_for_interface(char * interface_name)
 
 #else ifdef G_OS_WIN32
 
-n_dlist_t  * nice_interfaces_get_local_interfaces(void)
+n_dlist_t  * n_get_local_interfaces(void)
 {
     ULONG size = 0;
     PMIB_IFTABLE if_table;
@@ -257,12 +255,12 @@ n_dlist_t  * nice_interfaces_get_local_interfaces(void)
         }
     }
 
-    g_free(if_table);
+    n_free(if_table);
 
     return ret;
 }
 
-n_dlist_t  * nice_interfaces_get_local_ips(int include_loopback)
+n_dlist_t  * n_get_local_ips(int include_loopback)
 {
     IP_ADAPTER_ADDRESSES * addresses = NULL, *a;
     ULONG status;
@@ -399,7 +397,7 @@ static char * win32_get_ip_for_interface(DWORD idx)
     return ret;
 }
 
-char * nice_interfaces_get_ip_for_interface(char * interface_name)
+char * n_get_ip_for_interface(char * interface_name)
 {
     ULONG size = 0;
     PMIB_IFTABLE if_table;
@@ -418,12 +416,9 @@ char * nice_interfaces_get_ip_for_interface(char * interface_name)
         char * tmp_str;
         for (i = 0; i < if_table->dwNumEntries; i++)
         {
-            tmp_str = g_utf16_to_utf8(
-                          if_table->table[i].wszName, MAX_INTERFACE_NAME_LEN,
-                          NULL, NULL, NULL);
+            tmp_str = g_utf16_to_utf8(if_table->table[i].wszName, MAX_INTERFACE_NAME_LEN, NULL, NULL, NULL);
 
-            if (strlen(interface_name) == strlen(tmp_str) &&
-                    g_ascii_strncasecmp(interface_name, tmp_str, strlen(interface_name)) == 0)
+            if (strlen(interface_name) == strlen(tmp_str) && g_ascii_strncasecmp(interface_name, tmp_str, strlen(interface_name)) == 0)
             {
                 ret = win32_get_ip_for_interface(if_table->table[i].dwIndex);
                 g_free(tmp_str);

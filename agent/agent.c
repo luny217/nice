@@ -1569,7 +1569,7 @@ static void priv_add_new_candidate_discovery_turn(NiceAgent * agent,
     /* note: no need to check for redundant candidates, as this is
      *       done later on in the process */
 
-    cdisco = g_slice_new0(CandidateDiscovery);
+    cdisco = n_slice_new0(CandidateDiscovery);
     cdisco->type = CANDIDATE_TYPE_RELAYED;
     cdisco->nicesock = nicesock;
     cdisco->turn = turn_server_ref(turn);
@@ -1692,11 +1692,11 @@ done:
 
 int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
 {
+	int32_t ret = TRUE;
     uint32_t cid;
-	n_slist_t * i;
-    Stream * stream;
-	n_slist_t * local_addresses = NULL;
-    int32_t ret = TRUE;
+	n_slist_t * i, * local_addresses = NULL;
+    Stream * stream;    
+	//HostCandidateResult res = CANDIDATE_CANT_CREATE_SOCKET;
 
 	agent_lock();
 
@@ -1714,10 +1714,10 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
         return TRUE;
     }
 
-    /* if no local addresses added, generate them ourselves */
+    /* 获取本地所有网络接口的IP地址 */
     if (agent->local_addresses == NULL)
     {
-		n_dlist_t * addresses = nice_interfaces_get_local_ips(FALSE);
+		n_dlist_t * addresses = n_get_local_ips(FALSE);
 		n_dlist_t * item;
 
         for (item = addresses; item; item = n_dlist_next(item))
@@ -1736,7 +1736,7 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
             }
         }
 
-        n_dlist_foreach(addresses, (GFunc) n_free, NULL);
+        n_dlist_foreach(addresses, (n_func)n_free, NULL);
         n_dlist_free(addresses);
     }
     else
@@ -1750,109 +1750,87 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
         }
     }
 
-    /* generate a local host candidate for each local address */
+    /* 为所有本地地址生成候选地址 */
     for (i = local_addresses; i; i = i->next)
     {
         NiceAddress * addr = i->data;
         NiceCandidate * host_candidate;
+		uint32_t  current_port, start_port;
+		HostCandidateResult res = CANDIDATE_CANT_CREATE_SOCKET;
 
         for (cid = 1; cid <= stream->n_components; cid++)
         {
             Component * component = stream_find_component_by_id(stream, cid);
-            enum
-            {
-                ADD_HOST_MIN = 0,
-                ADD_HOST_UDP = ADD_HOST_MIN,
-                ADD_HOST_TCP_ACTIVE,
-                ADD_HOST_TCP_PASSIVE,
-                ADD_HOST_MAX = ADD_HOST_TCP_PASSIVE
-            } add_type;
 
             if (component == NULL)
                 continue;
 
-            for (add_type = ADD_HOST_MIN; add_type <= ADD_HOST_MAX; add_type++)
+            start_port = component->min_port;
+            if (component->min_port != 0)
             {
-                NiceCandidateTransport transport;
-                uint32_t current_port;
-                uint32_t start_port;
-                HostCandidateResult res = HOST_CANDIDATE_CANT_CREATE_SOCKET;
+                start_port = nice_rng_generate_int(agent->rng, component->min_port, component->max_port + 1);
+            }
+            current_port = start_port;
 
-                if ((agent->use_ice_udp == FALSE && add_type == ADD_HOST_UDP) ||
-                        (agent->use_ice_tcp == FALSE && add_type != ADD_HOST_UDP))
-                    continue;
+            host_candidate = NULL;
+            while (res == CANDIDATE_CANT_CREATE_SOCKET)
+            {
+                nice_debug("[%s agent:0x%p]: Trying to create host candidate on port %d", G_STRFUNC, agent, current_port);
+                nice_address_set_port(addr, current_port);
+				/*添加本地候选*/
+                res =  discovery_add_local_host_candidate(agent, stream->id, cid, addr, &host_candidate);
+				nice_print_cand(agent, host_candidate, host_candidate);
+                if (current_port > 0)
+                    current_port++;
+                if (current_port > component->max_port) current_port = component->min_port;
+                if (current_port == 0 || current_port == start_port)
+                    break;
+            }
 
-				transport = CANDIDATE_TRANSPORT_UDP;
-                start_port = component->min_port;
-                if (component->min_port != 0)
+            if (res == CANDIDATE_REDUNDANT)
+            {
+                nice_debug("[%s agent:0x%p]: Ignoring local candidate, it's redundant", G_STRFUNC, agent);
+                continue;
+            }
+            else if (res == CANDIDATE_FAILED)
+            {
+                nice_debug("[%s agent:0x%p]: Could ot retrieive component %d/%d", G_STRFUNC, agent, stream->id, cid);
+                ret = FALSE;
+                goto error;
+            }
+            else if (res == CANDIDATE_CANT_CREATE_SOCKET)
+            {
+                if (nice_debug_is_enabled())
                 {
-                    start_port = nice_rng_generate_int(agent->rng, component->min_port, component->max_port + 1);
+                    char ip[NICE_ADDRESS_STRING_LEN];
+                    nice_address_to_string(addr, ip);
+                    nice_debug("[%s agent:0x%p]: Unable to add local host candidate %s for"
+                                " s%d:%d. Invalid interface?", G_STRFUNC, agent, ip, stream->id, component->id);
                 }
-                current_port = start_port;
+                ret = FALSE;
+                goto error;
+            }
 
-                host_candidate = NULL;
-                while (res == HOST_CANDIDATE_CANT_CREATE_SOCKET)
+            /* TODO: Add server-reflexive support for TCP candidates */
+            if (agent->stun_server_ip)
+            {
+                NiceAddress stun_server;
+                if (nice_address_set_from_string(&stun_server, agent->stun_server_ip))
                 {
-                    nice_debug("[%s agent:0x%p]: Trying to create host candidate on port %d", G_STRFUNC, agent, current_port);
-                    nice_address_set_port(addr, current_port);
-                    res =  discovery_add_local_host_candidate(agent, stream->id, cid, addr, &host_candidate);
-                    if (current_port > 0)
-                        current_port++;
-                    if (current_port > component->max_port) current_port = component->min_port;
-                    if (current_port == 0 || current_port == start_port)
-                        break;
+                    nice_address_set_port(&stun_server, agent->stun_server_port);
+					/*添加stun外网映射候选*/
+                    priv_add_new_candidate_discovery_stun(agent, host_candidate->sockptr, stun_server, stream, cid);
                 }
+            }
 
-                if (res == HOST_CANDIDATE_REDUNDANT)
+            if (component->turn_servers)
+            {
+                n_dlist_t * item;
+                for (item = component->turn_servers; item; item = item->next)
                 {
-                    nice_debug("[%s agent:0x%p]: Ignoring local candidate, it's redundant", G_STRFUNC, agent);
-                    continue;
-                }
-                else if (res == HOST_CANDIDATE_FAILED)
-                {
-                    nice_debug("[%s agent:0x%p]: Could ot retrieive component %d/%d", G_STRFUNC, agent, stream->id, cid);
-                    ret = FALSE;
-                    goto error;
-                }
-                else if (res == HOST_CANDIDATE_CANT_CREATE_SOCKET)
-                {
-                    if (nice_debug_is_enabled())
-                    {
-                        char ip[NICE_ADDRESS_STRING_LEN];
-                        nice_address_to_string(addr, ip);
-                        nice_debug("[%s agent:0x%p]: Unable to add local host candidate %s for"
-                                   " s%d:%d. Invalid interface?", G_STRFUNC, agent, ip, stream->id,
-                                   component->id);
-                    }
-                    ret = FALSE;
-                    goto error;
-                }
-
-                nice_address_set_port(addr, 0);
-
-                nice_socket_set_writable_callback(host_candidate->sockptr, _tcp_sock_is_writable, component);
-
-                /* TODO: Add server-reflexive support for TCP candidates */
-                if (agent->stun_server_ip)
-                {
-                    NiceAddress stun_server;
-                    if (nice_address_set_from_string(&stun_server, agent->stun_server_ip))
-                    {
-                        nice_address_set_port(&stun_server, agent->stun_server_port);
-
-                        priv_add_new_candidate_discovery_stun(agent, host_candidate->sockptr, stun_server, stream, cid);
-                    }
-                }
-
-                if (component)
-                {
-                    n_dlist_t * item;
-
-                    for (item = component->turn_servers; item; item = item->next)
-                    {
-                        TurnServer * turn = item->data;
-                        priv_add_new_candidate_discovery_turn(agent, host_candidate->sockptr, turn, stream, cid);
-                    }
+                    TurnServer * turn = item->data;
+					/*添加turn转发候选*/
+                    priv_add_new_candidate_discovery_turn(agent, host_candidate->sockptr, turn, stream, cid);
                 }
             }
         }
@@ -1885,10 +1863,10 @@ int nice_agent_gather_candidates(NiceAgent * agent, uint32_t stream_id)
     }
 
 error:
-    for (i = local_addresses;
-            i;
-            i = i->next)
-        nice_address_free(i->data);
+	for (i = local_addresses; i; i = i->next)
+	{
+		nice_address_free(i->data);
+	}    
     n_slist_free(local_addresses);
 
     if (ret == FALSE)
@@ -3188,7 +3166,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
     }
 
 done:
-    /* If we??re in the middle of a read, don??t emit any signals, or we could cause
+    /* If we're in the middle of a read, don't emit any signals, or we could cause
      * re-entrancy by (e.g.) emitting component-state-changed and having the
      * client perform a read. */
     if (component->n_recv_messages == 0 && component->recv_messages == NULL)

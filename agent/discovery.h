@@ -61,11 +61,11 @@ void discovery_schedule(NiceAgent * agent);
 
 typedef enum
 {
-    HOST_CANDIDATE_SUCCESS,
-    HOST_CANDIDATE_FAILED,
-    HOST_CANDIDATE_CANT_CREATE_SOCKET,
-    HOST_CANDIDATE_REDUNDANT
-} HostCandidateResult;
+    CANDIDATE_SUCCESS,
+    CANDIDATE_FAILED,
+    CANDIDATE_CANT_CREATE_SOCKET,
+    CANDIDATE_REDUNDANT
+} HostCandidateResult;  //cand_ret_e
 
 HostCandidateResult
 discovery_add_local_host_candidate(
