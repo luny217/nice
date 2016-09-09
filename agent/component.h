@@ -17,6 +17,7 @@ typedef struct _Component Component;
 #include "stream.h"
 #include "socket.h"
 #include "nlist.h"
+#include "nqueue.h"
 
 /* (ICE 4.1.1.1, ID-19)
  * ""For RTP-based media streams, the RTP itself has a component
@@ -126,7 +127,7 @@ struct _Component
                                          taken before this one */
     NiceAgentRecvFunc io_callback;    /* function called on io cb */
     void * io_user_data;            /* data passed to the io function */
-    GQueue pending_io_messages;       /* queue of messages which have been
+    n_queue_t pending_io_messages;       /* queue of messages which have been
                                          received but not passed to the client
                                          in an I/O callback or recv() call yet.
                                          each element is an owned
@@ -137,7 +138,7 @@ struct _Component
                                        component */
     GMainContext * ctx;                /* context for GSources for this
                                        component (possibly set from the app) */
-    NiceInputMessage * recv_messages; /* unowned messages for receiving into */
+    n_input_msg_t * recv_messages; /* unowned messages for receiving into */
     uint32_t n_recv_messages;            /* length of recv_messages */
     NiceInputMessageIter recv_messages_iter; /* current write position in
                                                 recv_messages */
@@ -168,7 +169,7 @@ struct _Component
     /* Queue of messages received before a selected socket was available to send
      * ACKs on. The messages are dequeued to the pseudo-TCP socket once a selected
      * UDP socket is available. This is only used for reliable Components. */
-    GQueue queued_tcp_packets;
+    n_queue_t queued_tcp_packets;
 };
 
 Component * component_new(uint32_t component_id, NiceAgent * agent, Stream * stream);
@@ -190,7 +191,7 @@ GSource * component_input_source_new(NiceAgent * agent, uint32_t stream_id,
 GMainContext * component_dup_io_context(Component * component);
 void component_set_io_context(Component * component, GMainContext * context);
 void component_set_io_callback(Component * component,  NiceAgentRecvFunc func, void * user_data,
-                               NiceInputMessage * recv_messages, uint32_t n_recv_messages, GError ** error);
+                               n_input_msg_t * recv_messages, uint32_t n_recv_messages, GError ** error);
 void component_emit_io_callback(Component * component, const uint8_t * buf, uint32_t buf_len);
 int component_has_io_callback(Component * component);
 void component_clean_turn_servers(Component * component);

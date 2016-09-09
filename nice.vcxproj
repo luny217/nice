@@ -96,6 +96,7 @@
     <ClCompile Include="agent\stream.c" />
     <ClCompile Include="glib\base.c" />
     <ClCompile Include="glib\nlist.c" />
+    <ClCompile Include="glib\nqueue.c" />
     <ClCompile Include="random\random-glib.c" />
     <ClCompile Include="random\random.c" />
     <ClCompile Include="socket\socket.c" />
@@ -131,6 +132,7 @@
     <ClInclude Include="agent\stream.h" />
     <ClInclude Include="glib\base.h" />
     <ClInclude Include="glib\nlist.h" />
+    <ClInclude Include="glib\nqueue.h" />
     <ClInclude Include="random\random-glib.h" />
     <ClInclude Include="random\random.h" />
     <ClInclude Include="socket\socket-priv.h" />

@@ -1,43 +1,7 @@
-/*
- * This file is part of the Nice GLib ICE library.
- *
- * (C) 2008-2009 Collabora Ltd.
- *  Contact: Youness Alaoui
- * (C) 2007-2009 Nokia Corporation. All rights reserved.
- *  Contact: R?mi Denis-Courmont
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is the Nice GLib ICE library.
- *
- * The Initial Developers of the Original Code are Collabora Ltd and Nokia
- * Corporation. All Rights Reserved.
- *
- * Contributors:
- *   Youness Alaoui, Collabora Ltd.
- *   R?mi Denis-Courmont, Nokia
- *
- * Alternatively, the contents of this file may be used under the terms of the
- * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which
- * case the provisions of LGPL are applicable instead of those above. If you
- * wish to allow use of your version of this file only under the terms of the
- * LGPL and not to allow others to use your version of this file under the
- * MPL, indicate your decision by deleting the provisions above and replace
- * them with the notice and other provisions required by the LGPL. If you do
- * not delete the provisions above, a recipient may use your version of this
- * file under either the MPL or the LGPL.
- */
+/* This file is part of the Nice GLib ICE library */
 
-#ifndef STUN_TIMER_H
-# define STUN_TIMER_H 1
+#ifndef STUN_TIMER_RET_H
+#define STUN_TIMER_RET_H
 
 /**
  * SECTION:timer
@@ -55,15 +19,14 @@
    <programlisting>
    StunTimer timer;
    unsigned remainder;
-   StunUsageTimerReturn ret;
+   StunTimerReturn ret;
 
    // Build the message, etc..
    ...
 
    // Send the message and start the timer
    send(socket, request, sizeof(request));
-   stun_timer_start(&timer, STUN_TIMER_DEFAULT_TIMEOUT,
-                    STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
+   stun_timer_start(&timer, STUN_TIMER_TIMEOUT, STUN_TIMER_MAX_RETRANS);
 
    // Loop until we get the response
    for (;;) {
@@ -73,14 +36,14 @@
      if (poll (&pollfd, 1, delay) <= 0) {
        // Time out and no response was received
        ret = stun_timer_refresh (&timer);
-       if (ret == STUN_USAGE_TIMER_RETURN_TIMEOUT) {
+       if (ret == STUN_TIMER_RET_TIMEOUT) {
          // Transaction timed out
          break;
-       } else if (ret == STUN_USAGE_TIMER_RETURN_RETRANSMIT) {
+       } else if (ret == STUN_TIMER_RET_RETRANSMIT) {
          // A retransmission is necessary
          send(socket, request, sizeof(request));
          continue;
-       } else if (ret == STUN_USAGE_TIMER_RETURN_SUCCESS) {
+       } else if (ret == STUN_TIMER_RET_SUCCESS) {
          // The refresh succeeded and nothing has to be done, continue polling
          continue;
        }
@@ -92,7 +55,7 @@
    }
 
    // Check if the transaction timed out or not
-   if (ret == STUN_USAGE_TIMER_RETURN_TIMEOUT) {
+   if (ret == STUN_TIMER_RET_TIMEOUT) {
      // do whatever needs to be done in that case
    } else {
      // Parse the response
@@ -102,6 +65,7 @@
  </example>
  */
 
+#include <stdint.h>
 #ifdef _WIN32
 #include <winsock2.h>
 #else
@@ -126,35 +90,34 @@ struct stun_timer_s
     unsigned max_retransmissions;
 };
 
-
 /**
- * STUN_TIMER_DEFAULT_TIMEOUT:
+ * STUN_TIMER_TIMEOUT:
  *
  * The default intial timeout to use for the timer
  */
-#define STUN_TIMER_DEFAULT_TIMEOUT 600
+#define STUN_TIMER_TIMEOUT 600
 
 /**
- * STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS:
+ * STUN_TIMER_MAX_RETRANS:
  *
  * The default maximum retransmissions allowed before a timer decides to timeout
  */
-#define STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS 3
+#define STUN_TIMER_MAX_RETRANS 3
 
 /**
- * STUN_TIMER_DEFAULT_RELIABLE_TIMEOUT:
+ * STUN_TIMER_RET_RELIABLE_TIMEOUT:
  *
  * The default intial timeout to use for a reliable timer
  */
-#define STUN_TIMER_DEFAULT_RELIABLE_TIMEOUT 7900
+#define STUN_TIMER_RELIABLE_TIMEOUT 7900
 
 /**
- * StunUsageTimerReturn:
- * @STUN_USAGE_TIMER_RETURN_SUCCESS: The timer was refreshed successfully
+ * StunTimerReturn:
+ * @STUN_TIMER_RET_SUCCESS: The timer was refreshed successfully
  * and there is nothing to be done
- * @STUN_USAGE_TIMER_RETURN_RETRANSMIT: The timer expired and the message
+ * @STUN_TIMER_RET_RETRANSMIT: The timer expired and the message
  * should be retransmitted now.
- * @STUN_USAGE_TIMER_RETURN_TIMEOUT: The timer expired as well as all the
+ * @STUN_TIMER_RET_TIMEOUT: The timer expired as well as all the
  * retransmissions, the transaction timed out
  *
  * Return value of stun_usage_timer_refresh() which provides you with status
@@ -162,74 +125,64 @@ struct stun_timer_s
  */
 typedef enum
 {
-    STUN_USAGE_TIMER_RETURN_SUCCESS,
-    STUN_USAGE_TIMER_RETURN_RETRANSMIT,
-    STUN_USAGE_TIMER_RETURN_TIMEOUT
-} StunUsageTimerReturn;
+    STUN_TIMER_RET_SUCCESS,
+    STUN_TIMER_RET_RETRANSMIT,
+    STUN_TIMER_RET_TIMEOUT
+} StunTimerReturn;
 
-# ifdef __cplusplus
-extern "C" {
-# endif
+/**
+    * stun_timer_start:
+    * @timer: The #StunTimer to start
+    * @initial_timeout: The initial timeout to use before the first retransmission
+    * @max_retransmissions: The maximum number of transmissions before the
+    * #StunTimer times out
+    *
+    * Starts a STUN transaction retransmission timer.
+    * This should be called as soon as you send the message for the first time on
+    * a UDP socket.
+    * The timeout before the next retransmission is set to @initial_timeout, then
+    * each time a packet is retransmited, that timeout will be doubled, until the
+    * @max_retransmissions retransmissions limit is reached.
+    * <para>
+    * To determine the total timeout value, one can use the following equation :
+    <programlisting>
+    total_timeout =  initial_timeout * (2^(max_retransmissions + 1) - 1);
+    </programlisting>
+    * </para>
+    *
+    * See also: #STUN_TIMER_TIMEOUT
+    *
+    * See also: #STUN_TIMER_MAX_RETRANS
+    */
+void stun_timer_start(StunTimer * timer, uint32_t initial_timeout, uint32_t max_retransmissions);
 
+/**
+    * stun_timer_start_reliable:
+    * @timer: The #StunTimer to start
+    * @initial_timeout: The initial timeout to use before the first retransmission
+    *
+    * Starts a STUN transaction retransmission timer for a reliable transport.
+    * This should be called as soon as you send the message for the first time on
+    * a TCP socket
+    */
+void stun_timer_start_reliable(StunTimer * timer, uint32_t initial_timeout);
 
-    /**
-     * stun_timer_start:
-     * @timer: The #StunTimer to start
-     * @initial_timeout: The initial timeout to use before the first retransmission
-     * @max_retransmissions: The maximum number of transmissions before the
-     * #StunTimer times out
-     *
-     * Starts a STUN transaction retransmission timer.
-     * This should be called as soon as you send the message for the first time on
-     * a UDP socket.
-     * The timeout before the next retransmission is set to @initial_timeout, then
-     * each time a packet is retransmited, that timeout will be doubled, until the
-     * @max_retransmissions retransmissions limit is reached.
-     * <para>
-     * To determine the total timeout value, one can use the following equation :
-     <programlisting>
-     total_timeout =  initial_timeout * (2^(max_retransmissions + 1) - 1);
-     </programlisting>
-     * </para>
-     *
-     * See also: #STUN_TIMER_DEFAULT_TIMEOUT
-     *
-     * See also: #STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS
-     */
-    void stun_timer_start(StunTimer * timer, unsigned int initial_timeout,
-                          unsigned int max_retransmissions);
+/**
+    * stun_timer_refresh:
+    * @timer: The #StunTimer to refresh
+    *
+    * Updates a STUN transaction retransmission timer.
+    * Returns: A #StunTimerReturn telling you what to do next
+    */
+StunTimerReturn stun_timer_refresh(StunTimer * timer);
 
-    /**
-     * stun_timer_start_reliable:
-     * @timer: The #StunTimer to start
-     * @initial_timeout: The initial timeout to use before the first retransmission
-     *
-     * Starts a STUN transaction retransmission timer for a reliable transport.
-     * This should be called as soon as you send the message for the first time on
-     * a TCP socket
-     */
-    void stun_timer_start_reliable(StunTimer * timer, unsigned int initial_timeout);
+/**
+    * stun_timer_remainder:
+    * @timer: The #StunTimer to query
+    *
+    * Query the timer on the time left before the next refresh should be done
+    * Returns: The time remaining for the timer to expire in milliseconds
+    */
+unsigned stun_timer_remainder(const StunTimer * timer);
 
-    /**
-     * stun_timer_refresh:
-     * @timer: The #StunTimer to refresh
-     *
-     * Updates a STUN transaction retransmission timer.
-     * Returns: A #StunUsageTimerReturn telling you what to do next
-     */
-    StunUsageTimerReturn stun_timer_refresh(StunTimer * timer);
-
-    /**
-     * stun_timer_remainder:
-     * @timer: The #StunTimer to query
-     *
-     * Query the timer on the time left before the next refresh should be done
-     * Returns: The time remaining for the timer to expire in milliseconds
-     */
-    unsigned stun_timer_remainder(const StunTimer * timer);
-
-# ifdef __cplusplus
-}
-# endif
-
-#endif /* !STUN_TIMER_H */
+#endif /* !STUN_TIMER_RET_H */

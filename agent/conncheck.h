@@ -52,7 +52,7 @@ struct _CandidateCheckPair
 	int controlling;
 	int timer_restarted;
     uint64_t priority;
-	g_time_val next_tick;       /* next tick timestamp */
+	n_timeval_t next_tick;       /* next tick timestamp */
     StunTimer timer;
     uint8_t stun_buffer[STUN_MAX_MESSAGE_SIZE_IPV6];
     StunMessage stun_message;

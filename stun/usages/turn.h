@@ -44,9 +44,9 @@
  */
 typedef enum
 {
-    STUN_USAGE_TURN_REQUEST_PORT_NORMAL = 0,
-    STUN_USAGE_TURN_REQUEST_PORT_EVEN = 1,
-    STUN_USAGE_TURN_REQUEST_PORT_EVEN_AND_RESERVE = 2
+   TURN_REQUEST_PORT_NORMAL = 0,
+   TURN_REQUEST_PORT_EVEN = 1,
+   TURN_REQUEST_PORT_EVEN_AND_RESERVE = 2
 }
 StunUsageTurnRequestPorts;
 
@@ -100,7 +100,7 @@ typedef enum
 
 
 /**
- * stun_usage_turn_create:
+ * turn_create:
  * @agent: The #StunAgent to use to build the request
  * @msg: The #StunMessage to build
  * @buffer: The buffer to use for creating the #StunMessage
@@ -133,17 +133,16 @@ typedef enum
  * Create a new TURN Allocation request
  * Returns: The length of the message to send
  */
-size_t stun_usage_turn_create(StunAgent * agent, StunMessage * msg,
+size_t turn_create(StunAgent * agent, StunMessage * msg,
                               uint8_t * buffer, size_t buffer_len,
                               StunMessage * previous_response,
                               StunUsageTurnRequestPorts request_ports,
                               int32_t bandwidth, int32_t lifetime,
                               uint8_t * username, size_t username_len,
-                              uint8_t * password, size_t password_len,
-                              StunUsageTurnCompatibility compatibility);
+                              uint8_t * password, size_t password_len);
 
 /**
- * stun_usage_turn_create_refresh:
+ * turn_create_refresh:
  * @agent: The #StunAgent to use to build the request
  * @msg: The #StunMessage to build
  * @buffer: The buffer to use for creating the #StunMessage
@@ -166,7 +165,7 @@ size_t stun_usage_turn_create(StunAgent * agent, StunMessage * msg,
  * Create a new TURN Refresh request
  * Returns: The length of the message to send
  */
-size_t stun_usage_turn_create_refresh(StunAgent * agent, StunMessage * msg,
+size_t turn_create_refresh(StunAgent * agent, StunMessage * msg,
                                       uint8_t * buffer, size_t buffer_len,
                                       StunMessage * previous_response, int32_t lifetime,
                                       uint8_t * username, size_t username_len,

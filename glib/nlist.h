@@ -80,7 +80,7 @@ n_dlist_t * n_dlist_first(n_dlist_t * list);
 uint32_t n_dlist_length(n_dlist_t * list);
 void n_dlist_foreach(n_dlist_t * list, n_func func, void * user_data);
 n_dlist_t * n_dlist_sort (n_dlist_t * list, n_compare_func compare_func);
-n_dlist_t * n_dlist_sort_with_data (n_dlist_t * list, n_compare_func  compare_func, void * user_data) ;
+n_dlist_t * n_dlist_sort_with_data (n_dlist_t * list, n_compare_data_func compare_func, void * user_data) ;
 void * n_dlist_nth_data (n_dlist_t * list, uint32_t n);
 
 #define n_dlist_previous(list) ((list) ? (((n_dlist_t *)(list))->prev) : NULL)

@@ -126,7 +126,7 @@ typedef struct _NiceAgent NiceAgent;
 //G_BEGIN_DECLS
 
 /**
- * NiceInputMessage:
+ * n_input_msg_t:
  * @buffers: (array length=n_buffers): unowned array of #GInputVector buffers to
  * store data in for this message
  * @n_buffers: number of #GInputVectors in @buffers, or -1 to indicate @buffers
@@ -147,7 +147,7 @@ typedef struct _NiceAgent NiceAgent;
  * nice_agent_recv_messages(), multiple messages may be received with a single
  * call, which is more efficient than making multiple calls in a loop. In this
  * manner, nice_agent_recv_messages() is analogous to recvmmsg(); and
- * #NiceInputMessage to struct mmsghdr.
+ * #n_input_msg_t to struct mmsghdr.
  *
  * Since: 0.1.5
  */
@@ -157,10 +157,10 @@ typedef struct
     int32_t n_buffers;  /* may be -1 to indicate @buffers is NULL-terminated */
     NiceAddress * from; /* return location for address of message sender */
     uint32_t length;  /* sum of the lengths of @buffers */
-} NiceInputMessage;
+} n_input_msg_t;
 
 /**
- * NiceOutputMessage:
+ * n_output_msg_t:
  * @buffers: (array length=n_buffers): unowned array of #GOutputVector buffers
  * which contain data to transmit for this message
  * @n_buffers: number of #GOutputVectors in @buffers, or -1 to indicate @buffers
@@ -178,7 +178,7 @@ typedef struct
  * nice_agent_send_messages_nonblocking(), multiple messages may be transmitted
  * with a single call, which is more efficient than making multiple calls in a
  * loop. In this manner, nice_agent_send_messages_nonblocking() is analogous to
- * sendmmsg(); and #NiceOutputMessage to struct mmsghdr.
+ * sendmmsg(); and #n_output_msg_t to struct mmsghdr.
  *
  * Since: 0.1.5
  */
@@ -186,7 +186,7 @@ typedef struct
 {
     GOutputVector * buffers;
 	uint32_t n_buffers;
-} NiceOutputMessage;
+} n_output_msg_t;
 
 
 #define NICE_TYPE_AGENT nice_agent_get_type()
@@ -692,7 +692,7 @@ nice_agent_send_messages_nonblocking(
     NiceAgent * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    const NiceOutputMessage * messages,
+    const n_output_msg_t * messages,
     uint32_t n_messages,
     GCancellable * cancellable,
     GError ** error);
@@ -1245,7 +1245,7 @@ nice_agent_get_io_stream(
     uint32_t component_id);
 
 /**
- * nice_component_state_to_string:
+ * nice_comp_state_to_str:
  * @state: a #NiceComponentState
  *
  * Returns a string representation of the state, generally to use in debug
@@ -1255,7 +1255,7 @@ nice_agent_get_io_stream(
  * Since: 0.1.6
  */
 const gchar *
-nice_component_state_to_string(NiceComponentState state);
+nice_comp_state_to_str(NiceComponentState state);
 
 /**
  * nice_agent_forget_relays:

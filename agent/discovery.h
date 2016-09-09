@@ -15,7 +15,7 @@ typedef struct
     NiceCandidateType type;   /* candidate type STUN or TURN */
     NiceSocket * nicesock; /* XXX: should be taken from local cand: existing socket to use */
     NiceAddress server;       /* STUN/TURN server address */
-	g_time_val next_tick;       /* next tick timestamp */
+	n_timeval_t next_tick;       /* next tick timestamp */
     int pending;         /* is discovery in progress? */
     int done;            /* is discovery complete? */
     Stream * stream;

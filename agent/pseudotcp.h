@@ -45,11 +45,11 @@ typedef struct _PseudoTcpSocket PseudoTcpSocket;
 
 typedef struct _PseudoTcpSocketClass PseudoTcpSocketClass;
 
-GType pseudo_tcp_socket_get_type(void);
+GType pst_get_type(void);
 
 /* TYPE MACROS */
 #define PSEUDO_TCP_SOCKET_TYPE \
-  (pseudo_tcp_socket_get_type ())
+  (pst_get_type ())
 #define PSEUDO_TCP_SOCKET(obj) \
   (G_TYPE_CHECK_INSTANCE_CAST((obj), PSEUDO_TCP_SOCKET_TYPE, \
                               PseudoTcpSocket))
@@ -164,7 +164,7 @@ typedef enum
  * @PSEUDO_TCP_SHUTDOWN_RDWR: Shut down both reading and writing
  *
  * Options for which parts of a connection to shut down when calling
- * pseudo_tcp_socket_shutdown(). These correspond to the values passed to POSIX
+ * pst_shutdown(). These correspond to the values passed to POSIX
  * shutdown().
  *
  * Since: 0.1.8
@@ -203,7 +203,7 @@ typedef struct
 } PseudoTcpCallbacks;
 
 /**
- * pseudo_tcp_socket_new:
+ * pst_new:
  * @conversation: The conversation id for the socket.
  * @callbacks: A pointer to the #PseudoTcpCallbacks structure for getting
  * notified of the #PseudoTcpSocket events.
@@ -217,7 +217,7 @@ typedef struct
    </para>
    <para>
      If the @callbacks structure was dynamicly allocated, it can be freed
-     after the call @pseudo_tcp_socket_new
+     after the call @pst_new
    </para>
  </note>
  *
@@ -225,12 +225,12 @@ typedef struct
  *
  * Since: 0.0.11
  */
-PseudoTcpSocket * pseudo_tcp_socket_new(guint32 conversation,
+PseudoTcpSocket * pst_new(guint32 conversation,
                                         PseudoTcpCallbacks * callbacks);
 
 
 /**
- * pseudo_tcp_socket_connect:
+ * pst_connect:
  * @self: The #PseudoTcpSocket object.
  *
  * Connects the #PseudoTcpSocket to the peer with the same conversation id.
@@ -238,15 +238,15 @@ PseudoTcpSocket * pseudo_tcp_socket_new(guint32 conversation,
  * %PseudoTcpCallbacks:PseudoTcpOpened callback is called
  *
  * Returns: %TRUE on success, %FALSE on failure (not in %TCP_LISTEN state)
- * <para> See also: pseudo_tcp_socket_get_error() </para>
+ * <para> See also: pst_get_error() </para>
  *
  * Since: 0.0.11
  */
-gboolean pseudo_tcp_socket_connect(PseudoTcpSocket * self);
+gboolean pst_connect(PseudoTcpSocket * self);
 
 
 /**
- * pseudo_tcp_socket_recv:
+ * pst_recv:
  * @self: The #PseudoTcpSocket object.
  * @buffer: The buffer to fill with received data
  * @len: The length of @buffer
@@ -265,15 +265,15 @@ gboolean pseudo_tcp_socket_connect(PseudoTcpSocket * self);
  </note>
  *
  * Returns: The number of bytes received or -1 in case of error
- * <para> See also: pseudo_tcp_socket_get_error() </para>
+ * <para> See also: pst_get_error() </para>
  *
  * Since: 0.0.11
  */
-gint  pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len);
+gint  pst_recv(PseudoTcpSocket * self, char * buffer, size_t len);
 
 
 /**
- * pseudo_tcp_socket_send:
+ * pst_send:
  * @self: The #PseudoTcpSocket object.
  * @buffer: The buffer with data to send
  * @len: The length of @buffer
@@ -289,16 +289,16 @@ gint  pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len);
  </note>
  *
  * Returns: The number of bytes sent or -1 in case of error
- * <para> See also: pseudo_tcp_socket_get_error() </para>
+ * <para> See also: pst_get_error() </para>
  *
  * Since: 0.0.11
  */
-gint pseudo_tcp_socket_send(PseudoTcpSocket * self, const char * buffer,
+gint pst_send(PseudoTcpSocket * self, const char * buffer,
                             guint32 len);
 
 
 /**
- * pseudo_tcp_socket_close:
+ * pst_close:
  * @self: The #PseudoTcpSocket object.
  * @force: %TRUE to close the socket forcefully, %FALSE to close it gracefully
  *
@@ -309,46 +309,46 @@ gint pseudo_tcp_socket_send(PseudoTcpSocket * self, const char * buffer,
  *
  * The socket will be closed in both directions ?C sending and receiving ?C and
  * any pending received data must be read before calling this function, by
- * calling pseudo_tcp_socket_recv() until it blocks. If any pending data is in
- * the receive buffer when pseudo_tcp_socket_close() is called, a TCP RST
+ * calling pst_recv() until it blocks. If any pending data is in
+ * the receive buffer when pst_close() is called, a TCP RST
  * segment will be sent to the peer to notify it of the data loss.
  *
  <note>
    <para>
      The %PseudoTcpCallbacks:PseudoTcpClosed callback will not be called once
      the socket gets closed. It is only used for aborted connection.
-     Instead, the socket gets closed when the pseudo_tcp_socket_get_next_clock()
+     Instead, the socket gets closed when the pst_get_next_clock()
      function returns FALSE.
    </para>
  </note>
  *
- * <para> See also: pseudo_tcp_socket_get_next_clock() </para>
+ * <para> See also: pst_get_next_clock() </para>
  *
  * Since: 0.0.11
  */
-void pseudo_tcp_socket_close(PseudoTcpSocket * self, gboolean force);
+void pst_close(PseudoTcpSocket * self, gboolean force);
 
 /**
- * pseudo_tcp_socket_shutdown:
+ * pst_shutdown:
  * @self: The #PseudoTcpSocket object.
  * @how: The directions of the connection to shut down.
  *
  * Shut down sending, receiving, or both on the socket, depending on the value
- * of @how. The behaviour of pseudo_tcp_socket_send() and
- * pseudo_tcp_socket_recv() will immediately change after this function returns
+ * of @how. The behaviour of pst_send() and
+ * pst_recv() will immediately change after this function returns
  * (depending on the value of @how), though the socket may continue to process
  * network traffic in the background even if sending or receiving data is
  * forbidden.
  *
  * This is equivalent to the POSIX shutdown() function. Setting @how to
- * %PSEUDO_TCP_SHUTDOWN_RDWR is equivalent to calling pseudo_tcp_socket_close().
+ * %PSEUDO_TCP_SHUTDOWN_RDWR is equivalent to calling pst_close().
  *
  * Since: 0.1.8
  */
-void pseudo_tcp_socket_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how);
+void pst_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how);
 
 /**
- * pseudo_tcp_socket_get_error:
+ * pst_get_error:
  * @self: The #PseudoTcpSocket object.
  *
  * Return the last encountered error.
@@ -357,62 +357,62 @@ void pseudo_tcp_socket_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how);
    <para>
      The return value can be :
      <para>
-       EINVAL (for pseudo_tcp_socket_connect()).
+       EINVAL (for pst_connect()).
      </para>
      <para>
-       EWOULDBLOCK or ENOTCONN (for pseudo_tcp_socket_recv() and
-       pseudo_tcp_socket_send()).
+       EWOULDBLOCK or ENOTCONN (for pst_recv() and
+       pst_send()).
      </para>
    </para>
  </note>
  *
  * Returns: The error code
- * <para> See also: pseudo_tcp_socket_connect() </para>
- * <para> See also: pseudo_tcp_socket_recv() </para>
- * <para> See also: pseudo_tcp_socket_send() </para>
+ * <para> See also: pst_connect() </para>
+ * <para> See also: pst_recv() </para>
+ * <para> See also: pst_send() </para>
  *
  * Since: 0.0.11
  */
-int pseudo_tcp_socket_get_error(PseudoTcpSocket * self);
+int pst_get_error(PseudoTcpSocket * self);
 
 
 /**
- * pseudo_tcp_socket_get_next_clock:
+ * pst_get_next_clock:
  * @self: The #PseudoTcpSocket object.
  * @timeout: A pointer to be filled with the new timeout.
  *
  * Call this to determine the timeout needed before the next time call
- * to pseudo_tcp_socket_notify_clock() should be made.
+ * to pst_notify_clock() should be made.
  *
  * Returns: %TRUE if @timeout was filled, %FALSE if the socket is closed and
  * ready to be destroyed.
  *
- * <para> See also: pseudo_tcp_socket_notify_clock() </para>
+ * <para> See also: pst_notify_clock() </para>
  *
  * Since: 0.0.11
  */
-gboolean pseudo_tcp_socket_get_next_clock(PseudoTcpSocket * self,
+gboolean pst_get_next_clock(PseudoTcpSocket * self,
         guint64 * timeout);
 
 
 /**
- * pseudo_tcp_socket_notify_clock:
+ * pst_notify_clock:
  * @self: The #PseudoTcpSocket object.
  *
  * Start the processing of receiving data, pending data or syn/acks.
  * Call this based on timeout value returned by
- * pseudo_tcp_socket_get_next_clock().
+ * pst_get_next_clock().
  * It's ok to call this too frequently.
  *
- * <para> See also: pseudo_tcp_socket_get_next_clock() </para>
+ * <para> See also: pst_get_next_clock() </para>
  *
  * Since: 0.0.11
  */
-void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self);
+void pst_notify_clock(PseudoTcpSocket * self);
 
 
 /**
- * pseudo_tcp_socket_notify_mtu:
+ * pst_notify_mtu:
  * @self: The #PseudoTcpSocket object.
  * @mtu: The new MTU of the socket
  *
@@ -420,11 +420,11 @@ void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self);
  *
  * Since: 0.0.11
  */
-void pseudo_tcp_socket_notify_mtu(PseudoTcpSocket * self, guint16 mtu);
+void pst_notify_mtu(PseudoTcpSocket * self, guint16 mtu);
 
 
 /**
- * pseudo_tcp_socket_notify_packet:
+ * pst_notify_packet:
  * @self: The #PseudoTcpSocket object.
  * @buffer: The buffer containing the received data
  * @len: The length of @buffer
@@ -435,14 +435,14 @@ void pseudo_tcp_socket_notify_mtu(PseudoTcpSocket * self, guint16 mtu);
  *
  * Since: 0.0.11
  */
-gboolean pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self,
+gboolean pst_notify_packet(PseudoTcpSocket * self,
         const gchar * buffer, guint32 len);
 
 
 /**
- * pseudo_tcp_socket_notify_message:
+ * pst_notify_message:
  * @self: The #PseudoTcpSocket object.
- * @message: A #NiceInputMessage containing the received data.
+ * @message: A #n_input_msg_t containing the received data.
  *
  * Notify the #PseudoTcpSocket that a new message has arrived, and enqueue the
  * data in its buffers to the #PseudoTcpSocket??s receive buffer.
@@ -451,8 +451,8 @@ gboolean pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self,
  *
  * Since: 0.1.5
  */
-gboolean pseudo_tcp_socket_notify_message(PseudoTcpSocket * self,
-        NiceInputMessage * message);
+gboolean pst_notify_message(PseudoTcpSocket * self,
+        n_input_msg_t * message);
 
 
 /**
@@ -467,7 +467,7 @@ void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level);
 
 
 /**
- * pseudo_tcp_socket_get_available_bytes:
+ * pst_get_available_bytes:
  * @self: The #PseudoTcpSocket object.
  *
  * Gets the number of bytes of data in the buffer that can be read without
@@ -478,10 +478,10 @@ void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level);
  * Since: 0.1.5
  */
 
-gint pseudo_tcp_socket_get_available_bytes(PseudoTcpSocket * self);
+gint pst_get_available_bytes(PseudoTcpSocket * self);
 
 /**
- * pseudo_tcp_socket_can_send:
+ * pst_can_send:
  * @self: The #PseudoTcpSocket object.
  *
  * Returns if there is space in the send buffer to send any data.
@@ -491,10 +491,10 @@ gint pseudo_tcp_socket_get_available_bytes(PseudoTcpSocket * self);
  * Since: 0.1.5
  */
 
-gboolean pseudo_tcp_socket_can_send(PseudoTcpSocket * self);
+gboolean pst_can_send(PseudoTcpSocket * self);
 
 /**
- * pseudo_tcp_socket_get_available_send_space:
+ * pst_get_available_send_space:
  * @self: The #PseudoTcpSocket object.
  *
  * Gets the number of bytes of space available in the transmission buffer.
@@ -503,10 +503,10 @@ gboolean pseudo_tcp_socket_can_send(PseudoTcpSocket * self);
  *
  * Since: 0.1.5
  */
-gsize pseudo_tcp_socket_get_available_send_space(PseudoTcpSocket * self);
+gsize pst_get_available_send_space(PseudoTcpSocket * self);
 
 /**
- * pseudo_tcp_socket_set_time:
+ * pst_set_time:
  * @self: The #PseudoTcpSocket object.
  * @current_time: Current monotonic time, in milliseconds; or zero to use the
  * system monotonic clock.
@@ -522,10 +522,10 @@ gsize pseudo_tcp_socket_get_available_send_space(PseudoTcpSocket * self);
  *
  * Since: 0.1.8
  */
-void pseudo_tcp_socket_set_time(PseudoTcpSocket * self, guint32 current_time);
+void pst_set_time(PseudoTcpSocket * self, guint32 current_time);
 
 /**
- * pseudo_tcp_socket_is_closed:
+ * pst_is_closed:
  * @self: The #PseudoTcpSocket object.
  *
  * Gets whether the socket is closed, with the shutdown handshake completed,
@@ -534,23 +534,23 @@ void pseudo_tcp_socket_set_time(PseudoTcpSocket * self, guint32 current_time);
  * Returns: %TRUE if the socket is closed in both directions, %FALSE otherwise
  * Since: 0.1.8
  */
-gboolean pseudo_tcp_socket_is_closed(PseudoTcpSocket * self);
+gboolean pst_is_closed(PseudoTcpSocket * self);
 
 /**
- * pseudo_tcp_socket_is_closed_remotely:
+ * pst_is_closed_remotely:
  * @self: The #PseudoTcpSocket object.
  *
  * Gets whether the socket has been closed on the remote peer??s side of the
- * connection (i.e. whether pseudo_tcp_socket_close() has been called there).
- * This is guaranteed to return %TRUE if pseudo_tcp_socket_is_closed() returns
- * %TRUE. It will not return %TRUE after pseudo_tcp_socket_close() is called
+ * connection (i.e. whether pst_close() has been called there).
+ * This is guaranteed to return %TRUE if pst_is_closed() returns
+ * %TRUE. It will not return %TRUE after pst_close() is called
  * until a FIN segment is received from the remote peer.
  *
  * Returns: %TRUE if the remote peer has closed its side of the connection,
  * %FALSE otherwise
  * Since: 0.1.8
  */
-gboolean pseudo_tcp_socket_is_closed_remotely(PseudoTcpSocket * self);
+gboolean pst_is_closed_remotely(PseudoTcpSocket * self);
 
 #endif /* __LIBNICE_PSEUDOTCP_H__ */
 

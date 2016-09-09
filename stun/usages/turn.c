@@ -68,14 +68,13 @@
 
 /** Non-blocking mode STUN TURN usage */
 
-size_t stun_usage_turn_create(StunAgent * agent, StunMessage * msg,
+size_t turn_create(StunAgent * agent, StunMessage * msg,
                               uint8_t * buffer, size_t buffer_len,
                               StunMessage * previous_response,
                               StunUsageTurnRequestPorts request_props,
                               int32_t bandwidth, int32_t lifetime,
                               uint8_t * username, size_t username_len,
-                              uint8_t * password, size_t password_len,
-                              StunUsageTurnCompatibility compatibility)
+                              uint8_t * password, size_t password_len)
 {
     stun_agent_init_request(agent, msg, buffer, buffer_len, STUN_ALLOCATE);
 
@@ -129,7 +128,7 @@ size_t stun_usage_turn_create(StunAgent * agent, StunMessage * msg,
     return stun_agent_finish_message(agent, msg, password, password_len);
 }
 
-size_t stun_usage_turn_create_refresh(StunAgent * agent, StunMessage * msg,
+size_t turn_create_refresh(StunAgent * agent, StunMessage * msg,
                                       uint8_t * buffer, size_t buffer_len,
                                       StunMessage * previous_response, int32_t lifetime,
                                       uint8_t * username, size_t username_len,

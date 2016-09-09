@@ -17,16 +17,12 @@
 
 
 static void socket_close(NiceSocket * sock);
-static gint socket_recv_messages(NiceSocket * sock,
-                                 NiceInputMessage * recv_messages, uint32_t n_recv_messages);
-static gint socket_send_messages(NiceSocket * sock, const NiceAddress * to,
-                                 const NiceOutputMessage * messages, uint32_t n_messages);
-static gint socket_send_messages_reliable(NiceSocket * sock,
-        const NiceAddress * to, const NiceOutputMessage * messages, uint32_t n_messages);
-static gboolean socket_is_reliable(NiceSocket * sock);
-static gboolean socket_can_send(NiceSocket * sock, NiceAddress * addr);
-static void socket_set_writable_callback(NiceSocket * sock,
-        NiceSocketWritableCb callback, gpointer user_data);
+static gint socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
+static gint socket_send_messages(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
+static gint socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
+static int socket_is_reliable(NiceSocket * sock);
+static int socket_can_send(NiceSocket * sock, NiceAddress * addr);
+static void socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data);
 
 struct UdpBsdSocketPrivate
 {
@@ -44,7 +40,7 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
     } name;
     NiceSocket * sock = g_slice_new0(NiceSocket);
     GSocket * gsock = NULL;
-    gboolean gret = FALSE;
+    int gret = FALSE;
     GSocketAddress * gaddr;
     struct UdpBsdSocketPrivate * priv;
 
@@ -104,7 +100,7 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
     if (gaddr == NULL ||
             !g_socket_address_to_native(gaddr, &name.addr, sizeof(name), NULL))
     {
-        g_slice_free(NiceSocket, sock);
+        n_slice_free(NiceSocket, sock);
         g_socket_close(gsock, NULL);
         g_object_unref(gsock);
         return NULL;
@@ -130,14 +126,13 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
     return sock;
 }
 
-static void
-socket_close(NiceSocket * sock)
+static void socket_close(NiceSocket * sock)
 {
     struct UdpBsdSocketPrivate * priv = sock->priv;
 
     if (priv->gaddr)
         g_object_unref(priv->gaddr);
-    g_slice_free(struct UdpBsdSocketPrivate, sock->priv);
+    n_slice_free(struct UdpBsdSocketPrivate, sock->priv);
     sock->priv = NULL;
 
     if (sock->fileno)
@@ -148,10 +143,10 @@ socket_close(NiceSocket * sock)
     }
 }
 
-static int32_t socket_recv_messages(NiceSocket * sock, NiceInputMessage * recv_messages, uint32_t n_recv_messages)
+static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
 {
     uint32_t i;
-    gboolean error = FALSE;
+    int error = FALSE;
 
     /* Socket has been closed: */
     if (sock->priv == NULL)
@@ -161,7 +156,7 @@ static int32_t socket_recv_messages(NiceSocket * sock, NiceInputMessage * recv_m
      * reach the end. */
     for (i = 0; i < n_recv_messages; i++)
     {
-        NiceInputMessage * recv_message = &recv_messages[i];
+        n_input_msg_t * recv_message = &recv_messages[i];
         GSocketAddress * gaddr = NULL;
         GError * gerr = NULL;
         gssize recvd;
@@ -211,7 +206,7 @@ static int32_t socket_recv_messages(NiceSocket * sock, NiceInputMessage * recv_m
     return i;
 }
 
-static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, const NiceOutputMessage * message)
+static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * message)
 {
     struct UdpBsdSocketPrivate * priv = sock->priv;
     GError * child_error = NULL;
@@ -260,7 +255,7 @@ static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, co
 
 static int32_t
 socket_send_messages(NiceSocket * sock, const NiceAddress * to,
-                     const NiceOutputMessage * messages, uint32_t n_messages)
+                     const n_output_msg_t * messages, uint32_t n_messages)
 {
     uint32_t i;
 
@@ -270,7 +265,7 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
 
     for (i = 0; i < n_messages; i++)
     {
-        const NiceOutputMessage * message = &messages[i];
+        const n_output_msg_t * message = &messages[i];
         gssize len;
 
         len = socket_send_message(sock, to, message);
@@ -293,7 +288,7 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
 }
 
 static int32_t socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
-                              const NiceOutputMessage * messages, uint32_t n_messages)
+                              const n_output_msg_t * messages, uint32_t n_messages)
 {
     return -1;
 }

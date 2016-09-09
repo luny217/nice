@@ -48,7 +48,7 @@ static void nice_print_candpair(NiceAgent * agent, CandidateCheckPair * pair)
 	}
 }
 
-static int priv_timer_expired(g_time_val * timer, g_time_val * now)
+static int priv_timer_expired(n_timeval_t * timer, n_timeval_t * now)
 {
     return (now->tv_sec == timer->tv_sec) ?
            now->tv_usec >= timer->tv_usec :
@@ -263,13 +263,13 @@ candidate_check_pair_fail(Stream * stream, NiceAgent * agent, CandidateCheckPair
  *
  * @return will return FALSE when no more pending timers.
  */
-static int priv_conn_check_tick_stream(Stream * stream, NiceAgent * agent, g_time_val * now)
+static int priv_conn_check_tick_stream(Stream * stream, NiceAgent * agent, n_timeval_t * now)
 {
     int keep_timer_going = FALSE;
-    uint32_t s_inprogress = 0, s_succeeded = 0, s_discovered = 0,
-          s_nominated = 0, s_waiting_for_nomination = 0;
+	uint32_t s_inprogress = 0, s_succeeded = 0, s_discovered = 0;
+	uint32_t s_nominated = 0, s_waiting_for_nomination = 0;
     uint32_t frozen = 0, waiting = 0;
-    n_slist_t * i, *k;
+    n_slist_t * i, * k;
 
     for (i = stream->conncheck_list; i ; i = i->next)
     {
@@ -288,7 +288,7 @@ static int priv_conn_check_tick_stream(Stream * stream, NiceAgent * agent, g_tim
             {
                 switch (stun_timer_refresh(&p->timer))
                 {
-                    case STUN_USAGE_TIMER_RETURN_TIMEOUT:
+                    case STUN_TIMER_RET_TIMEOUT:
                     {
                         /* case: error, abort processing */
                         nice_debug("[%s agent:0x%p]: STUN Retransmissions failed, giving up on connectivity check %p", G_STRFUNC, agent, p);
@@ -297,12 +297,11 @@ static int priv_conn_check_tick_stream(Stream * stream, NiceAgent * agent, g_tim
 
                         break;
                     }
-                    case STUN_USAGE_TIMER_RETURN_RETRANSMIT:
+                    case STUN_TIMER_RET_RETRANSMIT:
                     {
                         /* case: not ready, so schedule a new timeout */
                         unsigned int timeout = stun_timer_remainder(&p->timer);
-                        nice_debug("[%s agent:0x%p]: STUN transaction retransmitted (timeout %dms)",
-									G_STRFUNC, agent, timeout);
+                        nice_debug("[%s agent:0x%p]: STUN transaction retransmitted (timeout %dms)", G_STRFUNC, agent, timeout);
 						nice_print_candpair(agent, p);
 
                         agent_socket_send(p->sockptr, &p->remote->addr,
@@ -317,7 +316,7 @@ static int priv_conn_check_tick_stream(Stream * stream, NiceAgent * agent, g_tim
                         keep_timer_going = TRUE;
                         break;
                     }
-                    case STUN_USAGE_TIMER_RETURN_SUCCESS:
+                    case STUN_TIMER_RET_SUCCESS:
                     {
                         unsigned int timeout = stun_timer_remainder(&p->timer);
 
@@ -420,7 +419,7 @@ static int priv_conn_check_tick_unlocked(NiceAgent * agent)
     CandidateCheckPair * pair = NULL;
     int keep_timer_going = FALSE;
     n_slist_t * i, *j;
-    g_time_val now;
+    n_timeval_t now;
 
     /* step: process ongoing STUN transactions */
     get_current_time(&now);
@@ -530,7 +529,7 @@ static int priv_conn_keepalive_retransmissions_tick(void * pointer)
 
     switch (stun_timer_refresh(&pair->keepalive.timer))
     {
-        case STUN_USAGE_TIMER_RETURN_TIMEOUT:
+        case STUN_TIMER_RET_TIMEOUT:
         {
             /* Time out */
             StunTransactionId id;
@@ -568,7 +567,7 @@ static int priv_conn_keepalive_retransmissions_tick(void * pointer)
             }
             break;
         }
-        case STUN_USAGE_TIMER_RETURN_RETRANSMIT:
+        case STUN_TIMER_RET_RETRANSMIT:
             /* Retransmit */
             agent_socket_send(pair->local->sockptr, &pair->remote->addr,
                               stun_message_length(&pair->keepalive.stun_message),
@@ -576,13 +575,13 @@ static int priv_conn_keepalive_retransmissions_tick(void * pointer)
 
             nice_debug("[%s agent:0x%p]: Retransmitting keepalive conncheck", G_STRFUNC, pair->keepalive.agent);
 			nice_print_cand(pair->keepalive.agent, pair->local, pair->remote);
-            agent_timeout_add_with_context(pair->keepalive.agent,
+            agent_timeout_add(pair->keepalive.agent,
                                            &pair->keepalive.tick_source,
                                            "Pair keepalive", stun_timer_remainder(&pair->keepalive.timer),
                                            priv_conn_keepalive_retransmissions_tick, pair);
             break;
-        case STUN_USAGE_TIMER_RETURN_SUCCESS:
-            agent_timeout_add_with_context(pair->keepalive.agent,
+        case STUN_TIMER_RET_SUCCESS:
+            agent_timeout_add(pair->keepalive.agent,
                                            &pair->keepalive.tick_source,
                                            "Pair keepalive", stun_timer_remainder(&pair->keepalive.timer),
                                            priv_conn_keepalive_retransmissions_tick, pair);
@@ -684,20 +683,18 @@ static int priv_conn_keepalive_tick_unlocked(NiceAgent * agent)
 
                         if (buf_len > 0)
                         {
-                            stun_timer_start(&p->keepalive.timer, STUN_TIMER_DEFAULT_TIMEOUT,
-                                             STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
+                            stun_timer_start(&p->keepalive.timer, STUN_TIMER_TIMEOUT, STUN_TIMER_MAX_RETRANS);
 
                             agent->media_after_tick = FALSE;
 
                             /* send the conncheck */
-                            agent_socket_send(p->local->sockptr, &p->remote->addr,
-                                              buf_len, (char *)p->keepalive.stun_buffer);
+                            agent_socket_send(p->local->sockptr, &p->remote->addr, buf_len, (char *)p->keepalive.stun_buffer);
 
                             p->keepalive.stream_id = stream->id;
                             p->keepalive.component_id = component->id;
                             p->keepalive.agent = agent;
 
-                            agent_timeout_add_with_context(p->keepalive.agent,
+                            agent_timeout_add(p->keepalive.agent,
                                                            &p->keepalive.tick_source, "Pair keepalive",
                                                            stun_timer_remainder(&p->keepalive.timer),
                                                            priv_conn_keepalive_retransmissions_tick, p);
@@ -815,8 +812,7 @@ static int priv_conn_keepalive_tick(void * pointer)
     return ret;
 }
 
-
-static int priv_turn_allocate_refresh_retransmissions_tick(void * pointer)
+static int priv_turn_alloc_refresh_retrans_tick(void * pointer)
 {
     CandidateRefresh * cand = (CandidateRefresh *) pointer;
     NiceAgent * agent = NULL;
@@ -830,11 +826,10 @@ static int priv_turn_allocate_refresh_retransmissions_tick(void * pointer)
     if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. "
-                   "Avoided race condition in priv_turn_allocate_refresh_retransmissions_tick");
+                   "Avoided race condition in priv_turn_alloc_refresh_retrans_tick");
         agent_unlock();
         return FALSE;
     }
-
 
     g_source_destroy(cand->tick_source);
     g_source_unref(cand->tick_source);
@@ -844,7 +839,7 @@ static int priv_turn_allocate_refresh_retransmissions_tick(void * pointer)
 
     switch (stun_timer_refresh(&cand->timer))
     {
-        case STUN_USAGE_TIMER_RETURN_TIMEOUT:
+        case STUN_TIMER_RET_TIMEOUT:
         {
             /* Time out */
             StunTransactionId id;
@@ -855,19 +850,19 @@ static int priv_turn_allocate_refresh_retransmissions_tick(void * pointer)
             refresh_cancel(cand);
             break;
         }
-        case STUN_USAGE_TIMER_RETURN_RETRANSMIT:
+        case STUN_TIMER_RET_RETRANSMIT:
             /* Retransmit */
             agent_socket_send(cand->nicesock, &cand->server,
                               stun_message_length(&cand->stun_message), (char *)cand->stun_buffer);
 
-            agent_timeout_add_with_context(agent, &cand->tick_source,
+            agent_timeout_add(agent, &cand->tick_source,
                                            "Candidate TURN refresh", stun_timer_remainder(&cand->timer),
-                                           priv_turn_allocate_refresh_retransmissions_tick, cand);
+                                           priv_turn_alloc_refresh_retrans_tick, cand);
             break;
-        case STUN_USAGE_TIMER_RETURN_SUCCESS:
-            agent_timeout_add_with_context(agent, &cand->tick_source,
+        case STUN_TIMER_RET_SUCCESS:
+            agent_timeout_add(agent, &cand->tick_source,
                                            "Candidate TURN refresh", stun_timer_remainder(&cand->timer),
-                                           priv_turn_allocate_refresh_retransmissions_tick, cand);
+                                           priv_turn_alloc_refresh_retrans_tick, cand);
             break;
         default:
             /* Nothing to do. */
@@ -882,22 +877,21 @@ static int priv_turn_allocate_refresh_retransmissions_tick(void * pointer)
     return FALSE;
 }
 
-static void priv_turn_allocate_refresh_tick_unlocked(CandidateRefresh * cand)
+static void priv_turn_alloc_refresh_tick_unlocked(CandidateRefresh * cand)
 {
     uint8_t * username;
     uint32_t username_len;
     uint8_t * password;
     uint32_t password_len;
     size_t buffer_len = 0;
-    StunUsageTurnCompatibility turn_compat =
-        agent_to_turn_compatibility(cand->agent);
+    StunUsageTurnCompatibility turn_compat = agent_to_turn_compatibility(cand->agent);
 
     username = (uint8_t *)cand->candidate->turn->username;
     username_len = (size_t) strlen(cand->candidate->turn->username);
     password = (uint8_t *)cand->candidate->turn->password;
     password_len = (size_t) strlen(cand->candidate->turn->password);
 
-    buffer_len = stun_usage_turn_create_refresh(&cand->stun_agent,
+    buffer_len = turn_create_refresh(&cand->stun_agent,
                  &cand->stun_message,  cand->stun_buffer, sizeof(cand->stun_buffer),
                  cand->stun_resp_msg.buffer == NULL ? NULL : &cand->stun_resp_msg, -1,
                  username, username_len,
@@ -915,20 +909,13 @@ static void priv_turn_allocate_refresh_tick_unlocked(CandidateRefresh * cand)
 
     if (buffer_len > 0)
     {
-        stun_timer_start(&cand->timer, STUN_TIMER_DEFAULT_TIMEOUT,
-                         STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
-
+        stun_timer_start(&cand->timer, STUN_TIMER_RET_TIMEOUT, STUN_TIMER_MAX_RETRANS);
         /* send the refresh */
-        agent_socket_send(cand->nicesock, &cand->server,
-                          buffer_len, (char *)cand->stun_buffer);
-
-        agent_timeout_add_with_context(cand->agent, &cand->tick_source,
-                                       "Candidate TURN refresh", stun_timer_remainder(&cand->timer),
-                                       priv_turn_allocate_refresh_retransmissions_tick, cand);
+        agent_socket_send(cand->nicesock, &cand->server, buffer_len, (char *)cand->stun_buffer);
+        agent_timeout_add(cand->agent, &cand->tick_source, "Candidate TURN refresh", stun_timer_remainder(&cand->timer),
+                                       priv_turn_alloc_refresh_retrans_tick, cand);
     }
-
 }
-
 
 /*
  * Timer callback that handles refreshing TURN allocations
@@ -944,13 +931,12 @@ static int priv_turn_allocate_refresh_tick(void * pointer)
     agent_lock();
     if (g_source_is_destroyed(g_main_current_source()))
     {
-        nice_debug("Source was destroyed. "
-                   "Avoided race condition in priv_turn_allocate_refresh_tick");
+        nice_debug("Source was destroyed. " "Avoided race condition in priv_turn_allocate_refresh_tick");
         agent_unlock();
         return FALSE;
     }
 
-    priv_turn_allocate_refresh_tick_unlocked(cand);
+    priv_turn_alloc_refresh_tick_unlocked(cand);
     agent_unlock_and_emit(cand->agent);
 
     return FALSE;
@@ -977,7 +963,7 @@ int conn_check_schedule_next(NiceAgent * agent)
     /* step: schedule timer if not running yet */
     if (res && agent->conncheck_timer_source == NULL)
     {
-        agent_timeout_add_with_context(agent, &agent->conncheck_timer_source,
+        agent_timeout_add(agent, &agent->conncheck_timer_source,
                                        "Connectivity check schedule", agent->timer_ta,
                                        priv_conn_check_tick, agent);
     }
@@ -985,7 +971,7 @@ int conn_check_schedule_next(NiceAgent * agent)
     /* step: also start the keepalive timer */
     if (agent->keepalive_timer_source == NULL)
     {
-        agent_timeout_add_with_context(agent, &agent->keepalive_timer_source,
+        agent_timeout_add(agent, &agent->keepalive_timer_source,
                                        "Connectivity keepalive timeout", NICE_AGENT_TIMER_TR_DEFAULT,
                                        priv_conn_keepalive_tick, agent);
     }
@@ -1850,13 +1836,11 @@ int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair)
         {
             if (nice_socket_is_reliable(pair->sockptr))
             {
-                stun_timer_start_reliable(&pair->timer, STUN_TIMER_DEFAULT_RELIABLE_TIMEOUT);
+                stun_timer_start_reliable(&pair->timer, STUN_TIMER_RELIABLE_TIMEOUT);
             }
             else
             {
-                stun_timer_start(&pair->timer,
-                                 priv_compute_conncheck_timer(agent, stream),
-                                 STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
+                stun_timer_start(&pair->timer, priv_compute_conncheck_timer(agent, stream), STUN_TIMER_MAX_RETRANS);
             }
 
             /* send the conncheck */
@@ -2004,14 +1988,11 @@ static int priv_schedule_triggered_check(NiceAgent * agent, Stream * stream, Com
                            p->timer_restarted ? "no" : "yes");
                 if (!nice_socket_is_reliable(p->sockptr) && !p->timer_restarted)
                 {
-                    stun_timer_start(&p->timer,
-                                     priv_compute_conncheck_timer(agent, stream),
-                                     STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
+                    stun_timer_start(&p->timer, priv_compute_conncheck_timer(agent, stream), STUN_TIMER_MAX_RETRANS);
                     p->timer_restarted = TRUE;
                 }
             }
-            else if (p->state == NICE_CHECK_SUCCEEDED ||
-                     p->state == NICE_CHECK_DISCOVERED)
+            else if (p->state == NICE_CHECK_SUCCEEDED || p->state == NICE_CHECK_DISCOVERED)
             {
                 nice_debug("[%s agent:0x%p]: Skipping triggered check, already completed..", G_STRFUNC, agent);
                 /* note: this is a bit unsure corner-case -- let's do the
@@ -2021,10 +2002,7 @@ static int priv_schedule_triggered_check(NiceAgent * agent, Stream * stream, Com
                 /* note: to take care of the controlling-controlling case in
                  *       aggressive nomination mode, send a new triggered
                  *       check to nominate the pair */
-                if ((agent->compatibility == NICE_COMPATIBILITY_RFC5245 ||
-                        agent->compatibility == NICE_COMPATIBILITY_WLM2009 ||
-                        agent->compatibility == NICE_COMPATIBILITY_OC2007R2) &&
-                        agent->controlling_mode)
+                if (agent->controlling_mode)
                     priv_conn_check_initiate(agent, p);
             }
             else if (p->state == NICE_CHECK_FAILED)
@@ -2475,7 +2453,7 @@ static int priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessage * 
     socklen_t alternatelen = sizeof(sockaddr);
 
     n_slist_t * i;
-    StunUsageBindReturn res;
+    StunBind res;
     int trans_found = FALSE;
     StunTransactionId discovery_id;
     StunTransactionId response_id;
@@ -2494,7 +2472,7 @@ static int priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessage * 
                 res = stun_usage_bind_process(resp, &sockaddr.addr, &socklen, &alternate.addr, &alternatelen);
                 nice_debug("[%s agent:0x%p]: stun_bind_process/disc for %p res %d.", G_STRFUNC, agent, d, (int)res);
 
-                if (res == STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER)
+                if (res == STUN_BIND_ALTERNATE_SERVER)
                 {
                     /* handle alternate server */
                     NiceAddress niceaddr;
@@ -2503,7 +2481,7 @@ static int priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessage * 
 
                     d->pending = FALSE;
                 }
-                else if (res == STUN_USAGE_BIND_RETURN_SUCCESS)
+                else if (res == STUN_BIND_SUCCESS)
                 {
                     /* case: successful binding discovery, create a new local candidate */
                     NiceAddress niceaddr;
@@ -2515,7 +2493,7 @@ static int priv_map_reply_to_discovery_request(NiceAgent * agent, StunMessage * 
                     d->done = TRUE;
                     trans_found = TRUE;
                 }
-                else if (res == STUN_USAGE_BIND_RETURN_ERROR)
+                else if (res == STUN_BIND_ERROR)
                 {
                     /* case: STUN error, the check STUN context was freed */
                     d->stun_message.buffer = NULL;
@@ -2561,7 +2539,7 @@ static CandidateRefresh * priv_add_new_turn_refresh(CandidateDiscovery * cdisco,
 
     /* step: also start the refresh timer */
     /* refresh should be sent 1 minute before it expires */
-    agent_timeout_add_with_context(agent, &cand->timer_source, "Candidate TURN refresh",
+    agent_timeout_add(agent, &cand->timer_source, "Candidate TURN refresh",
                                    (lifetime - 60) * 1000, priv_turn_allocate_refresh_tick, cand);
 
     nice_debug("timer source is : %p", cand->timer_source);
@@ -2741,7 +2719,7 @@ static int priv_map_reply_to_relay_refresh(NiceAgent * agent, StunMessage * resp
                 if (res == STUN_USAGE_TURN_RETURN_RELAY_SUCCESS)
                 {
                     /* refresh should be sent 1 minute before it expires */
-                    agent_timeout_add_with_context(cand->agent, &cand->timer_source,
+                    agent_timeout_add(cand->agent, &cand->timer_source,
                                                    "Candidate TURN refresh", (lifetime - 60) * 1000,
                                                    priv_turn_allocate_refresh_tick, cand);
 
@@ -2781,7 +2759,7 @@ static int priv_map_reply_to_relay_refresh(NiceAgent * agent, StunMessage * resp
                                    stun_message_length(resp));
                             cand->stun_resp_msg.buffer = cand->stun_resp_buffer;
                             cand->stun_resp_msg.buffer_len = sizeof(cand->stun_resp_buffer);
-                            priv_turn_allocate_refresh_tick_unlocked(cand);
+                            priv_turn_alloc_refresh_tick_unlocked(cand);
                         }
                         else
                         {

@@ -82,7 +82,7 @@ Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
     nice_agent_init_stun_agent(agent, &component->stun_agent);
 
     g_mutex_init(&component->io_mutex);
-    g_queue_init(&component->pending_io_messages);
+    n_queue_init(&component->pending_io_messages);
     component->io_callback_id = 0;
 
     component->own_ctx = g_main_context_new();
@@ -98,7 +98,7 @@ Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
     component_set_io_context(component, NULL);
     component_set_io_callback(component, NULL, NULL, NULL, 0, NULL);
 
-    g_queue_init(&component->queued_tcp_packets);
+    n_queue_init(&component->queued_tcp_packets);
 
     return component;
 }
@@ -180,18 +180,18 @@ void component_close(Component * cmp)
     GOutputVector * vec;
 
     /* Start closing the pseudo-TCP socket first. FIXME: There is a very big and
-     * reliably triggerable race here. pseudo_tcp_socket_close() does not block
+     * reliably triggerable race here. pst_close() does not block
      * on the socket closing ? it only sends the first packet of the FIN
      * handshake. component_close() will immediately afterwards close the
      * underlying component sockets, aborting the handshake.
      *
      * On the principle that starting the FIN handshake is better than not
-     * starting it, even if it?s later truncated, call pseudo_tcp_socket_close().
+     * starting it, even if it?s later truncated, call pst_close().
      * A long-term fix is needed in the form of making component_close() (and all
      * its callers) async, so we can properly block on closure. */
     if (cmp->tcp)
     {
-        pseudo_tcp_socket_close(cmp->tcp, TRUE);
+        pst_close(cmp->tcp, TRUE);
     }
 
     if (cmp->restart_candidate)
@@ -227,14 +227,14 @@ void component_close(Component * cmp)
         g_clear_object(&cmp->tcp_writable_cancellable);
     }
 
-    while ((data = g_queue_pop_head(&cmp->pending_io_messages)) != NULL)
+    while ((data = n_queue_pop_head(&cmp->pending_io_messages)) != NULL)
         io_callback_data_free(data);
 
     component_deschedule_io_callback(cmp);
 
     g_cancellable_cancel(cmp->stop_cancellable);
 
-    while ((vec = g_queue_pop_head(&cmp->queued_tcp_packets)) != NULL)
+    while ((vec = n_queue_pop_head(&cmp->queued_tcp_packets)) != NULL)
     {
         n_free((void *) vec->buffer);
         g_slice_free(GOutputVector, vec);
@@ -469,7 +469,7 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     return local;
 }
 
-static int32_t _find_socket_source(gconstpointer a, gconstpointer b)
+static int32_t _find_socket_source(const void * a, const void * b)
 {
     const SocketSource * source_a = a;
     const NiceSocket * socket_b = b;
@@ -653,7 +653,7 @@ void component_set_io_context(Component * component, GMainContext * context)
  * unset in that time). */
 void component_set_io_callback(Component * component,
                           NiceAgentRecvFunc func, void * user_data,
-                          NiceInputMessage * recv_messages, uint32_t n_recv_messages,
+                          n_input_msg_t * recv_messages, uint32_t n_recv_messages,
                           GError ** error)
 {
     g_assert(func == NULL || recv_messages == NULL);
@@ -756,7 +756,7 @@ static int emit_io_callback_cb(void * user_data)
     {
         io_callback = component->io_callback;
         io_user_data = component->io_user_data;
-        data = g_queue_peek_head(&component->pending_io_messages);
+        data = n_queue_peek_head(&component->pending_io_messages);
 
         if (data == NULL || io_callback == NULL)
             break;
@@ -775,7 +775,7 @@ static int emit_io_callback_cb(void * user_data)
             goto done;
         }
 
-        g_queue_pop_head(&component->pending_io_messages);
+        n_queue_pop_head(&component->pending_io_messages);
         io_callback_data_free(data);
 
         g_mutex_lock(&component->io_mutex);
@@ -839,7 +839,7 @@ void component_emit_io_callback(Component * component,  const uint8_t * buf, uin
         /* Slow path: Current thread doesn?t own the Component?s context at the
          * moment, so schedule the callback in an idle handler. */
         data = io_callback_data_new(buf, buf_len);
-        g_queue_push_tail(&component->pending_io_messages, data);  /* transfer ownership */
+        n_queue_push_tail(&component->pending_io_messages, data);  /* transfer ownership */
 
         nice_debug("[%s agent:0x%p]:: **WARNING: SLOW PATH**", G_STRFUNC, agent);
         component_schedule_io_callback(component);
@@ -854,7 +854,7 @@ static void component_schedule_io_callback(Component * component)
 
     /* Already scheduled or nothing to schedule? */
     if (component->io_callback_id != 0 ||
-            g_queue_is_empty(&component->pending_io_messages))
+            n_queue_is_empty(&component->pending_io_messages))
         return;
 
     /* Add the idle callback. If nice_agent_attach_recv() is called with a

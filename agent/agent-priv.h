@@ -11,6 +11,7 @@
 
 #include "agent.h"
 #include "nlist.h"
+#include "nqueue.h"
 
 /**
  * NiceInputMessageIter:
@@ -23,7 +24,7 @@
  * written).
  *
  * If @message is equal to the number of messages in the associated
- * #NiceInputMessage array, and @buffer and @offset are zero, the iterator is at
+ * #n_input_msg_t array, and @buffer and @offset are zero, the iterator is at
  * the end of the messages array, and the array is (presumably) full.
  *
  * Since: 0.1.5
@@ -36,7 +37,7 @@ typedef struct
 } NiceInputMessageIter;
 
 void nice_input_message_iter_reset(NiceInputMessageIter * iter);
-int nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, NiceInputMessage * messages, uint32_t n_messages);
+int nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * messages, uint32_t n_messages);
 uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter);
 
 #include "socket.h"
@@ -66,7 +67,7 @@ struct _NiceAgent
 {
     GObject parent;                 /* gobject pointer */
     int32_t full_mode;             /* property: full-mode */
-    g_time_val next_check_tv;         /* property: next conncheck timestamp */
+    n_timeval_t next_check_tv;         /* property: next conncheck timestamp */
     char * stun_server_ip;         /* property: STUN server IP */
     uint32_t stun_server_port;         /* property: STUN server port */
     int32_t controlling_mode;      /* property: controlling-mode */
@@ -90,7 +91,7 @@ struct _NiceAgent
     char * software_attribute;      /* SOFTWARE attribute */
     int32_t reliable;               /* property: reliable */
     int32_t keepalive_conncheck;    /* property: keepalive_conncheck */
-    GQueue pending_signals;
+    n_queue_t pending_signals;
     int use_ice_udp;
     int use_ice_tcp;
     /* XXX: add pointer to internal data struct for ABI-safe extensions */
@@ -110,18 +111,17 @@ void agent_signal_new_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void agent_signal_new_remote_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void agent_signal_initial_binding_request_received(NiceAgent * agent, Stream * stream);
 uint64_t agent_candidate_pair_priority(NiceAgent * agent, NiceCandidate * local, NiceCandidate * remote);
-void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data);
+void agent_timeout_add(NiceAgent * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data);
 StunUsageIceCompatibility agent_to_ice_compatibility(NiceAgent * agent);
 StunUsageTurnCompatibility agent_to_turn_compatibility(NiceAgent * agent);
-NiceTurnSocketCompatibility agent_to_turn_socket_compatibility(NiceAgent * agent);
 void agent_remove_local_candidate(NiceAgent * agent, NiceCandidate * candidate);
 void nice_agent_init_stun_agent(NiceAgent * agent, StunAgent * stun_agent);
 void _priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, int32_t tos);
 int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
-uint32_t memcpy_buffer_to_input_message(NiceInputMessage * message, const uint8_t * buffer, uint32_t buffer_length);
-uint8_t * compact_input_message(const NiceInputMessage * message, uint32_t * buffer_length);
-uint8_t * compact_output_message(const NiceOutputMessage * message, uint32_t * buffer_length);
-uint32_t output_message_get_size(const NiceOutputMessage * message);
+uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t * buffer, uint32_t buffer_length);
+uint8_t * compact_input_message(const n_input_msg_t * message, uint32_t * buffer_length);
+uint8_t * compact_output_message(const n_output_msg_t * message, uint32_t * buffer_length);
+uint32_t output_message_get_size(const n_output_msg_t * message);
 int32_t agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len,  const gchar * buf);
 
 uint32_t nice_candidate_ice_priority_full(uint32_t type_pref, uint32_t local_pref, uint32_t component_id);

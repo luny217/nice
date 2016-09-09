@@ -57,7 +57,7 @@ size_t stun_usage_bind_create(StunAgent * agent, StunMessage * msg,
     return stun_agent_finish_message(agent, msg, NULL, 0);
 }
 
-StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
+StunBind stun_usage_bind_process(StunMessage * msg,
         struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len)
 {
@@ -65,13 +65,13 @@ StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
     StunMessageReturn val;
 
     if (stun_message_get_method(msg) != STUN_BINDING)
-        return STUN_USAGE_BIND_RETURN_INVALID;
+        return STUN_BIND_INVALID;
 
     switch (stun_message_get_class(msg))
     {
         case STUN_REQUEST:
         case STUN_INDICATION:
-            return STUN_USAGE_BIND_RETURN_INVALID;
+            return STUN_BIND_INVALID;
 
         case STUN_RESPONSE:
             break;
@@ -80,7 +80,7 @@ StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
             if (stun_message_find_error(msg, &code) != STUN_MESSAGE_RETURN_SUCCESS)
             {
                 /* missing ERROR-CODE: ignore message */
-                return STUN_USAGE_BIND_RETURN_INVALID;
+                return STUN_BIND_INVALID;
             }
 
             /* NOTE: currently we ignore unauthenticated messages if the context
@@ -97,7 +97,7 @@ StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
                                                alternate_server_len) != STUN_MESSAGE_RETURN_SUCCESS)
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
-                        return STUN_USAGE_BIND_RETURN_ERROR;
+                        return STUN_BIND_ERROR;
                     }
                 }
                 else
@@ -105,15 +105,15 @@ StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
                     if (!stun_message_has_attribute(msg, STUN_ATTRIBUTE_ALTERNATE_SERVER))
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
-                        return STUN_USAGE_BIND_RETURN_ERROR;
+                        return STUN_BIND_ERROR;
                     }
                 }
 
                 stun_debug("Found alternate server");
-                return STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER;
+                return STUN_BIND_ALTERNATE_SERVER;
 
             }
-            return STUN_USAGE_BIND_RETURN_ERROR;
+            return STUN_BIND_ERROR;
 
         default:
             /* Fall through. */
@@ -134,12 +134,12 @@ StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
         if (val != STUN_MESSAGE_RETURN_SUCCESS)
         {
             stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_USAGE_BIND_RETURN_ERROR;
+            return STUN_BIND_ERROR;
         }
     }
 
     stun_debug(" Mapped address found!");
-    return STUN_USAGE_BIND_RETURN_SUCCESS;
+    return STUN_BIND_SUCCESS;
 
 }
 
@@ -170,24 +170,19 @@ typedef struct stun_trans_s
 
 typedef enum
 {
-    STUN_USAGE_TRANS_RETURN_SUCCESS,
-    STUN_USAGE_TRANS_RETURN_ERROR,
-    STUN_USAGE_TRANS_RETURN_RETRY,
-    STUN_USAGE_TRANS_RETURN_INVALID_ADDRESS,
-    STUN_USAGE_TRANS_RETURN_UNSUPPORTED,
-} StunUsageTransReturn;
+    STUN_TRANS_SUCCESS,
+    STUN_TRANS_ERROR,
+    STUN_TRANS_RETRY,
+    STUN_TRANS_INVALID_ADDRESS,
+    STUN_TRANS_UNSUPPORTED,
+} StunTrans;
 
-
-
-
-static StunUsageTransReturn
-stun_trans_init(StunTransport * tr, int fd,
-                const struct sockaddr * srv, socklen_t srvlen)
+static StunTrans stun_trans_init(StunTransport * tr, int fd, const struct sockaddr * srv, socklen_t srvlen)
 {
     assert(fd != -1);
 
     if ((size_t) srvlen > sizeof(tr->dst))
-        return STUN_USAGE_TRANS_RETURN_INVALID_ADDRESS;
+        return STUN_TRANS_INVALID_ADDRESS;
 
     tr->own_fd = -1;
     tr->fd = fd;
@@ -195,9 +190,8 @@ stun_trans_init(StunTransport * tr, int fd,
     tr->dstlen = srvlen;
     memcpy(&tr->dst, srv, srvlen);
 
-    return STUN_USAGE_TRANS_RETURN_SUCCESS;
+    return STUN_TRANS_SUCCESS;
 }
-
 
 /*
  * Creates and connects a socket. This is useful when a socket is to be used
@@ -246,19 +240,17 @@ static int stun_socket(int family, int type, int proto)
 }
 
 
-static StunUsageTransReturn
-stun_trans_create(StunTransport * tr, int type, int proto,
-                  const struct sockaddr * srv, socklen_t srvlen)
+static StunTrans stun_trans_create(StunTransport * tr, int type, int proto, const struct sockaddr * srv, socklen_t srvlen)
 {
-    StunUsageTransReturn val = STUN_USAGE_TRANS_RETURN_ERROR;
+    StunTrans val = STUN_TRANS_ERROR;
     int fd;
 
     if ((size_t) srvlen < sizeof(*srv))
-        return STUN_USAGE_TRANS_RETURN_INVALID_ADDRESS;
+        return STUN_TRANS_INVALID_ADDRESS;
 
     fd = stun_socket(srv->sa_family, type, proto);
     if (fd == -1)
-        return STUN_USAGE_TRANS_RETURN_ERROR;
+        return STUN_TRANS_ERROR;
 
     if (type != SOCK_DGRAM)
     {
@@ -283,7 +275,7 @@ stun_trans_create(StunTransport * tr, int type, int proto,
         goto error;
 
     tr->own_fd = tr->fd;
-    return STUN_USAGE_TRANS_RETURN_SUCCESS;
+    return STUN_TRANS_SUCCESS;
 
 error:
     close(fd);
@@ -332,9 +324,7 @@ static int stun_err_dequeue(int fd)
 }
 
 
-static ssize_t
-stun_trans_sendto(StunTransport * tr, const uint8_t * buf, size_t len,
-                  const struct sockaddr * dst, socklen_t dstlen)
+static ssize_t stun_trans_sendto(StunTransport * tr, const uint8_t * buf, size_t len, const struct sockaddr * dst, socklen_t dstlen)
 {
     static const int flags = MSG_DONTWAIT | MSG_NOSIGNAL;
     ssize_t val;
@@ -352,10 +342,7 @@ stun_trans_sendto(StunTransport * tr, const uint8_t * buf, size_t len,
 }
 
 
-static ssize_t
-stun_trans_recvfrom(StunTransport * tr, uint8_t * buf, size_t maxlen,
-                    struct sockaddr_storage * dst,
-                    socklen_t * dstlen)
+static ssize_t stun_trans_recvfrom(StunTransport * tr, uint8_t * buf, size_t maxlen, struct sockaddr_storage * dst, socklen_t * dstlen)
 {
     static const int flags = MSG_DONTWAIT | MSG_NOSIGNAL;
     ssize_t val;
@@ -373,8 +360,7 @@ stun_trans_recvfrom(StunTransport * tr, uint8_t * buf, size_t maxlen,
 }
 
 
-static ssize_t
-stun_trans_send(StunTransport * tr, const uint8_t * buf, size_t len)
+static ssize_t stun_trans_send(StunTransport * tr, const uint8_t * buf, size_t len)
 {
     struct sockaddr * conv;
 
@@ -383,8 +369,7 @@ stun_trans_send(StunTransport * tr, const uint8_t * buf, size_t len)
     return stun_trans_sendto(tr, buf, len, conv, tr->dstlen);
 }
 
-static ssize_t
-stun_trans_recv(StunTransport * tr, uint8_t * buf, size_t maxlen)
+static ssize_t stun_trans_recv(StunTransport * tr, uint8_t * buf, size_t maxlen)
 {
     return stun_trans_recvfrom(tr, buf, maxlen, NULL, NULL);
 }
@@ -405,8 +390,7 @@ static int stun_trans_fd(const StunTransport * tr)
  * @return ETIMEDOUT if the transaction has timed out, or 0 if an incoming
  * message needs to be processed.
  */
-static StunUsageTransReturn
-stun_trans_poll(StunTransport * tr, unsigned int delay)
+static StunTrans stun_trans_poll(StunTransport * tr, unsigned int delay)
 {
 #ifdef HAVE_POLL
     struct pollfd ufd;
@@ -418,21 +402,20 @@ stun_trans_poll(StunTransport * tr, unsigned int delay)
 
     if (poll(&ufd, 1, delay) <= 0)
     {
-        return STUN_USAGE_TRANS_RETURN_RETRY;
+        return STUN_TRANS_RETRY;
     }
 
-    return STUN_USAGE_TRANS_RETURN_SUCCESS;
+    return STUN_TRANS_SUCCESS;
 #else
     (void)tr;
-    return STUN_USAGE_TRANS_RETURN_UNSUPPORTED;
+    return STUN_TRANS_UNSUPPORTED;
 #endif
 }
 
 
 
 /** Blocking mode STUN binding discovery */
-StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
-                                        socklen_t srvlen, struct sockaddr_storage * addr, socklen_t * addrlen)
+StunBind stun_usage_bind_run(const struct sockaddr * srv, socklen_t srvlen, struct sockaddr_storage * addr, socklen_t * addrlen)
 {
     StunTimer timer;
     StunTransport trans;
@@ -443,34 +426,32 @@ StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
     uint8_t buf[STUN_MAX_MESSAGE_SIZE];
     StunValidationStatus valid;
     size_t len;
-    StunUsageTransReturn ret;
+    StunTrans ret;
     int val;
     struct sockaddr_storage alternate_server;
     socklen_t alternate_server_len = sizeof(alternate_server);
-    StunUsageBindReturn bind_ret;
+    StunBind bind_ret;
 
     stun_agent_init(&agent, 0);
 
     len = stun_usage_bind_create(&agent, &req, req_buf, sizeof(req_buf));
 
     ret = stun_trans_create(&trans, SOCK_DGRAM, 0, srv, srvlen);
-    if (ret != STUN_USAGE_TRANS_RETURN_SUCCESS)
+    if (ret != STUN_TRANS_SUCCESS)
     {
         stun_debug("STUN transaction failed: couldn't create transport.");
-        return STUN_USAGE_BIND_RETURN_ERROR;
+        return STUN_BIND_ERROR;
     }
 
     val = stun_trans_send(&trans, req_buf, len);
     if (val < -1)
     {
         stun_debug("STUN transaction failed: couldn't send request.");
-        return STUN_USAGE_BIND_RETURN_ERROR;
+        return STUN_BIND_ERROR;
     }
 
-    stun_timer_start(&timer, STUN_TIMER_DEFAULT_TIMEOUT,
-                     STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
-    stun_debug("STUN transaction started (timeout %dms).",
-               stun_timer_remainder(&timer));
+    stun_timer_start(&timer, STUN_TIMER_TIMEOUT, STUN_TIMER_MAX_RETRANS);
+    stun_debug("STUN transaction started (timeout %dms)", stun_timer_remainder(&timer));
 
     do
     {
@@ -478,24 +459,23 @@ StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
         {
             unsigned delay = stun_timer_remainder(&timer);
             ret = stun_trans_poll(&trans, delay);
-            if (ret == STUN_USAGE_TRANS_RETURN_RETRY)
+            if (ret == STUN_TRANS_RETRY)
             {
                 switch (stun_timer_refresh(&timer))
                 {
-                    case STUN_USAGE_TIMER_RETURN_TIMEOUT:
+                    case STUN_TIMER_RET_TIMEOUT:
                         stun_debug("STUN transaction failed: time out.");
-                        return STUN_USAGE_BIND_RETURN_TIMEOUT; // fatal error!
-                    case STUN_USAGE_TIMER_RETURN_RETRANSMIT:
-                        stun_debug("STUN transaction retransmitted (timeout %dms).",
-                                   stun_timer_remainder(&timer));
+                        return STUN_BIND_TIMEOUT; // fatal error!
+                    case STUN_TIMER_RET_RETRANSMIT:
+                        stun_debug("STUN transaction retransmitted (timeout %dms).", stun_timer_remainder(&timer));
                         val = stun_trans_send(&trans, req_buf, len);
                         if (val <  -1)
                         {
                             stun_debug("STUN transaction failed: couldn't resend request.");
-                            return STUN_USAGE_BIND_RETURN_ERROR;
+                            return STUN_BIND_ERROR;
                         }
                         continue;
-                    case STUN_USAGE_TIMER_RETURN_SUCCESS:
+                    case STUN_TIMER_RET_SUCCESS:
                     default:
                         /* Fall through. */
                         break;
@@ -510,39 +490,38 @@ StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
 
         valid = stun_agent_validate(&agent, &msg, buf, val);
         if (valid == STUN_VALIDATION_UNKNOWN_ATTRIBUTE)
-            return STUN_USAGE_BIND_RETURN_ERROR;
+            return STUN_BIND_ERROR;
 
         if (valid != STUN_VALIDATION_SUCCESS)
         {
-            ret = STUN_USAGE_TRANS_RETURN_RETRY;
+            ret = STUN_TRANS_RETRY;
         }
         else
         {
             bind_ret = stun_usage_bind_process(&msg, (struct sockaddr *)  addr,
                                                addrlen, (struct sockaddr *) &alternate_server, &alternate_server_len);
-            if (bind_ret == STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER)
+            if (bind_ret == STUN_BIND_ALTERNATE_SERVER)
             {
                 stun_trans_deinit(&trans);
 
                 ret = stun_trans_create(&trans, SOCK_DGRAM, 0,
                                         (struct sockaddr *) &alternate_server, alternate_server_len);
 
-                if (ret != STUN_USAGE_TRANS_RETURN_SUCCESS)
+                if (ret != STUN_TRANS_SUCCESS)
                 {
-                    return STUN_USAGE_BIND_RETURN_ERROR;
+                    return STUN_BIND_ERROR;
                 }
 
                 val = stun_trans_send(&trans, req_buf, len);
                 if (val < -1)
-                    return STUN_USAGE_BIND_RETURN_ERROR;
+                    return STUN_BIND_ERROR;
 
-                stun_timer_start(&timer, STUN_TIMER_DEFAULT_TIMEOUT,
-                                 STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
-                ret = STUN_USAGE_TRANS_RETURN_RETRY;
+                stun_timer_start(&timer, STUN_TIMER_TIMEOUT, STUN_TIMER_MAX_RETRANS);
+                ret = STUN_TRANS_RETRY;
             }
-            else if (bind_ret ==  STUN_USAGE_BIND_RETURN_INVALID)
+            else if (bind_ret ==  STUN_BIND_INVALID)
             {
-                ret = STUN_USAGE_TRANS_RETURN_RETRY;
+                ret = STUN_TRANS_RETRY;
             }
             else
             {
@@ -550,7 +529,7 @@ StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
             }
         }
     }
-    while (ret == STUN_USAGE_TRANS_RETURN_RETRY);
+    while (ret == STUN_TRANS_RETRY);
 
     return bind_ret;
 }

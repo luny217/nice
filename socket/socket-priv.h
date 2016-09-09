@@ -37,9 +37,8 @@
 #ifndef _SOCKET_PRIV_H
 #define _SOCKET_PRIV_H
 
+#include "nqueue.h"
 #include "socket.h"
-
-G_BEGIN_DECLS
 
 /**
  * nice_socket_queue_send:
@@ -48,10 +47,9 @@ G_BEGIN_DECLS
  * @messages: Messages to queue
  * @n_messages: Number of messages to queue
  *
- * Queue messages to be sent later into the GQueue
+ * queue messages to be sent later into the n_queue_t
  */
-void nice_socket_queue_send (GQueue *send_queue, const NiceAddress *to,
-    const NiceOutputMessage *messages, guint n_messages);
+void nice_socket_queue_send (n_queue_t * send_queue, const NiceAddress * to, const n_output_msg_t *messages, uint32_t n_messages);
 
 /**
  * nice_socket_queue_send_with_callback:
@@ -72,10 +70,10 @@ void nice_socket_queue_send (GQueue *send_queue, const NiceAddress *to,
  * were already written, in which case @head should be set to TRUE to add the
  * message to the head of the queue.
  */
-void nice_socket_queue_send_with_callback (GQueue *send_queue,
-    const NiceOutputMessage *message, gsize message_offset, gsize message_len,
-    gboolean head, GSocket *gsock, GSource **io_source, GMainContext *context,
-    GSourceFunc cb, gpointer user_data);
+void nice_socket_queue_send_with_callback (n_queue_t * send_queue,
+    const n_output_msg_t *message, uint32_t message_offset, uint32_t message_len,
+    int head, GSocket *gsock, GSource **io_source, GMainContext *context,
+    GSourceFunc cb, void * user_data);
 
 /**
  * nice_socket_flush_send_queue:
@@ -86,7 +84,7 @@ void nice_socket_queue_send_with_callback (GQueue *send_queue,
  * reliable messages were queued and the underlying socket will handle the
  * send.
  */
-void nice_socket_flush_send_queue (NiceSocket *base_socket, GQueue *send_queue);
+void nice_socket_flush_send_queue (NiceSocket *base_socket, n_queue_t * send_queue);
 
 /**
  * nice_socket_flush_send_queue_to_socket:
@@ -102,8 +100,7 @@ void nice_socket_flush_send_queue (NiceSocket *base_socket, GQueue *send_queue);
  *
  * Returns: #TRUE if the queue was emptied, #FALSE if the socket would block.
  */
-gboolean nice_socket_flush_send_queue_to_socket (GSocket *gsock,
-    GQueue *send_queue);
+int nice_socket_flush_send_queue_to_socket (GSocket *gsock, n_queue_t * send_queue);
 
 /**
  * nice_socket_free_send_queue:
@@ -111,9 +108,7 @@ gboolean nice_socket_flush_send_queue_to_socket (GSocket *gsock,
  *
  * Frees every item in the send queue without sending them and empties the queue
  */
-void nice_socket_free_send_queue (GQueue *send_queue);
-
-G_END_DECLS
+void nice_socket_free_send_queue (n_queue_t * send_queue);
 
 #endif /* _SOCKET_PRIV_H */
 

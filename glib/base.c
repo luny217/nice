@@ -26,7 +26,7 @@
 
 #include "base.h"
 
-void get_current_time(g_time_val * result)
+void get_current_time(n_timeval_t * result)
 {
 #ifndef _WIN32
 	struct timeval r;
@@ -56,7 +56,7 @@ void get_current_time(g_time_val * result)
 #endif
 }
 
-void time_val_add(g_time_val  * _time, int32_t microseconds)
+void time_val_add(n_timeval_t  * _time, int32_t microseconds)
 {
 	if (microseconds >= 0)
 	{

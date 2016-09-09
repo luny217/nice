@@ -20,7 +20,7 @@
 #include "stun/usages/turn.h"
 #include "socket.h"
 
-static inline int priv_timer_expired(g_time_val * timer, g_time_val * now)
+static inline int priv_timer_expired(n_timeval_t * timer, n_timeval_t * now)
 {
     return (now->tv_sec == timer->tv_sec) ?
            now->tv_usec >= timer->tv_usec :
@@ -115,7 +115,7 @@ void discovery_prune_socket(NiceAgent * agent, NiceSocket * sock)
 
 /*
  * Frees the CandidateDiscovery structure pointed to
- * by 'user data'. Compatible with g_slist_free_full().
+ * by 'user data'. Compatible with n_slist_free_full().
  */
 static void refresh_free_item(CandidateRefresh * cand)
 {
@@ -145,7 +145,7 @@ static void refresh_free_item(CandidateRefresh * cand)
     password = (uint8_t *)cand->candidate->turn->password;
     password_len = (size_t) strlen(cand->candidate->turn->password);
 
-    buffer_len = stun_usage_turn_create_refresh(&cand->stun_agent,
+    buffer_len = turn_create_refresh(&cand->stun_agent,
                  &cand->stun_message,  cand->stun_buffer, sizeof(cand->stun_buffer),
                  cand->stun_resp_msg.buffer == NULL ? NULL : &cand->stun_resp_msg, 0,
                  username, username_len,
@@ -619,10 +619,7 @@ NiceCandidate * discovery_add_relay_candidate(
     candidate->priority =  nice_candidate_ice_priority(candidate);
 
     /* step: link to the base candidate+socket */
-    relay_socket = nice_udp_turn_socket_new(agent->main_context, address,
-                                            base_socket, &turn->server,
-                                            turn->username, turn->password,
-                                            agent_to_turn_socket_compatibility(agent));
+    relay_socket = n_udp_turn_new(agent->main_context, address, base_socket, &turn->server, turn->username, turn->password);
     if (!relay_socket)
         goto errors;
 
@@ -827,27 +824,21 @@ static int priv_discovery_tick_unlocked(void * pointer)
                     uint32_t username_len = strlen(candidate->turn->username);
                     uint8_t * password = (uint8_t *)candidate->turn->password;
                     uint32_t password_len = strlen(candidate->turn->password);
-                    StunUsageTurnCompatibility turn_compat = agent_to_turn_compatibility(agent);
 
-                    buffer_len = stun_usage_turn_create(&candidate->stun_agent,
-                                                        &candidate->stun_message, candidate->stun_buffer, sizeof(candidate->stun_buffer),
-					candidate->stun_resp_msg.buffer == NULL ? NULL : &candidate->stun_resp_msg,
-                                                        STUN_USAGE_TURN_REQUEST_PORT_NORMAL,
-                                                        -1, -1,
-                                                        username, username_len,
-                                                        password, password_len,
-                                                        turn_compat);                    
+                    buffer_len = turn_create(&candidate->stun_agent, &candidate->stun_message, candidate->stun_buffer, sizeof(candidate->stun_buffer),
+														candidate->stun_resp_msg.buffer == NULL ? NULL : &candidate->stun_resp_msg,
+                                                       TURN_REQUEST_PORT_NORMAL, -1, -1, username, username_len, password, password_len);                    
                 }
 
                 if (buffer_len > 0)
                 {
                     if (nice_socket_is_reliable(candidate->nicesock))
                     {
-                        stun_timer_start_reliable(&candidate->timer, STUN_TIMER_DEFAULT_RELIABLE_TIMEOUT);
+                        stun_timer_start_reliable(&candidate->timer, STUN_TIMER_RELIABLE_TIMEOUT);
                     }
                     else
                     {
-                        stun_timer_start(&candidate->timer, 200, STUN_TIMER_DEFAULT_MAX_RETRANSMISSIONS);
+                        stun_timer_start(&candidate->timer, 200, STUN_TIMER_MAX_RETRANS);
                     }
 
                     /* send the conncheck */
@@ -874,7 +865,7 @@ static int priv_discovery_tick_unlocked(void * pointer)
 
         if (candidate->done != TRUE)
         {
-            g_time_val now;
+            n_timeval_t now;
 
             get_current_time(&now);
 
@@ -888,7 +879,7 @@ static int priv_discovery_tick_unlocked(void * pointer)
             {
                 switch (stun_timer_refresh(&candidate->timer))
                 {
-                    case STUN_USAGE_TIMER_RETURN_TIMEOUT:
+                    case STUN_TIMER_RET_TIMEOUT:
                     {
                         /* Time out */
                         /* case: error, abort processing */
@@ -903,15 +894,12 @@ static int priv_discovery_tick_unlocked(void * pointer)
                         nice_debug("[%s agent:0x%p]: bind discovery timed out, aborting discovery item", G_STRFUNC, agent);
                         break;
                     }
-                    case STUN_USAGE_TIMER_RETURN_RETRANSMIT:
+                    case STUN_TIMER_RET_RETRANSMIT:
                     {
                         /* case: not ready complete, so schedule next timeout */
                         unsigned int timeout = stun_timer_remainder(&candidate->timer);
 
-                        //stun_debug("STUN transaction retransmitted (timeout %dms).", timeout);
-
 						nice_debug("[%s agent:0x%p]: STUN transaction retransmitted (timeout %dms)", G_STRFUNC, agent, timeout);
-						//nice_print_cand(agent, candidate, candidate);
 
                         /* retransmit */
                         agent_socket_send(candidate->nicesock, &candidate->server,
@@ -925,7 +913,7 @@ static int priv_discovery_tick_unlocked(void * pointer)
                         ++not_done; /* note: retry later */
                         break;
                     }
-                    case STUN_USAGE_TIMER_RETURN_SUCCESS:
+                    case STUN_TIMER_RET_SUCCESS:
                     {
                         unsigned int timeout = stun_timer_remainder(&candidate->timer);
 
@@ -1010,9 +998,7 @@ void discovery_schedule(NiceAgent * agent)
             int res = priv_discovery_tick_unlocked(agent);
             if (res == TRUE)
             {
-                agent_timeout_add_with_context(agent, &agent->discovery_timer_source,
-                                               "Candidate discovery tick", agent->timer_ta,
-                                               priv_discovery_tick, agent);
+                agent_timeout_add(agent, &agent->discovery_timer_source, "Candidate discovery tick", agent->timer_ta, priv_discovery_tick, agent);
             }
         }
     }

@@ -815,7 +815,7 @@ n_dlist_t * n_dlist_first(n_dlist_t * list)
  * Gets the number of elements in a #n_dlist_t.
  *
  * This function iterates over the whole list to count its elements.
- * Use a #GQueue instead of a n_dlist_t if you regularly need the number
+ * Use a #n_queue_t instead of a n_dlist_t if you regularly need the number
  * of items. To check whether the list is non-empty, it is faster to check
  * @list against %NULL.
  *
@@ -1074,7 +1074,7 @@ n_dlist_t * n_dlist_sort(n_dlist_t * list, n_compare_func compare_func)
  * Returns: negative value if @a < @b; zero if @a = @b; positive
  *          value if @a > @b
  */
-n_dlist_t * n_dlist_sort_with_data(n_dlist_t * list, n_compare_func compare_func, void * user_data)
+n_dlist_t * n_dlist_sort_with_data(n_dlist_t * list, n_compare_data_func compare_func, void * user_data)
 {
     return n_dlist_sort_real(list, (n_func)compare_func, user_data);
 }
@@ -1461,7 +1461,7 @@ static inline n_slist_t * _n_slist_remove_link(n_slist_t * list, n_slist_t * lin
 * requires time that is proportional to the length of the list
 * (ie. O(n)). If you find yourself using n_slist_remove_link()
 * frequently, you should consider a different data structure,
-* such as the doubly-linked #GList.
+* such as the doubly-linked #n_dlist_t .
 *
 * Returns: the new start of the #n_slist_t , without the element
 */
@@ -1483,7 +1483,7 @@ n_slist_t * n_slist_remove_link(n_slist_t * list, n_slist_t * link_)
 * that is proportional to the length of the list (ie. O(n)). If you
 * find yourself using n_slist_delete_link() frequently, you should
 * consider a different data structure, such as the doubly-linked
-* #GList.
+* #n_dlist_t .
 *
 * Returns: the new head of @list
 */

@@ -29,6 +29,7 @@
 
 #include "base.h"
 #include "nlist.h"
+#include "nqueue.h"
 
 /* Maximum size of a UDP packet's payload, as the packet's length field is 16b
  * wide. */
@@ -39,7 +40,7 @@
 
 #define MAX_TCP_MTU 1400 /* Use 1400 because of VPNs and we assume IEE 802.3 */
 
-static void nice_debug_input_message_composition(const NiceInputMessage * messages,  uint32_t n_messages);
+static void nice_debug_input_message_composition(const n_input_msg_t * messages,  uint32_t n_messages);
 
 //G_DEFINE_TYPE(NiceAgent, nice_agent, G_TYPE_OBJECT);
 
@@ -119,11 +120,11 @@ static uint32_t signals[N_SIGNALS];
 
 static GMutex agent_mutex;    /* Mutex used for thread-safe lib */
 
-static void pseudo_tcp_socket_opened(PseudoTcpSocket * sock, void * user_data);
-static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data);
-static void pseudo_tcp_socket_writable(PseudoTcpSocket * sock, void * user_data);
-static void pseudo_tcp_socket_closed(PseudoTcpSocket * sock, uint32_t err, void * user_data);
-static PseudoTcpWriteResult pseudo_tcp_socket_write_packet(PseudoTcpSocket * sock, const char * buffer, uint32_t len, void * user_data);
+static void pst_opened(PseudoTcpSocket * sock, void * user_data);
+static void pst_readable(PseudoTcpSocket * sock, void * user_data);
+static void pst_writable(PseudoTcpSocket * sock, void * user_data);
+static void pst_closed(PseudoTcpSocket * sock, uint32_t err, void * user_data);
+static PseudoTcpWriteResult pst_write_packet(PseudoTcpSocket * sock, const char * buffer, uint32_t len, void * user_data);
 static void adjust_tcp_clock(NiceAgent * agent, Stream * stream, Component * component);
 static void nice_agent_dispose(GObject * object);
 static void nice_agent_get_property(GObject * object, uint32_t property_id, GValue * value, GParamSpec * pspec);
@@ -152,7 +153,6 @@ typedef struct
     GValue * params;
 } QueuedSignal;
 
-
 static void free_queued_signal(QueuedSignal * sig)
 {
     uint32_t i;
@@ -166,21 +166,21 @@ static void free_queued_signal(QueuedSignal * sig)
         g_value_unset(&sig->params[i + 1]);
     }
 
-    g_slice_free1(sizeof(GValue) * (sig->query.n_params + 1), sig->params);
-    g_slice_free(QueuedSignal, sig);
+    n_slice_free1(sizeof(GValue) * (sig->query.n_params + 1), sig->params);
+    n_slice_free(QueuedSignal, sig);
 }
 
 void agent_unlock_and_emit(NiceAgent * agent)
 {
-    GQueue queue = G_QUEUE_INIT;
+    n_queue_t queue = G_QUEUE_INIT;
     QueuedSignal * sig;
 
     queue = agent->pending_signals;
-    g_queue_init(&agent->pending_signals);
+    n_queue_init(&agent->pending_signals);
 
     agent_unlock();
 
-    while ((sig = g_queue_pop_head(&queue)))
+    while ((sig = n_queue_pop_head(&queue)))
     {
         g_signal_emitv(sig->params, sig->signal_id, 0, NULL);
 
@@ -222,7 +222,7 @@ static void agent_queue_signal(NiceAgent * agent, uint32_t signal_id, ...)
         return;
     }
 
-    g_queue_push_tail(&agent->pending_signals, sig);
+    n_queue_push_tail(&agent->pending_signals, sig);
 }
 
 
@@ -235,11 +235,6 @@ StunUsageIceCompatibility agent_to_ice_compatibility(NiceAgent * agent)
 StunUsageTurnCompatibility agent_to_turn_compatibility(NiceAgent * agent)
 {
     return STUN_USAGE_TURN_COMPATIBILITY_RFC5766;
-}
-
-NiceTurnSocketCompatibility agent_to_turn_socket_compatibility(NiceAgent * agent)
-{
-    return NICE_TURN_SOCKET_COMPATIBILITY_RFC5766;
 }
 
 Stream * agent_find_stream(NiceAgent * agent, uint32_t stream_id)
@@ -636,7 +631,7 @@ static void nice_agent_init(NiceAgent * agent)
     agent->rng = nice_rng_new();
     priv_generate_tie_breaker(agent);
 
-    g_queue_init(&agent->pending_signals);
+    n_queue_init(&agent->pending_signals);
 }
 
 NiceAgent * nice_agent_new(GMainContext * ctx)
@@ -754,16 +749,16 @@ static void agent_signal_socket_writable(NiceAgent * agent, Component * componen
     agent_queue_signal(agent, signals[SIGNAL_RELIABLE_TRANSPORT_WRITABLE], component->stream->id, component->id);
 }
 
-static void pseudo_tcp_socket_create(NiceAgent * agent, Stream * stream, Component * component)
+static void pst_create(NiceAgent * agent, Stream * stream, Component * component)
 {
     PseudoTcpCallbacks tcp_callbacks = {component,
-                                        pseudo_tcp_socket_opened,
-                                        pseudo_tcp_socket_readable,
-                                        pseudo_tcp_socket_writable,
-                                        pseudo_tcp_socket_closed,
-                                        pseudo_tcp_socket_write_packet
+                                        pst_opened,
+                                        pst_readable,
+                                        pst_writable,
+                                        pst_closed,
+                                        pst_write_packet
                                        };
-    component->tcp = pseudo_tcp_socket_new(0, &tcp_callbacks);
+    component->tcp = pst_new(0, &tcp_callbacks);
     component->tcp_writable_cancellable = g_cancellable_new();
     nice_debug("[%s agent:0x%p]: Create Pseudo Tcp Socket for component %d", G_STRFUNC, agent, component->id);
 }
@@ -781,7 +776,7 @@ static void priv_pseudo_tcp_error(NiceAgent * agent, Stream * stream,
     {
         agent_signal_component_state_change(agent, stream->id, component->id, COMPONENT_STATE_FAILED);
         component_detach_all_sockets(component);
-        pseudo_tcp_socket_close(component->tcp, TRUE);
+        pst_close(component->tcp, TRUE);
     }
 
     if (component->tcp_clock)
@@ -792,7 +787,7 @@ static void priv_pseudo_tcp_error(NiceAgent * agent, Stream * stream,
     }
 }
 
-static void pseudo_tcp_socket_opened(PseudoTcpSocket * sock, void * user_data)
+static void pst_opened(PseudoTcpSocket * sock, void * user_data)
 {
     Component * component = user_data;
     NiceAgent * agent = component->agent;
@@ -812,7 +807,7 @@ static void pseudo_tcp_socket_opened(PseudoTcpSocket * sock, void * user_data)
  * a negative number on error. If "allow_partial" is TRUE, then it returns
  * the number of bytes sent
  */
-static int32_t pseudo_tcp_socket_send_messages(PseudoTcpSocket * self, const NiceOutputMessage * messages,
+static int32_t pst_send_messages(PseudoTcpSocket * self, const n_output_msg_t * messages,
         uint32_t n_messages, int32_t allow_partial, GError ** error)
 {
     uint32_t i;
@@ -820,7 +815,7 @@ static int32_t pseudo_tcp_socket_send_messages(PseudoTcpSocket * self, const Nic
 
     for (i = 0; i < n_messages; i++)
     {
-        const NiceOutputMessage * message = &messages[i];
+        const n_output_msg_t * message = &messages[i];
         uint32_t j;
 
         /* If allow_partial is FALSE and there??s not enough space for the
@@ -831,7 +826,7 @@ static int32_t pseudo_tcp_socket_send_messages(PseudoTcpSocket * self, const Nic
          * and indicating that a message was partially sent. */
         if (!allow_partial &&
                 output_message_get_size(message) >
-                pseudo_tcp_socket_get_available_send_space(self))
+                pst_get_available_send_space(self))
         {
             return i;
         }
@@ -845,16 +840,16 @@ static int32_t pseudo_tcp_socket_send_messages(PseudoTcpSocket * self, const Nic
             int32_t ret;
 
             /* Send on the pseudo-TCP socket. */
-            ret = pseudo_tcp_socket_send(self, buffer->buffer, buffer->size);
+            ret = pst_send(self, buffer->buffer, buffer->size);
 
             /* In case of -1, the error is either EWOULDBLOCK or ENOTCONN, which both
              * need the user to wait for the reliable-transport-writable signal */
             if (ret < 0)
             {
-                if (pseudo_tcp_socket_get_error(self) == EWOULDBLOCK)
+                if (pst_get_error(self) == EWOULDBLOCK)
                     goto out;
 
-                if (pseudo_tcp_socket_get_error(self) == ENOTCONN ||  pseudo_tcp_socket_get_error(self) == EPIPE)
+                if (pst_get_error(self) == ENOTCONN ||  pst_get_error(self) == EPIPE)
                     g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK, "TCP connection is not yet established.");
                 else
                     g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "Error writing data to pseudo-TCP socket.");
@@ -884,13 +879,13 @@ out:
  * number on error (including if the request would have blocked returning no
  * messages). */
 static int32_t
-pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
-                                NiceInputMessage * messages, uint32_t n_messages, NiceInputMessageIter * iter,
+pst_recv_messages(PseudoTcpSocket * self,
+                                n_input_msg_t * messages, uint32_t n_messages, NiceInputMessageIter * iter,
                                 GError ** error)
 {
     for (; iter->message < n_messages; iter->message++)
     {
-        NiceInputMessage * message = &messages[iter->message];
+        n_input_msg_t * message = &messages[iter->message];
 
         if (iter->buffer == 0 && iter->offset == 0)
         {
@@ -908,7 +903,7 @@ pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
             {
                 int32_t len;
 
-                len = pseudo_tcp_socket_recv(self,
+                len = pst_recv(self,
                                              (char *) buffer->buffer + iter->offset,
                                              buffer->size - iter->offset);
 
@@ -923,7 +918,7 @@ pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
                     goto done;
                 }
                 else if (len < 0 &&
-                         pseudo_tcp_socket_get_error(self) == EWOULDBLOCK)
+                         pst_get_error(self) == EWOULDBLOCK)
                 {
                     /* EWOULDBLOCK. If we??ve already received something, return that;
                      * otherwise, error. */
@@ -935,7 +930,7 @@ pseudo_tcp_socket_recv_messages(PseudoTcpSocket * self,
                                 "Error reading data from pseudo-TCP socket: would block.");
                     return len;
                 }
-                else if (len < 0 && pseudo_tcp_socket_get_error(self) == ENOTCONN)
+                else if (len < 0 && pst_get_error(self) == ENOTCONN)
                 {
                     g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK,
                                 "Error reading data from pseudo-TCP socket: not connected.");
@@ -967,7 +962,7 @@ done:
 }
 
 /* This is called with the agent lock held. */
-static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
+static void pst_readable(PseudoTcpSocket * sock, void * user_data)
 {
     Component * component = user_data;
     NiceAgent * agent = component->agent;
@@ -997,7 +992,7 @@ static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
 
             /* FIXME: Why copy into a temporary buffer here? Why can't the I/O
              * callbacks be emitted directly from the pseudo-TCP receive buffer? */
-            len = pseudo_tcp_socket_recv(sock, (char *) buf, sizeof(buf));
+            len = pst_recv(sock, (char *) buf, sizeof(buf));
 
             nice_debug("%s: I/O callback case: Received %" G_GSSIZE_FORMAT " bytes", G_STRFUNC, len);
 
@@ -1005,13 +1000,13 @@ static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
             {
                 /* Reached EOS. */
                 component->tcp_readable = FALSE;
-                pseudo_tcp_socket_close(component->tcp, FALSE);
+                pst_close(component->tcp, FALSE);
                 break;
             }
             else if (len < 0)
             {
                 /* Handle errors. */
-                if (pseudo_tcp_socket_get_error(sock) != EWOULDBLOCK)
+                if (pst_get_error(sock) != EWOULDBLOCK)
                 {
                     nice_debug("%s: calling priv_pseudo_tcp_error()", G_STRFUNC);
                     priv_pseudo_tcp_error(agent, stream, component);
@@ -1021,9 +1016,9 @@ static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
                 {
                     GIOErrorEnum error_code;
 
-                    if (pseudo_tcp_socket_get_error(sock) == ENOTCONN)
+                    if (pst_get_error(sock) == ENOTCONN)
                         error_code = G_IO_ERROR_BROKEN_PIPE;
-                    else if (pseudo_tcp_socket_get_error(sock) == EWOULDBLOCK)
+                    else if (pst_get_error(sock) == EWOULDBLOCK)
                         error_code = G_IO_ERROR_WOULD_BLOCK;
                     else
                         error_code = G_IO_ERROR_FAILED;
@@ -1040,7 +1035,7 @@ static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
                 nice_debug("Stream or Component disappeared during the callback");
                 goto out;
             }
-            if (pseudo_tcp_socket_is_closed(component->tcp))
+            if (pst_is_closed(component->tcp))
             {
                 nice_debug("PseudoTCP socket got destroyed in readable callback!");
                 goto out;
@@ -1059,7 +1054,7 @@ static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
          * error occurs. Copy the data directly into the client's receive message
          * array without making any callbacks. Update component->recv_messages_iter
          * as we go. */
-        n_valid_messages = pseudo_tcp_socket_recv_messages(sock,
+        n_valid_messages = pst_recv_messages(sock,
                            component->recv_messages, component->n_recv_messages,
                            &component->recv_messages_iter, &child_error);
 
@@ -1088,7 +1083,7 @@ static void pseudo_tcp_socket_readable(PseudoTcpSocket * sock, void * user_data)
         {
             /* Reached EOS. */
             component->tcp_readable = FALSE;
-            pseudo_tcp_socket_close(component->tcp, FALSE);
+            pst_close(component->tcp, FALSE);
         }
     }
     else
@@ -1103,7 +1098,7 @@ out:
     g_object_unref(agent);
 }
 
-static void pseudo_tcp_socket_writable(PseudoTcpSocket * sock, void * user_data)
+static void pst_writable(PseudoTcpSocket * sock, void * user_data)
 {
     Component * component = user_data;
     NiceAgent * agent = component->agent;
@@ -1114,7 +1109,7 @@ static void pseudo_tcp_socket_writable(PseudoTcpSocket * sock, void * user_data)
     agent_signal_socket_writable(agent, component);
 }
 
-static void pseudo_tcp_socket_closed(PseudoTcpSocket * sock, uint32_t err, void * user_data)
+static void pst_closed(PseudoTcpSocket * sock, uint32_t err, void * user_data)
 {
     Component * component = user_data;
     NiceAgent * agent = component->agent;
@@ -1125,7 +1120,7 @@ static void pseudo_tcp_socket_closed(PseudoTcpSocket * sock, uint32_t err, void 
 }
 
 
-static PseudoTcpWriteResult pseudo_tcp_socket_write_packet(PseudoTcpSocket * psocket, const char * buffer, uint32_t len, void * user_data)
+static PseudoTcpWriteResult pst_write_packet(PseudoTcpSocket * psocket, const char * buffer, uint32_t len, void * user_data)
 {
     Component * component = user_data;
 
@@ -1169,7 +1164,7 @@ static PseudoTcpWriteResult pseudo_tcp_socket_write_packet(PseudoTcpSocket * pso
 }
 
 
-static int notify_pseudo_tcp_socket_clock(void * user_data)
+static int notify_pst_clock(void * user_data)
 {
     Component * component = user_data;
     Stream * stream;
@@ -1182,12 +1177,12 @@ static int notify_pseudo_tcp_socket_clock(void * user_data)
 
     if (g_source_is_destroyed(g_main_current_source()))
     {
-        nice_debug("Source was destroyed. " "Avoided race condition in notify_pseudo_tcp_socket_clock");
+        nice_debug("Source was destroyed. " "Avoided race condition in notify_pst_clock");
         agent_unlock();
         return FALSE;
     }
 
-    pseudo_tcp_socket_notify_clock(component->tcp);
+    pst_notify_clock(component->tcp);
     adjust_tcp_clock(agent, stream, component);
 
     agent_unlock_and_emit(agent);
@@ -1197,11 +1192,11 @@ static int notify_pseudo_tcp_socket_clock(void * user_data)
 
 static void adjust_tcp_clock(NiceAgent * agent, Stream * stream, Component * component)
 {
-    if (!pseudo_tcp_socket_is_closed(component->tcp))
+    if (!pst_is_closed(component->tcp))
     {
         guint64 timeout = component->last_clock_timeout;
 
-        if (pseudo_tcp_socket_get_next_clock(component->tcp, &timeout))
+        if (pst_get_next_clock(component->tcp, &timeout))
         {
             if (timeout != component->last_clock_timeout)
             {
@@ -1217,7 +1212,7 @@ static void adjust_tcp_clock(NiceAgent * agent, Stream * stream, Component * com
                     /* Prevent integer overflows */
                     if (interval < 0 || interval > INT_MAX)
                         interval = INT_MAX;
-                    agent_timeout_add_with_context(agent, &component->tcp_clock, "Pseudo-TCP clock", interval, notify_pseudo_tcp_socket_clock, component);
+                    agent_timeout_add(agent, &component->tcp_clock, "Pseudo-TCP clock", interval, notify_pst_clock, component);
                 }
             }
         }
@@ -1356,7 +1351,7 @@ static void process_queued_tcp_packets(NiceAgent * agent, Stream * stream, Compo
     g_assert(agent->reliable);
 
     if (component->selected_pair.local == NULL ||
-            pseudo_tcp_socket_is_closed(component->tcp) ||
+            pst_is_closed(component->tcp) ||
             nice_socket_is_reliable(component->selected_pair.local->sockptr))
     {
         return;
@@ -1364,21 +1359,21 @@ static void process_queued_tcp_packets(NiceAgent * agent, Stream * stream, Compo
 
     nice_debug("%s: Sending outstanding packets for agent %p.", G_STRFUNC, agent);
 
-    while ((vec = g_queue_peek_head(&component->queued_tcp_packets)) != NULL)
+    while ((vec = n_queue_peek_head(&component->queued_tcp_packets)) != NULL)
     {
         int32_t retval;
 
         nice_debug("%s: Sending %" G_GSIZE_FORMAT " bytes.", G_STRFUNC, vec->size);
-        retval =  pseudo_tcp_socket_notify_packet(component->tcp, vec->buffer, vec->size);
+        retval =  pst_notify_packet(component->tcp, vec->buffer, vec->size);
 
         if (!agent_find_component(agent, stream_id, component_id, &stream, &component))
         {
-            nice_debug("Stream or Component disappeared during " "pseudo_tcp_socket_notify_packet()");
+            nice_debug("Stream or Component disappeared during " "pst_notify_packet()");
             return;
         }
-        if (pseudo_tcp_socket_is_closed(component->tcp))
+        if (pst_is_closed(component->tcp))
         {
-            nice_debug("PseudoTCP socket got destroyed in" " pseudo_tcp_socket_notify_packet()!");
+            nice_debug("PseudoTCP socket got destroyed in" " pst_notify_packet()!");
             return;
         }
 
@@ -1390,7 +1385,7 @@ static void process_queued_tcp_packets(NiceAgent * agent, Stream * stream, Compo
             break;
         }
 
-        g_queue_pop_head(&component->queued_tcp_packets);
+        n_queue_pop_head(&component->queued_tcp_packets);
         n_free((void *) vec->buffer);
         n_slice_free(GOutputVector, vec);
     }
@@ -1413,11 +1408,11 @@ void agent_signal_new_selected_pair(NiceAgent * agent, uint32_t stream_id,
     if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr))
     {
         if (!component->tcp)
-            pseudo_tcp_socket_create(agent, stream, component);
+            pst_create(agent, stream, component);
         process_queued_tcp_packets(agent, stream, component);
 
-        pseudo_tcp_socket_connect(component->tcp);
-        pseudo_tcp_socket_notify_mtu(component->tcp, MAX_TCP_MTU);
+        pst_connect(component->tcp);
+        pst_notify_mtu(component->tcp, MAX_TCP_MTU);
         adjust_tcp_clock(agent, stream, component);
     }
 
@@ -1481,7 +1476,7 @@ void agent_signal_new_remote_candidate(NiceAgent * agent, NiceCandidate * candid
                        candidate->stream_id, candidate->component_id, candidate->foundation);
 }
 
-const char * nice_component_state_to_string(NiceComponentState state)
+const char * nice_comp_state_to_str(NiceComponentState state)
 {
     switch (state)
     {
@@ -1514,8 +1509,8 @@ void agent_signal_component_state_change(NiceAgent * agent, uint32_t stream_id, 
     if (component->state != state && state < COMPONENT_STATE_LAST)
     {
         nice_debug("[%s agent:0x%p]: stream %u component %u STATE-CHANGE (%s -> %s)", G_STRFUNC, agent,
-                   stream_id, component_id, nice_component_state_to_string(component->state),
-                   nice_component_state_to_string(state));
+                   stream_id, component_id, nice_comp_state_to_str(component->state),
+                   nice_comp_state_to_str(state));
 
         component->state = state;
 
@@ -1609,7 +1604,7 @@ uint32_t nice_agent_add_stream(NiceAgent * agent, uint32_t n_components)
             Component * component = stream_find_component_by_id(stream, i + 1);
             if (component)
             {
-                pseudo_tcp_socket_create(agent, stream, component);
+                pst_create(agent, stream, component);
             }
             else
             {
@@ -2299,7 +2294,7 @@ typedef enum
  * (e.g. due to being a STUN control packet), %RECV_WOULD_BLOCK if no data is
  * available and the call would block, or %RECV_ERROR on error
  */
-static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * nicesock, NiceInputMessage * message)
+static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * nicesock, n_input_msg_t * message)
 {
     NiceAddress from;
     n_dlist_t * item;
@@ -2409,7 +2404,7 @@ static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream
     /* Unhandled STUN; try handling TCP data, then pass to the client. */
     if (message->length > 0  && agent->reliable)
     {
-        if (!nice_socket_is_reliable(nicesock) && !pseudo_tcp_socket_is_closed(component->tcp))
+        if (!nice_socket_is_reliable(nicesock) && !pst_is_closed(component->tcp))
         {
             /* If we don??t yet have an underlying selected socket, queue up the
              * incoming data to handle later. This is because we can??t send ACKs (or,
@@ -2422,7 +2417,7 @@ static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream
             {
                 GOutputVector * vec = g_slice_new(GOutputVector);
                 vec->buffer = compact_input_message(message, &vec->size);
-                g_queue_push_tail(&component->queued_tcp_packets, vec);
+                n_queue_push_tail(&component->queued_tcp_packets, vec);
                 nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, vec->size, agent);
 
                 return RECV_OOB;
@@ -2435,7 +2430,7 @@ static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream
             /* Received data on a reliable connection. */
 
             nice_debug("%s: notifying pseudo-TCP of packet, length %" G_GSIZE_FORMAT, G_STRFUNC, message->length);
-            pseudo_tcp_socket_notify_message(component->tcp, message);
+            pst_notify_message(component->tcp, message);
 
             adjust_tcp_clock(agent, stream, component);
 
@@ -2443,7 +2438,7 @@ static RecvStatus agent_recv_message_unlocked(NiceAgent * agent, Stream * stream
             retval = RECV_OOB;
             goto done;
         }
-        else if (pseudo_tcp_socket_is_closed(component->tcp))
+        else if (pst_is_closed(component->tcp))
         {
             nice_debug("[%s agent:0x%p]: Received data on a pseudo tcp FAILED component. Ignoring.", G_STRFUNC, agent);
 
@@ -2463,7 +2458,7 @@ done:
 
 /* Print the composition of an array of messages. No-op if debugging is
  * disabled. */
-static void nice_debug_input_message_composition(const NiceInputMessage * messages, uint32_t n_messages)
+static void nice_debug_input_message_composition(const n_input_msg_t * messages, uint32_t n_messages)
 {
     uint32_t i;
 
@@ -2472,7 +2467,7 @@ static void nice_debug_input_message_composition(const NiceInputMessage * messag
 
     for (i = 0; i < n_messages; i++)
     {
-        const NiceInputMessage * message = &messages[i];
+        const n_input_msg_t * message = &messages[i];
         uint32_t j;
 
         nice_debug("[%s agent:0x%p]: Message %p (from: %p, length: %" G_GSIZE_FORMAT ")", G_STRFUNC, NULL, message, message->from, message->length);
@@ -2488,7 +2483,7 @@ static void nice_debug_input_message_composition(const NiceInputMessage * messag
     }
 }
 
-static uint8_t * compact_message(const NiceOutputMessage * message, uint32_t buffer_length)
+static uint8_t * compact_message(const n_output_msg_t * message, uint32_t buffer_length)
 {
     uint8_t * buffer;
     uint32_t offset = 0;
@@ -2515,21 +2510,21 @@ static uint8_t * compact_message(const NiceOutputMessage * message, uint32_t buf
  * @recv_message.
  *
  * The return value must be freed with n_free(). */
-uint8_t * compact_input_message(const NiceInputMessage * message, uint32_t * buffer_length)
+uint8_t * compact_input_message(const n_input_msg_t * message, uint32_t * buffer_length)
 {
     //nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
     nice_debug_input_message_composition(message, 1);
 
-    /* This works as long as NiceInputMessage is a subset of eNiceOutputMessage */
+    /* This works as long as n_input_msg_t is a subset of eNiceOutputMessage */
 
     *buffer_length = message->length;
 
-    return compact_message((NiceOutputMessage *) message, *buffer_length);
+    return compact_message((n_output_msg_t *) message, *buffer_length);
 }
 
 /* Returns the number of bytes copied. Silently drops any data from @buffer
  * which doesn??t fit in @message. */
-uint32_t memcpy_buffer_to_input_message(NiceInputMessage * message, const uint8_t * buffer, uint32_t buffer_length)
+uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t * buffer, uint32_t buffer_length)
 {
     uint32_t i;
 
@@ -2573,7 +2568,7 @@ uint32_t memcpy_buffer_to_input_message(NiceInputMessage * message, const uint8_
  * @recv_message.
  *
  * The return value must be freed with n_free(). */
-uint8_t * compact_output_message(const NiceOutputMessage * message, uint32_t * buffer_length)
+uint8_t * compact_output_message(const n_output_msg_t * message, uint32_t * buffer_length)
 {
     //nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
 
@@ -2582,7 +2577,7 @@ uint8_t * compact_output_message(const NiceOutputMessage * message, uint32_t * b
     return compact_message(message, *buffer_length);
 }
 
-uint32_t output_message_get_size(const NiceOutputMessage * message)
+uint32_t output_message_get_size(const n_output_msg_t * message)
 {
     uint32_t i;
     uint32_t message_len = 0;
@@ -2597,7 +2592,7 @@ uint32_t output_message_get_size(const NiceOutputMessage * message)
     return message_len;
 }
 
-static uint32_t input_message_get_size(const NiceInputMessage * message)
+static uint32_t input_message_get_size(const n_input_msg_t * message)
 {
     uint32_t i;
     uint32_t message_len = 0;
@@ -2643,7 +2638,7 @@ void nice_input_message_iter_reset(NiceInputMessageIter * iter)
  *
  * Since: 0.1.5
  */
-int32_t nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, NiceInputMessage * messages, uint32_t n_messages)
+int32_t nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * messages, uint32_t n_messages)
 {
     return (iter->message == n_messages && iter->buffer == 0 && iter->offset == 0);
 }
@@ -2667,20 +2662,14 @@ uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * ite
         return iter->message + 1;
 }
 
-/* nice_agent_send_messages_nonblocking_internal:
+/* n_send_msgs_nonblock_internal:
  *
  * Returns: number of bytes sent if allow_partial is %TRUE, the number
  * of messages otherwise.
  */
 
-static int32_t nice_agent_send_messages_nonblocking_internal(
-    NiceAgent * agent,
-    uint32_t stream_id,
-    uint32_t component_id,
-    const NiceOutputMessage * messages,
-    uint32_t n_messages,
-    int32_t allow_partial,
-    GError ** error)
+static int32_t n_send_msgs_nonblock_internal(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, const n_output_msg_t * messages,
+																	uint32_t n_messages, int32_t allow_partial, GError ** error)
 {
     Stream * stream;
     Component * component;
@@ -2713,13 +2702,13 @@ static int32_t nice_agent_send_messages_nonblocking_internal(
 
         if (!nice_socket_is_reliable(component->selected_pair.local->sockptr))
         {
-            if (!pseudo_tcp_socket_is_closed(component->tcp))
+            if (!pst_is_closed(component->tcp))
             {
                 /* Send on the pseudo-TCP socket. */
-                n_sent = pseudo_tcp_socket_send_messages(component->tcp, messages, n_messages, allow_partial, &child_error);
+                n_sent = pst_send_messages(component->tcp, messages, n_messages, allow_partial, &child_error);
                 adjust_tcp_clock(agent, stream, component);
 
-                if (!pseudo_tcp_socket_can_send(component->tcp))
+                if (!pst_can_send(component->tcp))
                     g_cancellable_reset(component->tcp_writable_cancellable);
                 if (n_sent < 0 && !g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
                 {
@@ -2765,7 +2754,7 @@ done:
 }
 
 int32_t nice_agent_send_messages_nonblocking(NiceAgent * agent, uint32_t stream_id, uint32_t component_id,
-        const NiceOutputMessage * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
+        const n_output_msg_t * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
 {
     g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
     g_return_val_if_fail(stream_id >= 1, -1);
@@ -2777,13 +2766,13 @@ int32_t nice_agent_send_messages_nonblocking(NiceAgent * agent, uint32_t stream_
     if (g_cancellable_set_error_if_cancelled(cancellable, error))
         return -1;
 
-    return nice_agent_send_messages_nonblocking_internal(agent, stream_id, component_id, messages, n_messages, FALSE, error);
+    return n_send_msgs_nonblock_internal(agent, stream_id, component_id, messages, n_messages, FALSE, error);
 }
 
 int32_t nice_agent_send(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, const char * buf)
 {
     GOutputVector local_buf = { buf, len };
-    NiceOutputMessage local_message = { &local_buf, 1 };
+    n_output_msg_t local_message = { &local_buf, 1 };
     int32_t n_sent_bytes;
 
     g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
@@ -2791,7 +2780,7 @@ int32_t nice_agent_send(NiceAgent * agent, uint32_t stream_id, uint32_t componen
     g_return_val_if_fail(component_id >= 1, -1);
     g_return_val_if_fail(buf != NULL, -1);
 
-    n_sent_bytes = nice_agent_send_messages_nonblocking_internal(agent, stream_id, component_id, &local_message, 1, TRUE, NULL);
+    n_sent_bytes = n_send_msgs_nonblock_internal(agent, stream_id, component_id, &local_message, 1, TRUE, NULL);
 
     return n_sent_bytes;
 }
@@ -2930,7 +2919,7 @@ static void nice_agent_dispose(GObject * object)
     n_slist_free(agent->streams_list);
     agent->streams_list = NULL;
 
-    while ((sig = g_queue_pop_head(&agent->pending_signals)))
+    while ((sig = n_queue_pop_head(&agent->pending_signals)))
     {
         free_queued_signal(sig);
     }
@@ -3030,13 +3019,13 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
             { local_header_buf, sizeof(local_header_buf) },
             { local_body_buf, sizeof(local_body_buf) },
         };
-        NiceInputMessage local_message =
+        n_input_msg_t local_message =
         {
             local_bufs, G_N_ELEMENTS(local_bufs), NULL, 0
         };
         RecvStatus retval = 0;
 
-        if (pseudo_tcp_socket_is_closed(component->tcp))
+        if (pst_is_closed(component->tcp))
         {
             nice_debug("[%s agent:0x%p]: not handling incoming packet for s%d:%d "
                        "because pseudo-TCP socket does not exist in reliable mode.", G_STRFUNC, agent,
@@ -3051,13 +3040,13 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
         {
             /* Receive a single message. This will receive it into the given
              * @local_bufs then, for pseudo-TCP, emit I/O callbacks or copy it into
-             * component->recv_messages in pseudo_tcp_socket_readable(). STUN packets
+             * component->recv_messages in pst_readable(). STUN packets
              * will be parsed in-place. */
             retval = agent_recv_message_unlocked(agent, stream, component, socket_source->socket, &local_message);
 
             nice_debug("[%s agent:0x%p]: received %d valid messages with %d bytes", G_STRFUNC, agent, retval, local_message.length);
 
-            /* Dont expect any valid messages to escape pseudo_tcp_socket_readable()
+            /* Dont expect any valid messages to escape pst_readable()
              * when in reliable mode. */
             //g_assert_cmpint(retval, != , RECV_SUCCESS);
 
@@ -3083,7 +3072,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
         {
             uint8_t local_buf[MAX_BUFFER_SIZE];
             GInputVector local_bufs = { local_buf, sizeof(local_buf) };
-            NiceInputMessage local_message = { &local_bufs, 1, NULL, 0 };
+            n_input_msg_t local_message = { &local_bufs, 1, NULL, 0 };
             RecvStatus retval;
 
             /* Receive a single message. */
@@ -3127,7 +3116,7 @@ int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * user_d
                 component->recv_messages, component->n_recv_messages))
         {
             /* Receive a single message. This will receive it into the given
-             * user-provided #NiceInputMessage, which it??s the user??s responsibility
+             * user-provided #n_input_msg_t, which it??s the user??s responsibility
              * to ensure is big enough to avoid data loss (since we??re in non-reliable
              * mode). Iterate to receive as many messages as possible.
              *
@@ -3225,8 +3214,8 @@ int32_t nice_agent_attach_recv(NiceAgent * agent, uint32_t stream_id, uint32_t c
          * next incoming data.
          * but only do this if we know we're already readable, otherwise we might
          * trigger an error in the initial, pre-connection attach. */
-        if (agent->reliable && !pseudo_tcp_socket_is_closed(component->tcp) && component->tcp_readable)
-            pseudo_tcp_socket_readable(component->tcp, component);
+        if (agent->reliable && !pst_is_closed(component->tcp) && component->tcp_readable)
+            pst_readable(component->tcp, component);
     }
 
 done:
@@ -3264,7 +3253,7 @@ int32_t nice_agent_set_selected_pair(NiceAgent * agent, uint32_t stream_id, uint
     conn_check_prune_stream(agent, stream);
 
     if (agent->reliable && !nice_socket_is_reliable(pair.local->sockptr) &&
-            pseudo_tcp_socket_is_closed(component->tcp))
+            pst_is_closed(component->tcp))
     {
         nice_debug("[%s agent:0x%p]: not setting selected pair for s%d:%d because "
                    "pseudo tcp socket does not exist in reliable mode", G_STRFUNC, agent,
@@ -3365,7 +3354,7 @@ done:
  *
  * This guarantees that a timer won't be overwritten without being destroyed.
  */
-void agent_timeout_add_with_context(NiceAgent * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data)
+void agent_timeout_add(NiceAgent * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data)
 {
     GSource * source;
 
@@ -3427,7 +3416,7 @@ int32_t nice_agent_set_selected_remote_candidate(NiceAgent * agent, uint32_t str
     if (!lcandidate)
         goto done;
 
-    if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr) &&  pseudo_tcp_socket_is_closed(component->tcp))
+    if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr) &&  pst_is_closed(component->tcp))
     {
         nice_debug("[%s agent:0x%p]: not setting selected remote candidate s%d:%d because"
                    " pseudo tcp socket does not exist in reliable mode", G_STRFUNC, agent,  stream->id, component->id);
@@ -3677,20 +3666,20 @@ done:
  */
 int32_t agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len, const char * buf)
 {
-    if (nice_socket_is_reliable(sock))
-    {
-        guint16 rfc4571_frame = htons(len);
-        GOutputVector local_buf[2] = {{&rfc4571_frame, 2}, { buf, len }};
-        NiceOutputMessage local_message = { local_buf, 2};
-        int32_t ret;
+    //if (nice_socket_is_reliable(sock))
+    //{
+    //    guint16 rfc4571_frame = htons(len);
+    //    GOutputVector local_buf[2] = {{&rfc4571_frame, 2}, { buf, len }};
+    //    n_output_msg_t local_message = { local_buf, 2};
+    //    int32_t ret;
 
-        /* ICE-TCP requires that all packets be framed with RFC4571 */
-        ret = nice_socket_send_messages_reliable(sock, addr, &local_message, 1);
-        if (ret == 1)
-            return len;
-        return ret;
-    }
-    else
+    //    /* ICE-TCP requires that all packets be framed with RFC4571 */
+    //    ret = nice_socket_send_messages_reliable(sock, addr, &local_message, 1);
+    //    if (ret == 1)
+    //        return len;
+    //    return ret;
+    //}
+    //else
     {
         int32_t ret = nice_socket_send_reliable(sock, addr, len, buf);
         if (ret < 0)

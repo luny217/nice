@@ -122,6 +122,9 @@
     <ClCompile Include="glib\nlist.c">
       <Filter>glib</Filter>
     </ClCompile>
+    <ClCompile Include="glib\nqueue.c">
+      <Filter>glib</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="agent\address.h">
@@ -227,6 +230,9 @@
       <Filter>glib</Filter>
     </ClInclude>
     <ClInclude Include="glib\nlist.h">
+      <Filter>glib</Filter>
+    </ClInclude>
+    <ClInclude Include="glib\nqueue.h">
       <Filter>glib</Filter>
     </ClInclude>
   </ItemGroup>

@@ -25,13 +25,13 @@
 #include "stun/stunagent.h"
 
 /**
- * StunUsageBindReturn:
- * @STUN_USAGE_BIND_RETURN_SUCCESS: The binding usage succeeded
- * @STUN_USAGE_BIND_RETURN_ERROR: There was an unknown error in the bind usage
- * @STUN_USAGE_BIND_RETURN_INVALID: The message is invalid and should be ignored
- * @STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER: The binding request has an
+ * StunBind:
+ * @STUN_BIND_SUCCESS: The binding usage succeeded
+ * @STUN_BIND_ERROR: There was an unknown error in the bind usage
+ * @STUN_BIND_INVALID: The message is invalid and should be ignored
+ * @STUN_BIND_ALTERNATE_SERVER: The binding request has an
  * ALTERNATE-SERVER attribute
- * @STUN_USAGE_BIND_RETURN_TIMEOUT: The binding was unsuccessful because it has
+ * @STUN_BIND_TIMEOUT: The binding was unsuccessful because it has
  * timed out.
  *
  * Return value of stun_usage_bind_process() and stun_usage_bind_run() which
@@ -39,13 +39,13 @@
  */
 typedef enum
 {
-    STUN_USAGE_BIND_RETURN_SUCCESS,
-    STUN_USAGE_BIND_RETURN_ERROR,
-    STUN_USAGE_BIND_RETURN_INVALID,
-    STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER,
-    STUN_USAGE_BIND_RETURN_TIMEOUT,
+    STUN_BIND_SUCCESS,
+    STUN_BIND_ERROR,
+    STUN_BIND_INVALID,
+    STUN_BIND_ALTERNATE_SERVER,
+    STUN_BIND_TIMEOUT,
 }
-StunUsageBindReturn;
+StunBind;
 
 
 /**
@@ -72,17 +72,17 @@ size_t stun_usage_bind_create(StunAgent * agent, StunMessage * msg,
  * address of an alternate server to which we should send our new STUN
  * binding request, in case the currently used STUN server is requesting the use
  * of an alternate server. This argument will only be filled if the return value
- * of the function is #STUN_USAGE_BIND_RETURN_ALTERNATE_SERVER
+ * of the function is #STUN_BIND_ALTERNATE_SERVER
  * @alternate_server_len: The length of @alternate_server. Must be set to
  * the size of the @alternate_server socket address and will be set to the
  * actual length of the socket address.
  *
  * Process a STUN binding response and extracts the mapped address from the STUN
  * message. Also checks for the ALTERNATE-SERVER attribute.
- * Returns: A #StunUsageBindReturn value.
- * Note that #STUN_USAGE_BIND_RETURN_TIMEOUT cannot be returned by this function
+ * Returns: A #StunBind value.
+ * Note that #STUN_BIND_TIMEOUT cannot be returned by this function
  */
-StunUsageBindReturn stun_usage_bind_process(StunMessage * msg,
+StunBind stun_usage_bind_process(StunMessage * msg,
         struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len);
 
@@ -113,10 +113,10 @@ size_t stun_usage_bind_keepalive(StunAgent * agent, StunMessage * msg,
  * This is a convenience function that will do a synchronous Binding request to
  * a server and wait for its answer. It will create the socket transports and
  * use the #StunTimer usage to send the request and handle the response.
- * Returns: A #StunUsageBindReturn.
- * Possible return values are #STUN_USAGE_BIND_RETURN_SUCCESS,
- * #STUN_USAGE_BIND_RETURN_ERROR and #STUN_USAGE_BIND_RETURN_TIMEOUT
+ * Returns: A #StunBind.
+ * Possible return values are #STUN_BIND_SUCCESS,
+ * #STUN_BIND_ERROR and #STUN_BIND_TIMEOUT
  */
-StunUsageBindReturn stun_usage_bind_run(const struct sockaddr * srv,
+StunBind stun_usage_bind_run(const struct sockaddr * srv,
                                         socklen_t srvlen, struct sockaddr_storage * addr, socklen_t * addrlen);
 #endif

@@ -16,22 +16,16 @@ typedef enum
 #include "socket.h"
 #include "stun/stunmessage.h"
 
-uint32_t
-nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_sock,
-                                        NiceInputMessage * message);
+uint32_t nice_udp_turn_socket_parse_recv_message(NiceSocket * sock, NiceSocket ** from_sock, n_input_msg_t * message);
 
-uint32_t
-nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
+uint32_t nice_udp_turn_socket_parse_recv(NiceSocket * sock, NiceSocket ** from_sock,
                                 NiceAddress * from, uint32_t len, uint8_t * buf,
                                 NiceAddress * recv_from, uint8_t * recv_buf, uint32_t recv_len);
 
-int
-nice_udp_turn_socket_set_peer(NiceSocket * sock, NiceAddress * peer);
+int nice_udp_turn_socket_set_peer(NiceSocket * sock, NiceAddress * peer);
 
-NiceSocket *
-nice_udp_turn_socket_new(GMainContext * ctx, NiceAddress * addr,
-                         NiceSocket * base_socket, NiceAddress * server_addr,
-                         char * username, char * password, NiceTurnSocketCompatibility compatibility);
+NiceSocket * n_udp_turn_new(GMainContext * ctx, NiceAddress * addr,
+                         NiceSocket * base_socket, NiceAddress * server_addr, char * username, char * password);
 
 #endif /* _UDP_TURN_H */
 

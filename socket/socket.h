@@ -33,7 +33,7 @@ typedef enum
     NICE_SOCKET_TYPE_TCP_SO
 } NiceSocketType;
 
-typedef void (*NiceSocketWritableCb)(NiceSocket * sock, gpointer user_data);
+typedef void (*NiceSocketWritableCb)(NiceSocket * sock, void * user_data);
 
 struct _NiceSocket
 {
@@ -42,51 +42,26 @@ struct _NiceSocket
     GSocket * fileno;
     /* Implementations must handle any value of n_recv_messages, including 0. Iff
      * n_recv_messages is 0, recv_messages may be NULL. */
-    gint(*recv_messages)(NiceSocket * sock,
-                         NiceInputMessage * recv_messages, guint n_recv_messages);
+    int32_t(*recv_messages)(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
     /* As above, @n_messages may be zero. Iff so, @messages may be %NULL. */
-    gint(*send_messages)(NiceSocket * sock, const NiceAddress * to,
-                         const NiceOutputMessage * messages, guint n_messages);
-    gint(*send_messages_reliable)(NiceSocket * sock, const NiceAddress * to,
-                                  const NiceOutputMessage * messages, guint n_messages);
-    gboolean(*is_reliable)(NiceSocket * sock);
-    gboolean(*can_send)(NiceSocket * sock, NiceAddress * addr);
-    void (*set_writable_callback)(NiceSocket * sock,
-                                  NiceSocketWritableCb callback, gpointer user_data);
+    int32_t(*send_messages)(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
+    int32_t(*send_messages_reliable)(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
+    int(*is_reliable)(NiceSocket * sock);
+    int(*can_send)(NiceSocket * sock, NiceAddress * addr);
+    void (*set_writable_callback)(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data);
     void (*close)(NiceSocket * sock);
     void * priv;
 };
 
-
-G_GNUC_WARN_UNUSED_RESULT
-gint
-nice_socket_recv_messages(NiceSocket * sock,
-                          NiceInputMessage * recv_messages, guint n_recv_messages);
-
-gint
-nice_socket_send_messages(NiceSocket * sock, const NiceAddress * addr,
-                          const NiceOutputMessage * messages, guint n_messages);
-gint
-nice_socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * addr,
-                                   const NiceOutputMessage * messages, guint n_messages);
-gssize
-nice_socket_recv(NiceSocket * sock, NiceAddress * from, gsize len,
-                 gchar * buf);
-gssize
-nice_socket_send(NiceSocket * sock, const NiceAddress * to, gsize len,
-                 const gchar * buf);
-gssize
-nice_socket_send_reliable(NiceSocket * sock, const NiceAddress * addr, gsize len,
-                          const gchar * buf);
-
-gboolean nice_socket_is_reliable(NiceSocket * sock);
-
-gboolean nice_socket_can_send(NiceSocket * sock, NiceAddress * addr);
-
-void
-nice_socket_set_writable_callback(NiceSocket * sock,
-                                  NiceSocketWritableCb callback, gpointer user_data);
-
+int32_t nice_socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
+int32_t nice_socket_send_messages(NiceSocket * sock, const NiceAddress * addr, const n_output_msg_t * messages, uint32_t n_messages);
+int32_t nice_socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * addr, const n_output_msg_t * messages, uint32_t n_messages);
+int32_t nice_socket_recv(NiceSocket * sock, NiceAddress * from, uint32_t len, char * buf);
+int32_t nice_socket_send(NiceSocket * sock, const NiceAddress * to, uint32_t len,  const char * buf);
+int32_t nice_socket_send_reliable(NiceSocket * sock, const NiceAddress * addr, uint32_t len, const char * buf);
+int nice_socket_is_reliable(NiceSocket * sock);
+int nice_socket_can_send(NiceSocket * sock, NiceAddress * addr);
+void nice_socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data);
 void nice_socket_free(NiceSocket * sock);
 
 #include "udp-bsd.h"

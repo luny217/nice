@@ -13,7 +13,7 @@
 #include "pseudotcp.h"
 #include "agent-priv.h"
 
-G_DEFINE_TYPE(PseudoTcpSocket, pseudo_tcp_socket, G_TYPE_OBJECT);
+G_DEFINE_TYPE(PseudoTcpSocket, pst, G_TYPE_OBJECT);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -216,39 +216,39 @@ typedef struct
 } PseudoTcpFifo;
 
 
-static void pseudo_tcp_fifo_init(PseudoTcpFifo * b, uint32_t size)
+static void pst_fifo_init(PseudoTcpFifo * b, uint32_t size)
 {
-    b->buffer = g_slice_alloc(size);
+    b->buffer = n_slice_alloc(size);
     b->buffer_length = size;
 }
 
-static void pseudo_tcp_fifo_clear(PseudoTcpFifo * b)
+static void pst_fifo_clear(PseudoTcpFifo * b)
 {
     if (b->buffer)
-        g_slice_free1(b->buffer_length, b->buffer);
+        n_slice_free1(b->buffer_length, b->buffer);
     b->buffer = NULL;
     b->buffer_length = 0;
 }
 
-static uint32_t pseudo_tcp_fifo_get_buffered(PseudoTcpFifo * b)
+static uint32_t pst_fifo_get_buffered(PseudoTcpFifo * b)
 {
     return b->data_length;
 }
 
-static int pseudo_tcp_fifo_set_capacity(PseudoTcpFifo * b, uint32_t size)
+static int pst_fifo_set_capacity(PseudoTcpFifo * b, uint32_t size)
 {
     if (b->data_length > size)
         return FALSE;
 
     if (size != b->data_length)
     {
-        uint8_t * buffer = g_slice_alloc(size);
+        uint8_t * buffer = n_slice_alloc(size);
         uint32_t copy = b->data_length;
         uint32_t tail_copy = min(copy, b->buffer_length - b->read_position);
 
         memcpy(buffer, &b->buffer[b->read_position], tail_copy);
         memcpy(buffer + tail_copy, &b->buffer[0], copy - tail_copy);
-        g_slice_free1(b->buffer_length, b->buffer);
+        n_slice_free1(b->buffer_length, b->buffer);
         b->buffer = buffer;
         b->buffer_length = size;
         b->read_position = 0;
@@ -257,7 +257,7 @@ static int pseudo_tcp_fifo_set_capacity(PseudoTcpFifo * b, uint32_t size)
     return TRUE;
 }
 
-static void pseudo_tcp_fifo_consume_read_data(PseudoTcpFifo * b, uint32_t size)
+static void pst_fifo_consume_read_data(PseudoTcpFifo * b, uint32_t size)
 {
     g_assert(size <= b->data_length);
 
@@ -265,19 +265,19 @@ static void pseudo_tcp_fifo_consume_read_data(PseudoTcpFifo * b, uint32_t size)
     b->data_length -= size;
 }
 
-static void pseudo_tcp_fifo_consume_write_buffer(PseudoTcpFifo * b, uint32_t size)
+static void pst_fifo_consume_write_buffer(PseudoTcpFifo * b, uint32_t size)
 {
     g_assert(size <= b->buffer_length - b->data_length);
 
     b->data_length += size;
 }
 
-static uint32_t pseudo_tcp_fifo_get_write_remaining(PseudoTcpFifo * b)
+static uint32_t pst_fifo_get_write_remaining(PseudoTcpFifo * b)
 {
     return b->buffer_length - b->data_length;
 }
 
-static uint32_t pseudo_tcp_fifo_read_offset(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes, uint32_t offset)
+static uint32_t pst_fifo_read_offset(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes, uint32_t offset)
 {
     uint32_t available = b->data_length - offset;
     uint32_t read_position = (b->read_position + offset) % b->buffer_length;
@@ -294,13 +294,10 @@ static uint32_t pseudo_tcp_fifo_read_offset(PseudoTcpFifo * b, uint8_t * buffer,
     return copy;
 }
 
-static uint32_t
-pseudo_tcp_fifo_write_offset(PseudoTcpFifo * b, const uint8_t * buffer,
-                             uint32_t bytes, uint32_t offset)
+static uint32_t pst_fifo_write_offset(PseudoTcpFifo * b, const uint8_t * buffer, uint32_t bytes, uint32_t offset)
 {
     uint32_t available = b->buffer_length - b->data_length - offset;
-    uint32_t write_position = (b->read_position + b->data_length + offset)
-                           % b->buffer_length;
+    uint32_t write_position = (b->read_position + b->data_length + offset) % b->buffer_length;
     uint32_t copy = min(bytes, available);
     uint32_t tail_copy = min(copy, b->buffer_length - write_position);
 
@@ -315,12 +312,11 @@ pseudo_tcp_fifo_write_offset(PseudoTcpFifo * b, const uint8_t * buffer,
     return copy;
 }
 
-static uint32_t
-pseudo_tcp_fifo_read(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes)
+static uint32_t pst_fifo_read(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes)
 {
     uint32_t copy;
 
-    copy = pseudo_tcp_fifo_read_offset(b, buffer, bytes, 0);
+    copy = pst_fifo_read_offset(b, buffer, bytes, 0);
 
     b->read_position = (b->read_position + copy) % b->buffer_length;
     b->data_length -= copy;
@@ -328,17 +324,15 @@ pseudo_tcp_fifo_read(PseudoTcpFifo * b, uint8_t * buffer, uint32_t bytes)
     return copy;
 }
 
-static uint32_t
-pseudo_tcp_fifo_write(PseudoTcpFifo * b, const uint8_t * buffer, uint32_t bytes)
+static uint32_t pst_fifo_write(PseudoTcpFifo * b, const uint8_t * buffer, uint32_t bytes)
 {
     uint32_t copy;
 
-    copy = pseudo_tcp_fifo_write_offset(b, buffer, bytes, 0);
+    copy = pst_fifo_write_offset(b, buffer, bytes, 0);
     b->data_length += copy;
 
     return copy;
 }
-
 
 //////////////////////////////////////////////////////////////////////
 // PseudoTcp
@@ -421,8 +415,8 @@ struct _PseudoTcpSocketPrivate
     PseudoTcpFifo rbuf;
 
     // Outgoing data
-    GQueue slist;
-    GQueue unsent_slist;
+    n_queue_t slist;
+    n_queue_t unsent_slist;
     uint32_t sbuf_len, snd_nxt, snd_wnd, lastsend;
     uint32_t snd_una;  /* oldest unacknowledged sequence number */
     uint8_t swnd_scale; // Window scale factor
@@ -482,29 +476,21 @@ enum
 };
 
 
-static void pseudo_tcp_socket_get_property(GObject * object, uint32_t property_id,
-        GValue * value,  GParamSpec * pspec);
-static void pseudo_tcp_socket_set_property(GObject * object, uint32_t property_id,
-        const GValue * value, GParamSpec * pspec);
-static void pseudo_tcp_socket_finalize(GObject * object);
+static void pst_get_property(GObject * object, uint32_t property_id, GValue * value,  GParamSpec * pspec);
+static void pst_set_property(GObject * object, uint32_t property_id, const GValue * value, GParamSpec * pspec);
+static void pst_finalize(GObject * object);
 
 
 static void queue_connect_message(PseudoTcpSocket * self);
-static uint32_t queue(PseudoTcpSocket * self, const char * data,
-                     uint32_t len, TcpFlags flags);
-static PseudoTcpWriteResult packet(PseudoTcpSocket * self, uint32_t seq,
-                                   TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now);
-static int parse(PseudoTcpSocket * self,
-                      const uint8_t * _header_buf, uint32_t header_buf_len,
-                      const uint8_t * data_buf, uint32_t data_buf_len);
+static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, TcpFlags flags);
+static PseudoTcpWriteResult packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now);
+static int parse(PseudoTcpSocket * self, const uint8_t * _header_buf, uint32_t header_buf_len, const uint8_t * data_buf, uint32_t data_buf_len);
 static int process(PseudoTcpSocket * self, Segment * seg);
 static int transmit(PseudoTcpSocket * self, SSegment * sseg, uint32_t now);
 static void attempt_send(PseudoTcpSocket * self, SendFlags sflags);
-static void closedown(PseudoTcpSocket * self, uint32_t err,
-                      ClosedownSource source);
+static void closedown(PseudoTcpSocket * self, uint32_t err, ClosedownSource source);
 static void adjustMTU(PseudoTcpSocket * self);
-static void parse_options(PseudoTcpSocket * self, const uint8_t * data,
-                          uint32_t len);
+static void parse_options(PseudoTcpSocket * self, const uint8_t * data, uint32_t len);
 static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size);
 static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size);
 static void set_state(PseudoTcpSocket * self, PseudoTcpState new_state);
@@ -536,19 +522,18 @@ static uint32_t pseudo_tcp_get_current_time(PseudoTcpSocket * socket)
     return (uint32_t)(g_get_monotonic_time() / 1000);
 }
 
-void pseudo_tcp_socket_set_time(PseudoTcpSocket * self, uint32_t current_time)
+void pst_set_time(PseudoTcpSocket * self, uint32_t current_time)
 {
     self->priv->current_time = current_time;
 }
 
-static void
-pseudo_tcp_socket_class_init(PseudoTcpSocketClass * cls)
+static void pst_class_init(PseudoTcpSocketClass * cls)
 {
     GObjectClass * object_class = G_OBJECT_CLASS(cls);
 
-    object_class->get_property = pseudo_tcp_socket_get_property;
-    object_class->set_property = pseudo_tcp_socket_set_property;
-    object_class->finalize = pseudo_tcp_socket_finalize;
+    object_class->get_property = pst_get_property;
+    object_class->set_property = pst_set_property;
+    object_class->finalize = pst_finalize;
 
     g_object_class_install_property(object_class, PROP_CONVERSATION,
                                     g_param_spec_uint("conversation", "TCP Conversation ID",
@@ -613,11 +598,7 @@ pseudo_tcp_socket_class_init(PseudoTcpSocketClass * cls)
 }
 
 
-static void
-pseudo_tcp_socket_get_property(GObject * object,
-                               uint32_t property_id,
-                               GValue * value,
-                               GParamSpec * pspec)
+static void pst_get_property(GObject * object,  uint32_t property_id, GValue * value, GParamSpec * pspec)
 {
     PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
 
@@ -653,11 +634,7 @@ pseudo_tcp_socket_get_property(GObject * object,
     }
 }
 
-static void
-pseudo_tcp_socket_set_property(GObject * object,
-                               uint32_t property_id,
-                               const GValue * value,
-                               GParamSpec * pspec)
+static void pst_set_property(GObject * object,  uint32_t property_id,  const GValue * value, GParamSpec * pspec)
 {
     PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
 
@@ -695,7 +672,7 @@ pseudo_tcp_socket_set_property(GObject * object,
     }
 }
 
-static void pseudo_tcp_socket_finalize(GObject * object)
+static void pst_finalize(GObject * object)
 {
     PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
     PseudoTcpSocketPrivate * priv = self->priv;
@@ -705,9 +682,9 @@ static void pseudo_tcp_socket_finalize(GObject * object)
     if (priv == NULL)
         return;
 
-    while ((sseg = g_queue_pop_head(&priv->slist)))
-        g_slice_free(SSegment, sseg);
-    g_queue_clear(&priv->unsent_slist);
+    while ((sseg = n_queue_pop_head(&priv->slist)))
+        n_slice_free(SSegment, sseg);
+    n_queue_clear(&priv->unsent_slist);
     for (i = priv->rlist; i; i = i->next)
     {
         RSegment * rseg = i->data;
@@ -716,18 +693,18 @@ static void pseudo_tcp_socket_finalize(GObject * object)
     n_dlist_free(priv->rlist);
     priv->rlist = NULL;
 
-    pseudo_tcp_fifo_clear(&priv->rbuf);
-    pseudo_tcp_fifo_clear(&priv->sbuf);
+    pst_fifo_clear(&priv->rbuf);
+    pst_fifo_clear(&priv->sbuf);
 
     free(priv);
     self->priv = NULL;
 
-    if (G_OBJECT_CLASS(pseudo_tcp_socket_parent_class)->finalize)
-        G_OBJECT_CLASS(pseudo_tcp_socket_parent_class)->finalize(object);
+    if (G_OBJECT_CLASS(pst_parent_class)->finalize)
+        G_OBJECT_CLASS(pst_parent_class)->finalize(object);
 }
 
 
-static void pseudo_tcp_socket_init(PseudoTcpSocket * obj)
+static void pst_init(PseudoTcpSocket * obj)
 {
     /* Use g_new0, and do not use g_object_set_private because the size of
      * our private data is too big (150KB+) and the g_slice_allow cannot allocate
@@ -740,14 +717,14 @@ static void pseudo_tcp_socket_init(PseudoTcpSocket * obj)
     priv->error = 0;
 
     priv->rbuf_len = DEFAULT_RCV_BUF_SIZE;
-    pseudo_tcp_fifo_init(&priv->rbuf, priv->rbuf_len);
+    pst_fifo_init(&priv->rbuf, priv->rbuf_len);
     priv->sbuf_len = DEFAULT_SND_BUF_SIZE;
-    pseudo_tcp_fifo_init(&priv->sbuf, priv->sbuf_len);
+    pst_fifo_init(&priv->sbuf, priv->sbuf_len);
 
     priv->state = TCP_LISTEN;
     priv->conv = 0;
-    g_queue_init(&priv->slist);
-    g_queue_init(&priv->unsent_slist);
+    n_queue_init(&priv->slist);
+    n_queue_init(&priv->unsent_slist);
     priv->rcv_wnd = priv->rbuf_len;
     priv->rwnd_scale = priv->swnd_scale = 0;
     priv->snd_nxt = 0;
@@ -784,18 +761,13 @@ static void pseudo_tcp_socket_init(PseudoTcpSocket * obj)
     priv->support_fin_ack = TRUE;
 }
 
-PseudoTcpSocket * pseudo_tcp_socket_new(uint32_t conversation,
-                                        PseudoTcpCallbacks * callbacks)
+PseudoTcpSocket * pst_new(uint32_t conversation, PseudoTcpCallbacks * callbacks)
 {
 
-    return g_object_new(PSEUDO_TCP_SOCKET_TYPE,
-                        "conversation", conversation,
-                        "callbacks", callbacks,
-                        NULL);
+    return g_object_new(PSEUDO_TCP_SOCKET_TYPE,  "conversation", conversation, "callbacks", callbacks, NULL);
 }
 
-static void
-queue_connect_message(PseudoTcpSocket * self)
+static void queue_connect_message(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint8_t buf[8];
@@ -822,8 +794,7 @@ queue_connect_message(PseudoTcpSocket * self)
     queue(self, (char *) buf, size, FLAG_CTL);
 }
 
-static void
-queue_fin_message(PseudoTcpSocket * self)
+static void queue_fin_message(PseudoTcpSocket * self)
 {
     g_assert(self->priv->support_fin_ack);
 
@@ -831,8 +802,7 @@ queue_fin_message(PseudoTcpSocket * self)
     queue(self, "", 0, FLAG_FIN);
 }
 
-static void
-queue_rst_message(PseudoTcpSocket * self)
+static void queue_rst_message(PseudoTcpSocket * self)
 {
     g_assert(self->priv->support_fin_ack);
 
@@ -840,8 +810,7 @@ queue_rst_message(PseudoTcpSocket * self)
     queue(self, "", 0, FLAG_RST);
 }
 
-int
-pseudo_tcp_socket_connect(PseudoTcpSocket * self)
+int pst_connect(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -859,8 +828,7 @@ pseudo_tcp_socket_connect(PseudoTcpSocket * self)
     return TRUE;
 }
 
-void
-pseudo_tcp_socket_notify_mtu(PseudoTcpSocket * self, guint16 mtu)
+void pst_notify_mtu(PseudoTcpSocket * self, guint16 mtu)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     priv->mtu_advise = mtu;
@@ -870,7 +838,7 @@ pseudo_tcp_socket_notify_mtu(PseudoTcpSocket * self, guint16 mtu)
     }
 }
 
-void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
+void pst_notify_clock(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now = pseudo_tcp_get_current_time(self);
@@ -884,8 +852,7 @@ void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
      * operating. */
     if (priv->support_fin_ack && priv->state == TCP_TIME_WAIT)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-              "Notified clock in TIME-WAIT state; closing connection.");
+        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Notified clock in TIME-WAIT state; closing connection.");
         set_state_closed(self, 0);
     }
 
@@ -904,7 +871,7 @@ void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
     if (priv->rto_base &&
             (time_diff(priv->rto_base + priv->rx_rto, now) <= 0))
     {
-        if (g_queue_get_length(&priv->slist) == 0)
+        if (n_queue_get_length(&priv->slist) == 0)
         {
             g_assert_not_reached();
         }
@@ -919,7 +886,7 @@ void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
                   "(rto_base: %u) (now: %u) (dup_acks: %u)",
                   priv->rx_rto, priv->rto_base, now, (uint32_t) priv->dup_acks);
 
-            if (!transmit(self, g_queue_peek_head(&priv->slist), now))
+            if (!transmit(self, n_queue_peek_head(&priv->slist), now))
             {
                 closedown(self, ECONNABORTED, CLOSEDOWN_LOCAL);
                 return;
@@ -963,7 +930,7 @@ void pseudo_tcp_socket_notify_clock(PseudoTcpSocket * self)
 
 }
 
-int pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self, const char * buffer, uint32_t len)
+int pst_notify_packet(PseudoTcpSocket * self, const char * buffer, uint32_t len)
 {
     int retval;
 
@@ -988,16 +955,16 @@ int pseudo_tcp_socket_notify_packet(PseudoTcpSocket * self, const char * buffer,
     return retval;
 }
 
-/* Assume there are two buffers in the given #NiceInputMessage: a 24-byte one
+/* Assume there are two buffers in the given #n_input_msg_t: a 24-byte one
  * containing the header, and a bigger one for the data. */
-int pseudo_tcp_socket_notify_message(PseudoTcpSocket * self, NiceInputMessage * message)
+int pst_notify_message(PseudoTcpSocket * self, n_input_msg_t * message)
 {
     int retval;
 
     //g_assert_cmpuint(message->n_buffers, > , 0);
 
     if (message->n_buffers == 1)
-        return pseudo_tcp_socket_notify_packet(self, message->buffers[0].buffer,
+        return pst_notify_packet(self, message->buffers[0].buffer,
                                                message->buffers[0].size);
 
     //g_assert_cmpuint(message->n_buffers, == , 2);
@@ -1024,7 +991,7 @@ int pseudo_tcp_socket_notify_message(PseudoTcpSocket * self, NiceInputMessage * 
     return retval;
 }
 
-int pseudo_tcp_socket_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
+int pst_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now = pseudo_tcp_get_current_time(self);
@@ -1045,7 +1012,7 @@ int pseudo_tcp_socket_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
         return FALSE;
     }
 
-    snd_buffered = pseudo_tcp_fifo_get_buffered(&priv->sbuf);
+    snd_buffered = pst_fifo_get_buffered(&priv->sbuf);
     if ((priv->shutdown == SD_GRACEFUL)
             && ((priv->state != TCP_ESTABLISHED)
                 || ((snd_buffered == 0) && (priv->t_ack == 0))))
@@ -1111,7 +1078,7 @@ int pseudo_tcp_socket_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
 }
 
 
-int32_t pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len)
+int32_t pst_recv(PseudoTcpSocket * self, char * buffer, size_t len)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t bytesread;
@@ -1126,7 +1093,7 @@ int32_t pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len
     }
 
     /* Return 0 if FIN-ACK is not supported but the socket has been closed. */
-    if (!priv->support_fin_ack && pseudo_tcp_socket_is_closed(self))
+    if (!priv->support_fin_ack && pst_is_closed(self))
     {
         return 0;
     }
@@ -1142,7 +1109,7 @@ int32_t pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len
     if (len == 0)
         return 0;
 
-    bytesread = pseudo_tcp_fifo_read(&priv->rbuf, (uint8_t *) buffer, len);
+    bytesread = pst_fifo_read(&priv->rbuf, (uint8_t *) buffer, len);
 
 // If there's no data in |m_rbuf|.
     if (bytesread == 0)
@@ -1152,7 +1119,7 @@ int32_t pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len
         return -1;
     }
 
-    available_space = pseudo_tcp_fifo_get_write_remaining(&priv->rbuf);
+    available_space = pst_fifo_get_write_remaining(&priv->rbuf);
 
     if (available_space - priv->rcv_wnd >=
             min(priv->rbuf_len / 2, priv->mss))
@@ -1171,7 +1138,7 @@ int32_t pseudo_tcp_socket_recv(PseudoTcpSocket * self, char * buffer, size_t len
     return bytesread;
 }
 
-int32_t pseudo_tcp_socket_send(PseudoTcpSocket * self, const char * buffer, uint32_t len)
+int32_t pst_send(PseudoTcpSocket * self, const char * buffer, uint32_t len)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     int32_t written;
@@ -1183,7 +1150,7 @@ int32_t pseudo_tcp_socket_send(PseudoTcpSocket * self, const char * buffer, uint
         return -1;
     }
 
-    available_space = pseudo_tcp_fifo_get_write_remaining(&priv->sbuf);
+    available_space = pst_fifo_get_write_remaining(&priv->sbuf);
 
     if (!available_space)
     {
@@ -1203,7 +1170,7 @@ int32_t pseudo_tcp_socket_send(PseudoTcpSocket * self, const char * buffer, uint
     return written;
 }
 
-void pseudo_tcp_socket_close(PseudoTcpSocket * self, int force)
+void pst_close(PseudoTcpSocket * self, int force)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -1218,10 +1185,10 @@ void pseudo_tcp_socket_close(PseudoTcpSocket * self, int force)
     }
 
     /* Fall back to shutdown(). */
-    pseudo_tcp_socket_shutdown(self, PSEUDO_TCP_SHUTDOWN_RDWR);
+    pst_shutdown(self, PSEUDO_TCP_SHUTDOWN_RDWR);
 }
 
-void pseudo_tcp_socket_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how)
+void pst_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -1268,7 +1235,7 @@ void pseudo_tcp_socket_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how)
             /* Local user initiating the close: RFC 793, ?3.5, Cases 1 and 3.
              * If there is pending receive data, send RST instead of FIN;
              * see RFC 1122, ?4.2.2.13. */
-            if (pseudo_tcp_socket_get_available_bytes(self) > 0)
+            if (pst_get_available_bytes(self) > 0)
             {
                 closedown(self, ECONNABORTED, CLOSEDOWN_LOCAL);
             }
@@ -1303,7 +1270,7 @@ void pseudo_tcp_socket_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how)
     }
 }
 
-int pseudo_tcp_socket_get_error(PseudoTcpSocket * self)
+int pst_get_error(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     return priv->error;
@@ -1318,7 +1285,7 @@ static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, T
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t available_space;
 
-    available_space = pseudo_tcp_fifo_get_write_remaining(&priv->sbuf);
+    available_space = pst_fifo_get_write_remaining(&priv->sbuf);
     if (len > available_space)
     {
         g_assert(flags == FLAG_NONE);
@@ -1327,26 +1294,26 @@ static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, T
 
     // We can concatenate data if the last segment is the same type
     // (control v. regular data), and has not been transmitted yet
-    if (g_queue_get_length(&priv->slist) &&
-            (((SSegment *)g_queue_peek_tail(&priv->slist))->flags == flags) &&
-            (((SSegment *)g_queue_peek_tail(&priv->slist))->xmit == 0))
+    if (n_queue_get_length(&priv->slist) &&
+            (((SSegment *)n_queue_peek_tail(&priv->slist))->flags == flags) &&
+            (((SSegment *)n_queue_peek_tail(&priv->slist))->xmit == 0))
     {
-        ((SSegment *)g_queue_peek_tail(&priv->slist))->len += len;
+        ((SSegment *)n_queue_peek_tail(&priv->slist))->len += len;
     }
     else
     {
         SSegment * sseg = g_slice_new0(SSegment);
-        uint32_t snd_buffered = pseudo_tcp_fifo_get_buffered(&priv->sbuf);
+        uint32_t snd_buffered = pst_fifo_get_buffered(&priv->sbuf);
 
         sseg->seq = priv->snd_una + snd_buffered;
         sseg->len = len;
         sseg->flags = flags;
-        g_queue_push_tail(&priv->slist, sseg);
-        g_queue_push_tail(&priv->unsent_slist, sseg);
+        n_queue_push_tail(&priv->slist, sseg);
+        n_queue_push_tail(&priv->unsent_slist, sseg);
     }
 
     //LOG(LS_INFO) << "PseudoTcp::queue - priv->slen = " << priv->slen;
-    return pseudo_tcp_fifo_write(&priv->sbuf, (uint8_t *) data, len);;
+    return pst_fifo_write(&priv->sbuf, (uint8_t *) data, len);;
 }
 
 // Creates a packet and submits it to the network. This method can either
@@ -1389,7 +1356,7 @@ packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags,
     {
         uint32_t bytes_read;
 
-        bytes_read = pseudo_tcp_fifo_read_offset(&priv->sbuf, buffer.u8 + HEADER_SIZE,
+        bytes_read = pst_fifo_read_offset(&priv->sbuf, buffer.u8 + HEADER_SIZE,
                      len, offset);
         g_assert(bytes_read == len);
     }
@@ -1646,14 +1613,14 @@ static int process(PseudoTcpSocket * self, Segment * seg)
             nAcked--;
         }
 
-        pseudo_tcp_fifo_consume_read_data(&priv->sbuf, nAcked);
+        pst_fifo_consume_read_data(&priv->sbuf, nAcked);
 
         for (nFree = nAcked; nFree > 0;)
         {
             SSegment * data;
 
-            g_assert(g_queue_get_length(&priv->slist) != 0);
-            data = (SSegment *) g_queue_peek_head(&priv->slist);
+            g_assert(n_queue_get_length(&priv->slist) != 0);
+            data = (SSegment *) n_queue_peek_head(&priv->slist);
 
             if (nFree < data->len)
             {
@@ -1669,7 +1636,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
                 }
                 nFree -= data->len;
                 g_slice_free(SSegment, data);
-                g_queue_pop_head(&priv->slist);
+                n_queue_pop_head(&priv->slist);
             }
         }
 
@@ -1686,7 +1653,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
             else
             {
                 DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "recovery retransmit");
-                if (!transmit(self, g_queue_peek_head(&priv->slist), now))
+                if (!transmit(self, n_queue_peek_head(&priv->slist), now))
                 {
                     closedown(self, ECONNABORTED, CLOSEDOWN_LOCAL);
                     return FALSE;
@@ -1728,7 +1695,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
             {
                 DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "enter recovery");
                 DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "recovery retransmit");
-                if (!transmit(self, g_queue_peek_head(&priv->slist), now))
+                if (!transmit(self, n_queue_peek_head(&priv->slist), now))
                 {
                     closedown(self, ECONNABORTED, CLOSEDOWN_LOCAL);
                     return FALSE;
@@ -1857,7 +1824,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
     // window.  We'd like to notify the app when we are halfway to that point.
     kIdealRefillSize = (priv->sbuf_len + priv->rbuf_len) / 2;
 
-    snd_buffered = pseudo_tcp_fifo_get_buffered(&priv->sbuf);
+    snd_buffered = pst_fifo_get_buffered(&priv->sbuf);
     if (priv->bWriteEnable && snd_buffered < kIdealRefillSize)
     {
         priv->bWriteEnable = FALSE;
@@ -1924,7 +1891,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
         }
     }
 
-    available_space = pseudo_tcp_fifo_get_write_remaining(&priv->rbuf);
+    available_space = pst_fifo_get_write_remaining(&priv->rbuf);
 
     if ((seg->seq + seg->len - priv->rcv_nxt) > available_space)
     {
@@ -1967,14 +1934,14 @@ static int process(PseudoTcpSocket * self, Segment * seg)
             uint32_t nOffset = seg->seq - priv->rcv_nxt;
             uint32_t res;
 
-            res = pseudo_tcp_fifo_write_offset(&priv->rbuf, (uint8_t *) seg->data,  seg->len, nOffset);
+            res = pst_fifo_write_offset(&priv->rbuf, (uint8_t *) seg->data,  seg->len, nOffset);
             g_assert(res == seg->len);
 
             if (seg->seq == priv->rcv_nxt)
             {
                 n_dlist_t * iter = NULL;
 
-                pseudo_tcp_fifo_consume_write_buffer(&priv->rbuf, seg->len);
+                pst_fifo_consume_write_buffer(&priv->rbuf, seg->len);
                 priv->rcv_nxt += seg->len;
                 priv->rcv_wnd -= seg->len;
                 bNewData = TRUE;
@@ -1989,7 +1956,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
                         sflags = sfImmediateAck; // (Fast Recovery)
                         DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Recovered %u bytes (%u -> %u)",
                               nAdjust, priv->rcv_nxt, priv->rcv_nxt + nAdjust);
-                        pseudo_tcp_fifo_consume_write_buffer(&priv->rbuf, nAdjust);
+                        pst_fifo_consume_write_buffer(&priv->rbuf, nAdjust);
                         priv->rcv_nxt += nAdjust;
                         priv->rcv_wnd -= nAdjust;
                     }
@@ -2101,15 +2068,15 @@ static int transmit(PseudoTcpSocket * self, SSegment * segment, uint32_t now)
         DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "mss reduced to %u", priv->mss);
 
         segment->len = nTransmit;
-        g_queue_insert_after(&priv->slist, g_queue_find(&priv->slist, segment), subseg);
+        n_queue_insert_after(&priv->slist, n_queue_find(&priv->slist, segment), subseg);
         if (subseg->xmit == 0)
-            g_queue_insert_after(&priv->unsent_slist, g_queue_find(&priv->unsent_slist, segment), subseg);
+            n_queue_insert_after(&priv->unsent_slist, n_queue_find(&priv->unsent_slist, segment), subseg);
     }
 
     if (segment->xmit == 0)
     {
-        g_assert(g_queue_peek_head(&priv->unsent_slist) == segment);
-        g_queue_pop_head(&priv->unsent_slist);
+        g_assert(n_queue_peek_head(&priv->unsent_slist) == segment);
+        n_queue_pop_head(&priv->unsent_slist);
         priv->snd_nxt += segment->len;
 
         /* FIN flags require acknowledgement. */
@@ -2157,7 +2124,7 @@ static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
         nWindow = min(priv->snd_wnd, cwnd);
         nInFlight = priv->snd_nxt - priv->snd_una;
         nUseable = (nInFlight < nWindow) ? (nWindow - nInFlight) : 0;
-        snd_buffered = pseudo_tcp_fifo_get_buffered(&priv->sbuf);
+        snd_buffered = pst_fifo_get_buffered(&priv->sbuf);
         if (snd_buffered < nInFlight)  /* iff a FIN has been sent */
             nAvailable = 0;
         else
@@ -2178,7 +2145,7 @@ static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
 
         if (bFirst)
         {
-            uint32_t available_space = pseudo_tcp_fifo_get_write_remaining(&priv->sbuf);
+            uint32_t available_space = pst_fifo_get_write_remaining(&priv->sbuf);
             bFirst = FALSE;
             DEBUG(PSEUDO_TCP_DEBUG_VERBOSE, "[cwnd: %u  nWindow: %u  nInFlight: %u "
                   "nAvailable: %u nQueued: %" G_GSIZE_FORMAT " nEmpty: %" G_GSIZE_FORMAT
@@ -2216,7 +2183,7 @@ static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
         }
 
         // Find the next segment to transmit
-        iter = g_queue_peek_head_link(&priv->unsent_slist);
+        iter = n_queue_peek_head_link(&priv->unsent_slist);
         if (iter == NULL)
             return;
         sseg = iter->data;
@@ -2230,8 +2197,8 @@ static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
             subseg->flags = sseg->flags;
 
             sseg->len = nAvailable;
-            g_queue_insert_after(&priv->unsent_slist, iter, subseg);
-            g_queue_insert_after(&priv->slist, g_queue_find(&priv->slist, sseg), subseg);
+            n_queue_insert_after(&priv->unsent_slist, iter, subseg);
+            n_queue_insert_after(&priv->slist, n_queue_find(&priv->slist, sseg), subseg);
         }
 
         if (!transmit(self, sseg, now))
@@ -2449,7 +2416,7 @@ static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size)
     PseudoTcpSocketPrivate * priv = self->priv;
 
     priv->sbuf_len = new_size;
-    pseudo_tcp_fifo_set_capacity(&priv->sbuf, new_size);
+    pst_fifo_set_capacity(&priv->sbuf, new_size);
 }
 
 
@@ -2473,7 +2440,7 @@ static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size)
 
     // Determine the proper size of the buffer.
     new_size <<= scale_factor;
-    result = pseudo_tcp_fifo_set_capacity(&priv->rbuf, new_size);
+    result = pst_fifo_set_capacity(&priv->rbuf, new_size);
 
     // Make sure the new buffer is large enough to contain data in the old
     // buffer. This should always be true because this method is called either
@@ -2484,11 +2451,11 @@ static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size)
     priv->rwnd_scale = scale_factor;
     priv->ssthresh = new_size;
 
-    available_space = pseudo_tcp_fifo_get_write_remaining(&priv->rbuf);
+    available_space = pst_fifo_get_write_remaining(&priv->rbuf);
     priv->rcv_wnd = available_space;
 }
 
-int32_t pseudo_tcp_socket_get_available_bytes(PseudoTcpSocket * self)
+int32_t pst_get_available_bytes(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2497,22 +2464,22 @@ int32_t pseudo_tcp_socket_get_available_bytes(PseudoTcpSocket * self)
         return -1;
     }
 
-    return pseudo_tcp_fifo_get_buffered(&priv->rbuf);
+    return pst_fifo_get_buffered(&priv->rbuf);
 }
 
-int pseudo_tcp_socket_can_send(PseudoTcpSocket * self)
+int pst_can_send(PseudoTcpSocket * self)
 {
-    return (pseudo_tcp_socket_get_available_send_space(self) > 0);
+    return (pst_get_available_send_space(self) > 0);
 }
 
-uint32_t pseudo_tcp_socket_get_available_send_space(PseudoTcpSocket * self)
+uint32_t pst_get_available_send_space(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t ret;
 
 
     if (priv->state == TCP_ESTABLISHED)
-        ret = pseudo_tcp_fifo_get_write_remaining(&priv->sbuf);
+        ret = pst_fifo_get_write_remaining(&priv->sbuf);
     else
         ret = 0;
 
@@ -2624,14 +2591,14 @@ static void set_state_closed(PseudoTcpSocket * self, uint32_t err)
         priv->callbacks.PseudoTcpClosed(self, err, priv->callbacks.user_data);
 }
 
-int pseudo_tcp_socket_is_closed(PseudoTcpSocket * self)
+int pst_is_closed(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
     return (priv->state == TCP_CLOSED);
 }
 
-int pseudo_tcp_socket_is_closed_remotely(PseudoTcpSocket * self)
+int pst_is_closed_remotely(PseudoTcpSocket * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 

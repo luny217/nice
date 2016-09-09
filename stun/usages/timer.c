@@ -102,9 +102,7 @@ static void add_delay(struct timeval * ts, unsigned delay)
     }
 }
 
-
-void stun_timer_start(StunTimer * timer, unsigned int initial_timeout,
-                      unsigned int max_retransmissions)
+void stun_timer_start(StunTimer * timer, uint32_t initial_timeout, uint32_t max_retransmissions)
 {
     stun_gettime(&timer->deadline);
     timer->retransmissions = 0;
@@ -113,13 +111,10 @@ void stun_timer_start(StunTimer * timer, unsigned int initial_timeout,
     add_delay(&timer->deadline, timer->delay);
 }
 
-
-void stun_timer_start_reliable(StunTimer * timer, unsigned int initial_timeout)
+void stun_timer_start_reliable(StunTimer * timer, uint32_t initial_timeout)
 {
     stun_timer_start(timer, initial_timeout, 0);
 }
-
-
 
 unsigned stun_timer_remainder(const StunTimer * timer)
 {
@@ -139,19 +134,18 @@ unsigned stun_timer_remainder(const StunTimer * timer)
     return delay;
 }
 
-
-StunUsageTimerReturn stun_timer_refresh(StunTimer * timer)
+StunTimerReturn stun_timer_refresh(StunTimer * timer)
 {
     unsigned delay = stun_timer_remainder(timer);
     if (delay == 0)
     {
         if (timer->retransmissions >= timer->max_retransmissions)
-            return STUN_USAGE_TIMER_RETURN_TIMEOUT;
+            return STUN_TIMER_RET_TIMEOUT;
 
         add_delay(&timer->deadline, timer->delay *= 2);
         timer->retransmissions++;
-        return STUN_USAGE_TIMER_RETURN_RETRANSMIT;
+        return STUN_TIMER_RET_RETRANSMIT;
     }
 
-    return STUN_USAGE_TIMER_RETURN_SUCCESS;
+    return STUN_TIMER_RET_SUCCESS;
 }
