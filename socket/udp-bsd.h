@@ -43,8 +43,8 @@
 
 G_BEGIN_DECLS
 
-NiceSocket *
-nice_udp_bsd_socket_new(NiceAddress * addr);
+n_socket_t *
+nice_udp_bsd_socket_new(n_addr_t * addr);
 
 G_END_DECLS
 

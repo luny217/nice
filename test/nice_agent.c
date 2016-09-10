@@ -33,12 +33,12 @@ static const char * candidate_type_name[] = {"host", "srflx", "prflx", "relay"};
 
 static const char * state_name[] = {"disconnected", "gathering", "connecting", "connected", "ready", "failed"};
 
-static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t component_id);
-static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, char * line);
-static void cb_candidate_gathering_done(NiceAgent * agent, uint32_t stream_id, void * data);
-static void cb_new_selected_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, char * lfoundation, char * rfoundation, void * data);
-static void cb_component_state_changed(NiceAgent * agent, uint32_t stream_id,  uint32_t component_id, uint32_t state, void * data);
-static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data);
+static int print_local_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id);
+static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, char * line);
+static void cb_candidate_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data);
+static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, char * lfoundation, char * rfoundation, void * data);
+static void cb_component_state_changed(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id, uint32_t state, void * data);
+static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data);
 
 static void * example_thread(void * data);
 
@@ -59,7 +59,7 @@ int main(int argc, char * argv[])
 
     gloop = g_main_loop_new(NULL, FALSE);
 
-    // Run the mainloop and the example thread
+    // Run the main loop and the example thread
     exit_thread = FALSE;
     gexamplethread = g_thread_new("example thread", &example_thread, NULL);
     g_main_loop_run(gloop);
@@ -74,8 +74,8 @@ int main(int argc, char * argv[])
 
 static void * example_thread(void * data)
 {
-    NiceAgent * agent;
-    NiceCandidate * local, *remote;
+    n_agent_t * agent;
+    n_cand_t * local, *remote;
     GIOChannel * io_stdin;
     uint32_t stream_id;
     char * line = NULL;
@@ -127,7 +127,7 @@ static void * example_thread(void * data)
     //nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
 
     // Start gathering local candidates
-    if (!nice_agent_gather_candidates(agent, stream_id))
+    if (!n_agent_gather_cands(agent, stream_id))
         g_error("Failed to start candidate gathering");
 
     g_debug("waiting for candidate-gathering-done signal...");
@@ -268,7 +268,7 @@ end:
     return NULL;
 }
 
-static void cb_candidate_gathering_done(NiceAgent * agent, uint32_t stream_id, void * data)
+static void cb_candidate_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data)
 {
     g_debug("SIGNAL candidate gathering done\n");
 
@@ -278,31 +278,31 @@ static void cb_candidate_gathering_done(NiceAgent * agent, uint32_t stream_id, v
     g_mutex_unlock(&gather_mutex);
 }
 
-static void cb_component_state_changed(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t state, void * data)
+static void cb_component_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t state, void * data)
 {
     g_debug("SIGNAL: state changed %d %d %s[%d]\n", stream_id, component_id, state_name[state], state);
 
-    if (state == COMPONENT_STATE_READY)
+    if (state == COMP_STATE_READY)
     {
         g_mutex_lock(&negotiate_mutex);
         negotiation_done = TRUE;
         g_cond_signal(&negotiate_cond);
         g_mutex_unlock(&negotiate_mutex);
     }
-    else if (state == COMPONENT_STATE_FAILED)
+    else if (state == COMP_STATE_FAILED)
     {
         g_main_loop_quit(gloop);
     }
 }
 
-static void cb_new_selected_pair(NiceAgent * agent, uint32_t stream_id,
+static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
                                  uint32_t component_id, char * lfoundation,
                                  char * rfoundation, void * data)
 {
     g_debug("SIGNAL: selected pair %s %s", lfoundation, rfoundation);
 }
 
-static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data)
+static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data)
 {
 	int numwrite;
 
@@ -323,10 +323,10 @@ static void cb_nice_recv(NiceAgent * agent, uint32_t stream_id, uint32_t compone
 	}
 }
 
-static NiceCandidate * parse_candidate(char * scand, uint32_t stream_id)
+static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
 {
-    NiceCandidate * cand = NULL;
-    NiceCandidateType ntype;
+    n_cand_t * cand = NULL;
+    n_cand_type_e ntype;
     char ** tokens = NULL;
     uint32_t i;
 
@@ -346,18 +346,18 @@ static NiceCandidate * parse_candidate(char * scand, uint32_t stream_id)
     if (i == G_N_ELEMENTS(candidate_type_name))
         goto end;
 
-    cand = nice_candidate_new(ntype);
+    cand = n_cand_new(ntype);
     cand->component_id = 1;
     cand->stream_id = stream_id;
     cand->transport = CANDIDATE_TRANSPORT_UDP;
-    strncpy(cand->foundation, tokens[0], CANDIDATE_MAX_FOUNDATION);
-    cand->foundation[CANDIDATE_MAX_FOUNDATION - 1] = 0;
+    strncpy(cand->foundation, tokens[0], CAND_MAX_FOUNDATION);
+    cand->foundation[CAND_MAX_FOUNDATION - 1] = 0;
     cand->priority = atoi(tokens[1]);
 
     if (!nice_address_set_from_string(&cand->addr, tokens[2]))
     {
         g_message("failed to parse addr: %s", tokens[2]);
-        nice_candidate_free(cand);
+        n_cand_free(cand);
         cand = NULL;
         goto end;
     }
@@ -370,7 +370,7 @@ end:
     return cand;
 }
 
-static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t component_id)
+static int print_local_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id)
 {
     int result = EXIT_FAILURE;
     char * local_ufrag = NULL;
@@ -381,7 +381,7 @@ static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t comp
     if (!nice_agent_get_local_credentials(agent, stream_id,  &local_ufrag, &local_password))
         goto end;
 
-    cand_lists = nice_agent_get_local_candidates(agent, stream_id, component_id);
+    cand_lists = n_agent_get_local_cands(agent, stream_id, component_id);
     if (cand_lists == NULL)
         goto end;
 
@@ -389,7 +389,7 @@ static int print_local_data(NiceAgent * agent, uint32_t stream_id, uint32_t comp
 
     for (item = cand_lists; item; item = item->next)
     {
-        NiceCandidate * c = (NiceCandidate *)item->data;
+        n_cand_t * c = (n_cand_t *)item->data;
 
         nice_address_to_string(&c->addr, ipaddr);
 
@@ -410,13 +410,13 @@ end:
     if (local_password)
         free(local_password);
     if (cand_lists)
-        n_slist_free_full(cand_lists, (GDestroyNotify)&nice_candidate_free);
+        n_slist_free_full(cand_lists, (GDestroyNotify)&n_cand_free);
 
     return result;
 }
 
 
-static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, char * line)
+static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, char * line)
 {
     n_slist_t  * remote_candidates = NULL;
     char ** line_argv = NULL;
@@ -443,7 +443,7 @@ static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t com
         else
         {
             // Remaining args are serialized canidates (at least one is required)
-            NiceCandidate * c = parse_candidate(line_argv[i], stream_id);
+            n_cand_t * c = parse_candidate(line_argv[i], stream_id);
 
             if (c == NULL)
             {
@@ -466,7 +466,7 @@ static int parse_remote_data(NiceAgent * agent, uint32_t stream_id, uint32_t com
     }
 
     // Note: this will trigger the start of negotiation.
-    if (nice_agent_set_remote_candidates(agent, stream_id, component_id, remote_candidates) < 1)
+    if (n_agent_set_remote_cands(agent, stream_id, component_id, remote_candidates) < 1)
     {
         g_message("failed to set remote candidates");
         goto end;
@@ -478,7 +478,7 @@ end:
     if (line_argv != NULL)
         g_strfreev(line_argv);
     if (remote_candidates != NULL)
-        n_slist_free_full(remote_candidates, (n_destroy_notify)&nice_candidate_free);
+        n_slist_free_full(remote_candidates, (n_destroy_notify)&n_cand_free);
 
     return result;
 }

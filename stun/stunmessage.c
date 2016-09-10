@@ -55,10 +55,10 @@ stun_message_find(const StunMessage * msg, StunAttribute type,
     /* In MS-TURN, IDs of REALM and NONCE STUN attributes are swapped. */
     if (msg->agent && msg->agent->compatibility == STUN_COMPATIBILITY_OC2007)
     {
-        if (type == STUN_ATTRIBUTE_REALM)
-            type = STUN_ATTRIBUTE_NONCE;
-        else if (type == STUN_ATTRIBUTE_NONCE)
-            type = STUN_ATTRIBUTE_REALM;
+        if (type == STUN_ATT_REALM)
+            type = STUN_ATT_NONCE;
+        else if (type == STUN_ATT_NONCE)
+            type = STUN_ATT_REALM;
     }
 
     offset = STUN_MESSAGE_ATTRIBUTES_POS;
@@ -66,10 +66,10 @@ stun_message_find(const StunMessage * msg, StunAttribute type,
     while (offset < length)
     {
         uint16_t atype = stun_getw(msg->buffer + offset);
-        size_t alen = stun_getw(msg->buffer + offset + STUN_ATTRIBUTE_TYPE_LEN);
+        size_t alen = stun_getw(msg->buffer + offset + STUN_ATT_TYPE_LEN);
 
 
-        offset += STUN_ATTRIBUTE_VALUE_POS;
+        offset += STUN_ATT_VALUE_POS;
 
         if (atype == type)
         {
@@ -80,12 +80,12 @@ stun_message_find(const StunMessage * msg, StunAttribute type,
         /* Look for and ignore misordered attributes */
         switch (atype)
         {
-            case STUN_ATTRIBUTE_MESSAGE_INTEGRITY:
+            case STUN_ATT_MESSAGE_INTEGRITY:
                 /* Only fingerprint may come after M-I */
-                if (type == STUN_ATTRIBUTE_FINGERPRINT)
+                if (type == STUN_ATT_FINGERPRINT)
                     break;
 
-            case STUN_ATTRIBUTE_FINGERPRINT:
+            case STUN_ATT_FINGERPRINT:
                 /* Nothing may come after FPR */
                 return NULL;
 
@@ -247,7 +247,7 @@ stun_message_find_addr(const StunMessage * msg, StunAttribute type,
 }
 
 StunMessageReturn
-stun_message_find_xor_addr(const StunMessage * msg, StunAttribute type,
+stun_msg_find_xor_addr(const StunMessage * msg, StunAttribute type,
                            struct sockaddr_storage * addr, socklen_t * addrlen)
 {
     StunMessageReturn val = stun_message_find_addr(msg, type, addr, addrlen);
@@ -272,7 +272,7 @@ StunMessageReturn
 stun_message_find_error(const StunMessage * msg, int * code)
 {
     uint16_t alen = 0;
-    const uint8_t * ptr = stun_message_find(msg, STUN_ATTRIBUTE_ERROR_CODE, &alen);
+    const uint8_t * ptr = stun_message_find(msg, STUN_ATT_ERROR_CODE, &alen);
     uint8_t class, number;
 
     if (ptr == NULL)
@@ -298,13 +298,13 @@ stun_message_append(StunMessage * msg, StunAttribute type, size_t length)
     /* In MS-TURN, IDs of REALM and NONCE STUN attributes are swapped. */
     if (msg->agent && msg->agent->compatibility == STUN_COMPATIBILITY_OC2007)
     {
-        if (type == STUN_ATTRIBUTE_NONCE)
-            type = STUN_ATTRIBUTE_REALM;
-        else if (type == STUN_ATTRIBUTE_REALM)
-            type = STUN_ATTRIBUTE_NONCE;
+        if (type == STUN_ATT_NONCE)
+            type = STUN_ATT_REALM;
+        else if (type == STUN_ATT_REALM)
+            type = STUN_ATT_NONCE;
     }
 
-    if ((size_t)mlen + STUN_ATTRIBUTE_HEADER_LENGTH + length > msg->buffer_len)
+    if ((size_t)mlen + STUN_ATT_HEADER_LENGTH + length > msg->buffer_len)
         return NULL;
 
 
@@ -488,7 +488,7 @@ stun_message_append_error(StunMessage * msg, StunError code)
     const char * str = stun_strerror(code);
     size_t len = strlen(str);
 
-    uint8_t * ptr = stun_message_append(msg, STUN_ATTRIBUTE_ERROR_CODE, 4 + len);
+    uint8_t * ptr = stun_message_append(msg, STUN_ATT_ERROR_CODE, 4 + len);
     if (ptr == NULL)
         return STUN_MESSAGE_RETURN_NOT_ENOUGH_SPACE;
 
@@ -608,7 +608,7 @@ int stun_message_validate_buffer_length(const uint8_t * msg, size_t length,  boo
             return STUN_MESSAGE_BUFFER_INVALID;
         }
 
-        alen = stun_getw(msg + STUN_ATTRIBUTE_TYPE_LEN);
+        alen = stun_getw(msg + STUN_ATT_TYPE_LEN);
         if (has_padding)
             alen = stun_align(alen);
 

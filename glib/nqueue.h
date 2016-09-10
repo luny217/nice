@@ -90,4 +90,12 @@ struct _invector_st
 	uint32_t size;
 };
 
+typedef struct _outvector_st n_outvector_t;
+
+struct _outvector_st 
+{
+	const void * buffer;
+	uint32_t size;
+};
+
 #endif /* __G_QUEUE_H__ */

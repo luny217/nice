@@ -6,14 +6,14 @@
 #include "agent.h"
 #include "component.h"
 
-//G_DEFINE_BOXED_TYPE(NiceCandidate, nice_candidate, nice_candidate_copy, nice_candidate_free);
+//G_DEFINE_BOXED_TYPE(n_cand_t, nice_candidate, nice_candidate_copy, n_cand_free);
 
 GType nice_candidate_get_type(void)
 {
     static volatile gsize g_define_type_id__volatile = 0;
     if ((g_once_init_enter((&g_define_type_id__volatile))))
     {
-        GType g_define_type_id = g_boxed_type_register_static(g_intern_static_string("NiceCandidate"), (GBoxedCopyFunc)nice_candidate_copy, (GBoxedFreeFunc)nice_candidate_free);
+        GType g_define_type_id = g_boxed_type_register_static(g_intern_static_string("n_cand_t"), (GBoxedCopyFunc)nice_candidate_copy, (GBoxedFreeFunc)n_cand_free);
         {
             {
                 {
@@ -29,16 +29,16 @@ GType nice_candidate_get_type(void)
  * gathered by this specification - host candidates, server reflexive
  * candidates, and relayed candidates."" (ID-19) */
 
-NiceCandidate * nice_candidate_new(NiceCandidateType type)
+n_cand_t * n_cand_new(n_cand_type_e type)
 {
-    NiceCandidate * candidate;
+    n_cand_t * candidate;
 
-    candidate = g_slice_new0(NiceCandidate);
+    candidate = g_slice_new0(n_cand_t);
     candidate->type = type;
     return candidate;
 }
 
-void nice_candidate_free(NiceCandidate * candidate)
+void n_cand_free(n_cand_t * candidate)
 {
     /* better way of checking if socket is allocated? */
 
@@ -51,7 +51,7 @@ void nice_candidate_free(NiceCandidate * candidate)
     if (candidate->turn)
         turn_server_unref(candidate->turn);
 
-    g_slice_free(NiceCandidate, candidate);
+    g_slice_free(n_cand_t, candidate);
 }
 
 /*
@@ -74,29 +74,29 @@ static uint32_t nice_candidate_ice_local_preference_full(uint32_t direction_pref
     return (0x2000 * direction_preference + other_preference);
 }
 
-static uint16_t nice_candidate_ice_local_preference(const NiceCandidate * candidate)
+static uint16_t nice_candidate_ice_local_preference(const n_cand_t * candidate)
 {
     uint32_t direction_preference;
 
     switch (candidate->transport)
     {
 	case CANDIDATE_TRANSPORT_TCP_ACTIVE:
-		if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-			candidate->type == CANDIDATE_TYPE_PREF_NAT_ASSISTED)
+		if (candidate->type == CAND_TYPE_SERVER ||
+			candidate->type == CAND_TYPE_PREF_NAT)
 			direction_preference = 4;
 		else
 			direction_preference = 6;
 		break;
 	case CANDIDATE_TRANSPORT_TCP_PASSIVE:
-		if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-			candidate->type == CANDIDATE_TYPE_PREF_NAT_ASSISTED)
+		if (candidate->type == CAND_TYPE_SERVER ||
+			candidate->type == CAND_TYPE_PREF_NAT)
 			direction_preference = 2;
 		else
 			direction_preference = 4;
 		break;
 	case CANDIDATE_TRANSPORT_TCP_SO:
-		if (candidate->type == CANDIDATE_TYPE_SERVER_REFLEXIVE ||
-			candidate->type == CANDIDATE_TYPE_PREF_NAT_ASSISTED)
+		if (candidate->type == CAND_TYPE_SERVER ||
+			candidate->type == CAND_TYPE_PREF_NAT)
 			direction_preference = 6;
 		else
 			direction_preference = 2;
@@ -110,23 +110,23 @@ static uint16_t nice_candidate_ice_local_preference(const NiceCandidate * candid
     return nice_candidate_ice_local_preference_full(direction_preference, 1);
 }
 
-static uint8_t nice_candidate_ice_type_preference(const NiceCandidate * candidate)
+static uint8_t nice_candidate_ice_type_preference(const n_cand_t * candidate)
 {
     uint8_t type_preference;
 
     switch (candidate->type)
     {
-        case CANDIDATE_TYPE_HOST:
-            type_preference = CANDIDATE_TYPE_PREF_HOST;
+        case CAND_TYPE_HOST:
+            type_preference = CAND_TYPE_PREF_HOST;
             break;
-        case CANDIDATE_TYPE_PEER_REFLEXIVE:
-            type_preference = CANDIDATE_TYPE_PREF_PEER_REFLEXIVE;
+        case CAND_TYPE_PEER:
+            type_preference = CAND_TYPE_PREF_PEER;
             break;
-        case CANDIDATE_TYPE_SERVER_REFLEXIVE:
-            type_preference = CANDIDATE_TYPE_PREF_SERVER_REFLEXIVE;
+        case CAND_TYPE_SERVER:
+            type_preference = CAND_TYPE_PREF_SERVER;
             break;
-        case CANDIDATE_TYPE_RELAYED:
-            type_preference = CANDIDATE_TYPE_PREF_RELAYED;
+        case CAND_TYPE_RELAYED:
+            type_preference = CAND_TYPE_PREF_RELAYED;
             break;
         default:
             type_preference = 0;
@@ -141,7 +141,7 @@ static uint8_t nice_candidate_ice_type_preference(const NiceCandidate * candidat
     return type_preference;
 }
 
-uint32_t nice_candidate_ice_priority(const NiceCandidate * candidate)
+uint32_t n_cand_ice_priority(const n_cand_t * candidate)
 {
     uint8_t type_preference;
     uint16_t local_preference;
@@ -170,14 +170,14 @@ uint64_t nice_candidate_pair_priority(uint32_t o_prio, uint32_t a_prio)
 /*
  * Copies a candidate
  */
-NiceCandidate * nice_candidate_copy(const NiceCandidate * candidate)
+n_cand_t * nice_candidate_copy(const n_cand_t * candidate)
 {
-    NiceCandidate * copy;
+    n_cand_t * copy;
 
     g_return_val_if_fail(candidate != NULL, NULL);
 
-    copy = nice_candidate_new(candidate->type);
-    memcpy(copy, candidate, sizeof(NiceCandidate));
+    copy = n_cand_new(candidate->type);
+    memcpy(copy, candidate, sizeof(n_cand_t));
 
     copy->turn = NULL;
     copy->username = g_strdup(copy->username);

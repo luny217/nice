@@ -16,29 +16,28 @@
 #endif
 
 
-static void socket_close(NiceSocket * sock);
-static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
-static int32_t socket_send_messages(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
-static int32_t socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages);
-static int socket_is_reliable(NiceSocket * sock);
-static int socket_can_send(NiceSocket * sock, NiceAddress * addr);
-static void socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data);
+static void socket_close(n_socket_t * sock);
+static int32_t socket_recv_messages(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
+static int32_t socket_send_messages(n_socket_t * sock, const n_addr_t * to, const n_output_msg_t * messages, uint32_t n_messages);
+//static int32_t socket_send_messages_reliable(n_socket_t * sock, const n_addr_t * to, const n_output_msg_t * messages, uint32_t n_messages);
+static int socket_is_reliable(n_socket_t * sock);
+static int socket_can_send(n_socket_t * sock, n_addr_t * addr);
+static void socket_set_writable_callback(n_socket_t * sock, NiceSocketWritableCb callback, void * user_data);
 
 struct UdpBsdSocketPrivate
 {
-    NiceAddress niceaddr;
+    n_addr_t niceaddr;
     GSocketAddress * gaddr;
 };
 
-NiceSocket *
-nice_udp_bsd_socket_new(NiceAddress * addr)
+n_socket_t * nice_udp_bsd_socket_new(n_addr_t * addr)
 {
     union
     {
         struct sockaddr_storage storage;
         struct sockaddr addr;
     } name;
-    NiceSocket * sock = g_slice_new0(NiceSocket);
+    n_socket_t * sock = n_slice_new0(n_socket_t);
     GSocket * gsock = NULL;
     int gret = FALSE;
     GSocketAddress * gaddr;
@@ -75,7 +74,7 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
 
     if (gsock == NULL)
     {
-        g_slice_free(NiceSocket, sock);
+        g_slice_free(n_socket_t, sock);
         return NULL;
     }
 
@@ -90,7 +89,7 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
 
     if (gret == FALSE)
     {
-        g_slice_free(NiceSocket, sock);
+        g_slice_free(n_socket_t, sock);
         g_socket_close(gsock, NULL);
         g_object_unref(gsock);
         return NULL;
@@ -100,7 +99,7 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
     if (gaddr == NULL ||
             !g_socket_address_to_native(gaddr, &name.addr, sizeof(name), NULL))
     {
-        n_slice_free(NiceSocket, sock);
+        n_slice_free(n_socket_t, sock);
         g_socket_close(gsock, NULL);
         g_object_unref(gsock);
         return NULL;
@@ -108,15 +107,15 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
 
     g_object_unref(gaddr);
 
-    nice_address_set_from_sockaddr(&sock->addr, &name.addr);
+    n_addr_set_from_sock(&sock->addr, &name.addr);
 
-    priv = sock->priv = g_slice_new0(struct UdpBsdSocketPrivate);
+    priv = sock->priv = n_slice_new0(struct UdpBsdSocketPrivate);
     nice_address_init(&priv->niceaddr);
 
     sock->type = NICE_SOCKET_TYPE_UDP_BSD;
     sock->fileno = gsock;
     sock->send_messages = socket_send_messages;
-    sock->send_messages_reliable = socket_send_messages_reliable;
+    //sock->send_messages_reliable = socket_send_messages_reliable;
     sock->recv_messages = socket_recv_messages;
     sock->is_reliable = socket_is_reliable;
     sock->can_send = socket_can_send;
@@ -126,7 +125,7 @@ nice_udp_bsd_socket_new(NiceAddress * addr)
     return sock;
 }
 
-static void socket_close(NiceSocket * sock)
+static void socket_close(n_socket_t * sock)
 {
     struct UdpBsdSocketPrivate * priv = sock->priv;
 
@@ -143,7 +142,7 @@ static void socket_close(NiceSocket * sock)
     }
 }
 
-static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
+static int32_t socket_recv_messages(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
 {
     uint32_t i;
     int error = FALSE;
@@ -188,7 +187,7 @@ static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_mess
             } sa;
 
             g_socket_address_to_native(gaddr, &sa.addr, sizeof(sa), NULL);
-            nice_address_set_from_sockaddr(recv_message->from, &sa.addr);
+            n_addr_set_from_sock(recv_message->from, &sa.addr);
         }
 
         if (gaddr != NULL)
@@ -206,7 +205,7 @@ static int32_t socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_mess
     return i;
 }
 
-static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * message)
+static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const n_output_msg_t * message)
 {
     struct UdpBsdSocketPrivate * priv = sock->priv;
     GError * child_error = NULL;
@@ -216,7 +215,7 @@ static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, co
     if (priv == NULL)
         return -1;
 
-    if (!nice_address_is_valid(&priv->niceaddr) ||
+    if (!n_addr_is_valid(&priv->niceaddr) ||
             !nice_address_equal(&priv->niceaddr, to))
     {
         union
@@ -254,7 +253,7 @@ static int32_t socket_send_message(NiceSocket * sock, const NiceAddress * to, co
 }
 
 static int32_t
-socket_send_messages(NiceSocket * sock, const NiceAddress * to,
+socket_send_messages(n_socket_t * sock, const n_addr_t * to,
                      const n_output_msg_t * messages, uint32_t n_messages)
 {
     uint32_t i;
@@ -287,23 +286,25 @@ socket_send_messages(NiceSocket * sock, const NiceAddress * to,
     return i;
 }
 
-static int32_t socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
+#if 0
+static int32_t socket_send_messages_reliable(n_socket_t * sock, const n_addr_t * to,
                               const n_output_msg_t * messages, uint32_t n_messages)
 {
     return -1;
 }
+#endif
 
-static int socket_is_reliable(NiceSocket * sock)
+static int socket_is_reliable(n_socket_t * sock)
 {
     return FALSE;
 }
 
-static int socket_can_send(NiceSocket * sock, NiceAddress * addr)
+static int socket_can_send(n_socket_t * sock, n_addr_t * addr)
 {
     return TRUE;
 }
 
-static void socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data)
+static void socket_set_writable_callback(n_socket_t * sock, NiceSocketWritableCb callback, void * user_data)
 {
 }
 

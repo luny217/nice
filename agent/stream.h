@@ -39,13 +39,13 @@ struct _Stream
     int tos;
 };
 
-Stream * stream_new(uint32_t n_components, NiceAgent * agent);
+Stream * stream_new(uint32_t n_components, n_agent_t * agent);
 void stream_close(Stream * stream);
 void stream_free(Stream * stream);
 int stream_all_components_ready(const Stream * stream);
-Component * stream_find_component_by_id(const Stream * stream, uint32_t id);
+Component * stream_find_comp_by_id(const Stream * stream, uint32_t id);
 void stream_initialize_credentials(Stream * stream, NiceRNG * rng);
-void stream_restart(NiceAgent * agent, Stream * stream);
+void stream_restart(n_agent_t * agent, Stream * stream);
 
 #endif /* _NICE_STREAM_H */
 

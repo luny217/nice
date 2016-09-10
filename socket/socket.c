@@ -18,12 +18,12 @@ struct _NiceSocketQueuedSend
 {
     uint8_t * buf; /* owned */
     uint32_t length;
-    NiceAddress to;
+    n_addr_t to;
 };
 
 /**
- * nice_socket_recv_messages:
- * @sock: a #NiceSocket
+ * n_socket_recv_msgs:
+ * @sock: a #n_socket_t
  * @recv_messages: (array length=n_recv_messages) (out caller-allocates):
  * array of #NiceInputMessages to return received messages in
  * @n_recv_messages: number of elements in the @recv_messages array
@@ -61,7 +61,7 @@ struct _NiceSocketQueuedSend
  *
  * Since: 0.1.5
  */
-int32_t nice_socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
+int32_t n_socket_recv_msgs(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
 {
     g_return_val_if_fail(sock != NULL, -1);
     g_return_val_if_fail(n_recv_messages == 0 || recv_messages != NULL, -1);
@@ -71,7 +71,7 @@ int32_t nice_socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messag
 
 /**
  * nice_socket_send_messages:
- * @sock: a #NiceSocket
+ * @sock: a #n_socket_t
  * @messages: (array length=n_messages) (in caller-allocates):
  * array of #NiceOutputMessages containing the messages to send
  * @n_messages: number of elements in the @messages array
@@ -104,7 +104,7 @@ int32_t nice_socket_recv_messages(NiceSocket * sock, n_input_msg_t * recv_messag
  *
  * Since: 0.1.5
  */
-int32_t nice_socket_send_messages(NiceSocket * sock, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages)
+int32_t nice_socket_send_messages(n_socket_t * sock, const n_addr_t * to, const n_output_msg_t * messages, uint32_t n_messages)
 {
     g_return_val_if_fail(sock != NULL, -1);
     g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
@@ -114,7 +114,7 @@ int32_t nice_socket_send_messages(NiceSocket * sock, const NiceAddress * to, con
 
 /**
  * nice_socket_send_messages_reliable:
- * @sock: a #NiceSocket
+ * @sock: a #n_socket_t
  * @messages: (array length=n_messages) (in caller-allocates):
  * array of #NiceOutputMessages containing the messages to send
  * @n_messages: number of elements in the @messages array
@@ -144,7 +144,7 @@ int32_t nice_socket_send_messages(NiceSocket * sock, const NiceAddress * to, con
  *
  * Since: 0.1.5
  */
-int32_t nice_socket_send_messages_reliable(NiceSocket * sock, const NiceAddress * to,
+int32_t nice_socket_send_messages_reliable(n_socket_t * sock, const n_addr_t * to,
                                    const n_output_msg_t * messages, uint32_t n_messages)
 {
     g_return_val_if_fail(sock != NULL, -1);
@@ -153,10 +153,10 @@ int32_t nice_socket_send_messages_reliable(NiceSocket * sock, const NiceAddress 
     return sock->send_messages_reliable(sock, to, messages, n_messages);
 }
 
-/* Convenience wrapper around nice_socket_recv_messages(). Returns the number of
+/* Convenience wrapper around n_socket_recv_msgs(). Returns the number of
  * bytes received on success (which will be @len), zero if sending would block, or
  * -1 on error. */
-int32_t nice_socket_recv(NiceSocket * sock, NiceAddress * from, uint32_t len, char * buf)
+int32_t nice_socket_recv(n_socket_t * sock, n_addr_t * from, uint32_t len, char * buf)
 {
     n_invector_t local_buf = { buf, len };
     n_input_msg_t local_message = { &local_buf, 1, from, 0};
@@ -171,9 +171,9 @@ int32_t nice_socket_recv(NiceSocket * sock, NiceAddress * from, uint32_t len, ch
 /* Convenience wrapper around nice_socket_send_messages(). Returns the number of
  * bytes sent on success (which will be @len), zero if sending would block, or
  * -1 on error. */
-int32_t nice_socket_send(NiceSocket * sock, const NiceAddress * to, uint32_t len, const char * buf)
+int32_t nice_socket_send(n_socket_t * sock, const n_addr_t * to, uint32_t len, const char * buf)
 {
-    GOutputVector local_buf = { buf, len };
+    n_outvector_t local_buf = { buf, len };
     n_output_msg_t local_message = { &local_buf, 1};
     int32_t ret;
 
@@ -183,219 +183,29 @@ int32_t nice_socket_send(NiceSocket * sock, const NiceAddress * to, uint32_t len
     return ret;
 }
 
-int32_t nice_socket_send_reliable(NiceSocket * sock, const NiceAddress * to, uint32_t len, const char * buf)
-{
-    GOutputVector local_buf = { buf, len };
-    n_output_msg_t local_message = { &local_buf, 1};
-    int32_t ret;
-
-    ret = sock->send_messages_reliable(sock, to, &local_message, 1);
-    if (ret == 1)
-        return len;
-    return ret;
-}
-
-int nice_socket_is_reliable(NiceSocket * sock)
+int nice_socket_is_reliable(n_socket_t * sock)
 {
     return sock->is_reliable(sock);
 }
 
-int nice_socket_can_send(NiceSocket * sock, NiceAddress * addr)
+int nice_socket_can_send(n_socket_t * sock, n_addr_t * addr)
 {
     if (sock->can_send)
         return sock->can_send(sock, addr);
     return TRUE;
 }
 
-void nice_socket_set_writable_callback(NiceSocket * sock, NiceSocketWritableCb callback, void * user_data)
+void nice_socket_set_writable_callback(n_socket_t * sock, NiceSocketWritableCb callback, void * user_data)
 {
     if (sock->set_writable_callback)
         sock->set_writable_callback(sock, callback, user_data);
 }
 
-void nice_socket_free(NiceSocket * sock)
+void nice_socket_free(n_socket_t * sock)
 {
     if (sock)
     {
         sock->close(sock);
-        n_slice_free(NiceSocket, sock);
+        n_slice_free(n_socket_t, sock);
     }
-}
-
-static void nice_socket_free_queued_send(NiceSocketQueuedSend * tbs)
-{
-    n_free(tbs->buf);
-    n_slice_free(NiceSocketQueuedSend, tbs);
-}
-
-void nice_socket_queue_send(n_queue_t * send_queue, const NiceAddress * to, const n_output_msg_t * messages, uint32_t n_messages)
-{
-    uint32_t i;
-
-    if (n_messages == 0)
-        return;
-
-    /* Compact the message?s buffers before queueing. */
-    for (i = 0; i < n_messages; i++)
-    {
-        NiceSocketQueuedSend * tbs;
-        const n_output_msg_t * message = &messages[i];
-        uint32_t message_len_remaining = output_message_get_size(message);
-        uint32_t j;
-        uint32_t offset = 0;
-
-        if (message_len_remaining == 0)
-            continue;
-
-        /* Compact the buffer. */
-        tbs = n_slice_new0(NiceSocketQueuedSend);
-        tbs->buf = malloc(message_len_remaining);
-        tbs->length = message_len_remaining;
-
-        if (to)
-            tbs->to = *to;
-        else
-            memset(&tbs->to, 0, sizeof(NiceAddress));
-        n_queue_push_tail(send_queue, tbs);
-
-        for (j = 0;
-                (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
-                (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
-                j++)
-        {
-            const GOutputVector * buffer = &message->buffers[j];
-            uint32_t len;
-
-            len = MIN(buffer->size, message_len_remaining);
-            memcpy(tbs->buf + offset, buffer->buffer, len);
-            message_len_remaining -= len;
-            offset += len;
-        }
-
-        g_assert(offset == tbs->length);
-    }
-}
-
-void nice_socket_queue_send_with_callback(n_queue_t * send_queue,
-        const n_output_msg_t * message, uint32_t message_offset, uint32_t message_len,
-        int head, GSocket * gsock, GSource ** io_source, GMainContext * context,
-        GSourceFunc cb, void * user_data)
-{
-    NiceSocketQueuedSend * tbs;
-    uint32_t j;
-    uint32_t offset = 0;
-
-    if (message_offset >= message_len)
-        return;
-
-    tbs = n_slice_new0(NiceSocketQueuedSend);
-    tbs->length = message_len - message_offset;
-    tbs->buf = g_malloc(tbs->length);
-
-    if (head)
-        n_queue_push_head(send_queue, tbs);
-    else
-        n_queue_push_tail(send_queue, tbs);
-
-    if (io_source && gsock && context && cb && *io_source == NULL)
-    {
-        *io_source = g_socket_create_source(gsock, G_IO_OUT, NULL);
-        g_source_set_callback(*io_source, (GSourceFunc) cb, user_data, NULL);
-        g_source_attach(*io_source, context);
-    }
-
-    /* Move the data into the buffer. */
-    for (j = 0;
-            (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
-            (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
-            j++)
-    {
-        const GOutputVector * buffer = &message->buffers[j];
-        uint32_t len;
-
-        /* Skip this buffer if it?s within @message_offset. */
-        if (buffer->size <= message_offset)
-        {
-            message_offset -= buffer->size;
-            continue;
-        }
-
-        len = MIN(tbs->length - offset, buffer->size - message_offset);
-        memcpy(tbs->buf + offset, (uint8_t *) buffer->buffer + message_offset, len);
-        offset += len;
-        if (message_offset >= len)
-            message_offset -= len;
-        else
-            message_offset = 0;
-    }
-}
-
-void nice_socket_flush_send_queue(NiceSocket * base_socket, n_queue_t * send_queue)
-{
-    NiceSocketQueuedSend * tbs;
-
-    while ((tbs = n_queue_pop_head(send_queue)))
-    {
-        NiceAddress * to = &tbs->to;
-
-        if (!nice_address_is_valid(to))
-            to = NULL;
-
-        /* We only queue reliable data */
-        nice_socket_send_reliable(base_socket, to, tbs->length, (const char *) tbs->buf);
-        nice_socket_free_queued_send(tbs);
-    }
-}
-
-int nice_socket_flush_send_queue_to_socket(GSocket * gsock,
-        n_queue_t * send_queue)
-{
-    NiceSocketQueuedSend * tbs;
-    GError * gerr = NULL;
-
-
-    while ((tbs = n_queue_pop_head(send_queue)) != NULL)
-    {
-        int ret;
-
-        GOutputVector local_bufs = { tbs->buf, tbs->length };
-        ret = g_socket_send_message(gsock, NULL, &local_bufs, 1, NULL, 0,
-                                    G_SOCKET_MSG_NONE, NULL, &gerr);
-
-        if (ret < 0)
-        {
-            if (g_error_matches(gerr, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
-            {
-                GOutputVector local_buf = { tbs->buf, tbs->length };
-                n_output_msg_t local_message = {&local_buf, 1};
-
-                nice_socket_queue_send_with_callback(send_queue, &local_message,
-                                                     0, local_buf.size, TRUE, NULL, NULL, NULL, NULL, NULL);
-                nice_socket_free_queued_send(tbs);
-                g_error_free(gerr);
-                return FALSE;
-            }
-            g_clear_error(&gerr);
-        }
-        else if (ret < (int) tbs->length)
-        {
-            GOutputVector local_buf = { tbs->buf + ret, tbs->length - ret };
-            n_output_msg_t local_message = {&local_buf, 1};
-
-            nice_socket_queue_send_with_callback(send_queue, &local_message,
-                                                 0, local_buf.size, TRUE, NULL, NULL, NULL, NULL, NULL);
-            nice_socket_free_queued_send(tbs);
-            return FALSE;
-        }
-
-        nice_socket_free_queued_send(tbs);
-    }
-
-    return TRUE;
-}
-
-void nice_socket_free_send_queue(n_queue_t * send_queue)
-{
-    n_queue_foreach(send_queue, (n_func) nice_socket_free_queued_send, NULL);
-    n_queue_clear(send_queue);
 }

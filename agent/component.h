@@ -32,7 +32,7 @@ typedef struct _IncomingCheck IncomingCheck;
 
 struct _CandidatePairKeepalive
 {
-    NiceAgent * agent;
+    n_agent_t * agent;
     GSource * tick_source;
     uint32_t stream_id;
     uint32_t component_id;
@@ -43,16 +43,16 @@ struct _CandidatePairKeepalive
 
 struct _CandidatePair
 {
-    NiceCandidate * local;
-    NiceCandidate * remote;
+    n_cand_t * local;
+    n_cand_t * remote;
     uint32_t priority;           /* candidate pair priority */
     CandidatePairKeepalive keepalive;
 };
 
 struct _IncomingCheck
 {
-    NiceAddress from;
-    NiceSocket * local_socket;
+    n_addr_t from;
+    n_socket_t * local_socket;
     uint32_t priority;
     int use_candidate;
     uint8_t * username;
@@ -71,7 +71,7 @@ void incoming_check_free(IncomingCheck * icheck);
  * callback. */
 typedef struct
 {
-    NiceSocket * socket;
+    n_socket_t * socket;
     GSource * source;
     Component * component;
 } SocketSource;
@@ -104,15 +104,15 @@ struct _Component
     NiceComponentType type;
     uint32_t id;                    /* component id */
     NiceComponentState state;
-	n_slist_t * local_candidates;   /* list of NiceCandidate objs */
-	n_slist_t * remote_candidates;  /* list of NiceCandidate objs */
+	n_slist_t * local_candidates;   /* list of n_cand_t objs */
+	n_slist_t * remote_candidates;  /* list of n_cand_t objs */
 	n_slist_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
     uint32_t socket_sources_age;    /* incremented when socket_sources changes */
 	n_slist_t * incoming_checks;    /* list of IncomingCheck objs */
 	n_dlist_t * turn_servers;            /* List of TurnServer objs */
     CandidatePair selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
-    NiceCandidate * restart_candidate; /* for storing active remote candidate during a restart */
-    NiceCandidate * turn_candidate; /* for storing active turn candidate if turn servers have been cleared */
+    n_cand_t * restart_candidate; /* for storing active remote candidate during a restart */
+    n_cand_t * turn_candidate; /* for storing active turn candidate if turn servers have been cleared */
     /* I/O handling. The main context must always be non-NULL, and is used for all
      * socket recv() operations. All io_callback emissions are invoked in this
      * context too.
@@ -144,7 +144,7 @@ struct _Component
                                                 recv_messages */
     GError ** recv_buf_error;         /* error information about failed reads */
 
-    NiceAgent * agent;  /* unowned, immutable: can be accessed without holding the
+    n_agent_t * agent;  /* unowned, immutable: can be accessed without holding the
                       * agent lock */
     Stream * stream;  /* unowned, immutable: can be accessed without holding the
                     * agent lock */
@@ -155,7 +155,7 @@ struct _Component
     GCancellable * stop_cancellable;
     GSource * stop_cancellable_source; /* owned */
 
-    PseudoTcpSocket * tcp;
+    pst_socket_t * tcp;
     GSource * tcp_clock;
     uint64_t last_clock_timeout;
     int tcp_readable;
@@ -172,20 +172,20 @@ struct _Component
     n_queue_t queued_tcp_packets;
 };
 
-Component * component_new(uint32_t component_id, NiceAgent * agent, Stream * stream);
+Component * component_new(uint32_t component_id, n_agent_t * agent, Stream * stream);
 void component_close(Component * cmp);
 void component_free(Component * cmp);
-int component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
+int component_find_pair(Component * cmp, n_agent_t * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
 void component_restart(Component * cmp);
 void component_update_selected_pair(Component * component, const CandidatePair * pair);
-NiceCandidate * component_find_remote_candidate(const Component * component, const NiceAddress * addr, NiceCandidateTransport transport);
-NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Component * component, NiceCandidate * candidate);
-void component_attach_socket(Component * component, NiceSocket * nsocket);
-void component_detach_socket(Component * component, NiceSocket * nsocket);
+n_cand_t * comp_find_remote_cand(const Component * component, const n_addr_t * addr);
+n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, Component * component, n_cand_t * candidate);
+void component_attach_socket(Component * component, n_socket_t * nsocket);
+void component_detach_socket(Component * component, n_socket_t * nsocket);
 void component_detach_all_sockets(Component * component);
 void component_free_socket_sources(Component * component);
 
-GSource * component_input_source_new(NiceAgent * agent, uint32_t stream_id,
+GSource * component_input_source_new(n_agent_t * agent, uint32_t stream_id,
                                      uint32_t component_id, GPollableInputStream * pollable_istream, GCancellable * cancellable);
 
 GMainContext * component_dup_io_context(Component * component);

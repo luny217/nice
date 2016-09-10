@@ -13,7 +13,7 @@ static volatile unsigned int n_streams_destroyed = 0;
  * @file stream.c
  * @brief ICE stream functionality
  */
-Stream * stream_new(uint32_t n_components, NiceAgent * agent)
+Stream * stream_new(uint32_t n_components, n_agent_t * agent)
 {
     Stream * stream;
     uint32_t n;
@@ -56,7 +56,7 @@ void stream_free(Stream * stream)
     nice_debug("Destroyed NiceStream (%u created, %u destroyed)", n_streams_created, n_streams_destroyed);
 }
 
-Component * stream_find_component_by_id(const Stream * stream, uint32_t id)
+Component * stream_find_comp_by_id(const Stream * stream, uint32_t id)
 {
     n_slist_t * i;
 
@@ -82,8 +82,8 @@ int stream_all_components_ready(const Stream * stream)
     {
         Component * component = i->data;
         if (component &&
-                !(component->state == COMPONENT_STATE_CONNECTED ||
-                  component->state == COMPONENT_STATE_READY))
+                !(component->state == COMP_STATE_CONNECTED ||
+                  component->state == COMP_STATE_READY))
             return FALSE;
     }
 
@@ -106,7 +106,7 @@ void stream_initialize_credentials(Stream * stream, NiceRNG * rng)
  * Resets the stream state to that of a ICE restarted
  * session.
  */
-void stream_restart(NiceAgent * agent, Stream * stream)
+void stream_restart(n_agent_t * agent, Stream * stream)
 {
 	n_slist_t * i;
 

@@ -41,11 +41,11 @@
 
 G_BEGIN_DECLS
 
-NiceSocket *
+n_socket_t *
 nice_tcp_bsd_socket_new (GMainContext *ctx, NiceAddress *remote_addr,
     NiceAddress *local_addr, gboolean reliable);
 
-NiceSocket *
+n_socket_t *
 nice_tcp_bsd_socket_new_from_gsock (GMainContext *ctx, GSocket *gsock,
     NiceAddress *remote_addr, NiceAddress *local_addr, gboolean reliable);
 

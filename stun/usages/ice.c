@@ -30,25 +30,25 @@ size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
 
     if (cand_use)
     {
-        val = stun_message_append_flag(msg, STUN_ATTRIBUTE_USE_CANDIDATE);
+        val = stun_message_append_flag(msg, STUN_ATT_USE_CANDIDATE);
         if (val != STUN_MESSAGE_RETURN_SUCCESS)
             return 0;
     }
 
-    val = stun_message_append32(msg, STUN_ATTRIBUTE_PRIORITY, priority);
+    val = stun_message_append32(msg, STUN_ATT_PRIORITY, priority);
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
         return 0;
 
     if (controlling)
-        val = stun_message_append64(msg, STUN_ATTRIBUTE_ICE_CONTROLLING, tie);
+        val = stun_message_append64(msg, STUN_ATT_ICE_CONTROLLING, tie);
     else
-        val = stun_message_append64(msg, STUN_ATTRIBUTE_ICE_CONTROLLED, tie);
+        val = stun_message_append64(msg, STUN_ATT_ICE_CONTROLLED, tie);
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
         return 0;
 
     if (username && username_len > 0)
     {
-        val = stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME,  username, username_len);
+        val = stun_message_append_bytes(msg, STUN_ATT_USERNAME,  username, username_len);
         if (val != STUN_MESSAGE_RETURN_SUCCESS)
             return 0;
     }
@@ -94,7 +94,7 @@ StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg, struct so
 
     stun_debug("Received %u-bytes STUN message", stun_message_length(msg));
 
-    val = stun_message_find_xor_addr(msg, STUN_ATTRIBUTE_XOR_MAPPED_ADDRESS, addr, addrlen);
+    val = stun_msg_find_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, addr, addrlen);
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
     {
         stun_debug(" No XOR-MAPPED-ADDRESS: %d", val);
@@ -160,8 +160,8 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
 
     /* Role conflict handling */
     assert(control != NULL);
-    if (stun_message_find64(req, *control ? STUN_ATTRIBUTE_ICE_CONTROLLING
-                            : STUN_ATTRIBUTE_ICE_CONTROLLED, &q) == STUN_MESSAGE_RETURN_SUCCESS)
+    if (stun_message_find64(req, *control ? STUN_ATT_ICE_CONTROLLING
+                            : STUN_ATT_ICE_CONTROLLED, &q) == STUN_MESSAGE_RETURN_SUCCESS)
     {
         stun_debug("STUN Role Conflict detected:");
 
@@ -193,11 +193,11 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
 
     if (stun_message_has_cookie(msg))
     {
-        val = stun_message_append_xor_addr(msg, STUN_ATTRIBUTE_XOR_MAPPED_ADDRESS, src, srclen);
+        val = stun_message_append_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, src, srclen);
     }
     else
     {
-        val = stun_message_append_addr(msg, STUN_ATTRIBUTE_MAPPED_ADDRESS, (struct sockaddr *) src, srclen);
+        val = stun_message_append_addr(msg, STUN_ATT_MAPPED_ADDRESS, (struct sockaddr *) src, srclen);
     }
 
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
@@ -206,10 +206,10 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
         goto failure;
     }
 
-    username = (const char *)stun_message_find(req, STUN_ATTRIBUTE_USERNAME, &username_len);
+    username = (const char *)stun_message_find(req, STUN_ATT_USERNAME, &username_len);
     if (username)
     {
-        val = stun_message_append_bytes(msg, STUN_ATTRIBUTE_USERNAME, username, username_len);
+        val = stun_message_append_bytes(msg, STUN_ATT_USERNAME, username, username_len);
     }
 
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
@@ -250,7 +250,7 @@ uint32_t stun_usage_ice_conncheck_priority(const StunMessage * msg)
 {
     uint32_t value;
 
-    if (stun_message_find32(msg, STUN_ATTRIBUTE_PRIORITY, &value) != STUN_MESSAGE_RETURN_SUCCESS)
+    if (stun_message_find32(msg, STUN_ATT_PRIORITY, &value) != STUN_MESSAGE_RETURN_SUCCESS)
         return 0;
     return value;
 }
@@ -258,6 +258,6 @@ uint32_t stun_usage_ice_conncheck_priority(const StunMessage * msg)
 
 bool stun_usage_ice_conncheck_use_candidate(const StunMessage * msg)
 {
-    return (stun_message_find_flag(msg, STUN_ATTRIBUTE_USE_CANDIDATE) == STUN_MESSAGE_RETURN_SUCCESS);
+    return (stun_message_find_flag(msg, STUN_ATT_USE_CANDIDATE) == STUN_MESSAGE_RETURN_SUCCESS);
 }
 

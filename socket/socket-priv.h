@@ -49,7 +49,7 @@
  *
  * queue messages to be sent later into the n_queue_t
  */
-void nice_socket_queue_send (n_queue_t * send_queue, const NiceAddress * to, const n_output_msg_t *messages, uint32_t n_messages);
+void nice_socket_queue_send (n_queue_t * send_queue, const n_addr_t * to, const n_output_msg_t *messages, uint32_t n_messages);
 
 /**
  * nice_socket_queue_send_with_callback:
@@ -84,7 +84,7 @@ void nice_socket_queue_send_with_callback (n_queue_t * send_queue,
  * reliable messages were queued and the underlying socket will handle the
  * send.
  */
-void nice_socket_flush_send_queue (NiceSocket *base_socket, n_queue_t * send_queue);
+void nice_socket_flush_send_queue (n_socket_t *base_socket, n_queue_t * send_queue);
 
 /**
  * nice_socket_flush_send_queue_to_socket:

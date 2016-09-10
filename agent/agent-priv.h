@@ -63,7 +63,7 @@ uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * ite
  * MTU and estimated typical sizes of ICE STUN packet */
 #define MAX_STUN_DATAGRAM_PAYLOAD    1300
 
-struct _NiceAgent
+struct _agent_st
 {
     GObject parent;                 /* gobject pointer */
     int32_t full_mode;             /* property: full-mode */
@@ -79,9 +79,9 @@ struct _NiceAgent
     uint32_t next_candidate_id;        /* id of next created candidate */
     uint32_t next_stream_id;           /* id of next created candidate */
     NiceRNG * rng;                  /* random number generator */
-	n_slist_t * discovery_list;        /* list of CandidateDiscovery items */
-    uint32_t discovery_unsched_items;  /* number of discovery items unscheduled */
-    GSource * discovery_timer_source; /* source of discovery timer */
+	n_slist_t * discovery_list;        /* list of n_cand_disc_t items */
+    uint32_t disc_unsched_items;  /* number of discovery items unscheduled */
+    GSource * disc_timer_source; /* source of discovery timer */
     GSource * conncheck_timer_source; /* source of conncheck timer */
     GSource * keepalive_timer_source; /* source of keepalive timer */
 	n_slist_t * refresh_list;        /* list of CandidateRefresh items */
@@ -97,35 +97,35 @@ struct _NiceAgent
     /* XXX: add pointer to internal data struct for ABI-safe extensions */
 };
 
-int32_t agent_find_component(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, Stream ** stream, Component ** component);
-Stream * agent_find_stream(NiceAgent * agent, uint32_t stream_id);
-void agent_gathering_done(NiceAgent * agent);
-void agent_signal_gathering_done(NiceAgent * agent);
+int32_t agent_find_comp(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, Stream ** stream, Component ** component);
+Stream * agent_find_stream(n_agent_t * agent, uint32_t stream_id);
+void agent_gathering_done(n_agent_t * agent);
+void agent_signal_gathering_done(n_agent_t * agent);
 void agent_lock(void);
 void agent_unlock(void);
-void agent_unlock_and_emit(NiceAgent * agent);
+void agent_unlock_and_emit(n_agent_t * agent);
 
-void agent_signal_new_selected_pair(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceCandidate * lcandidate, NiceCandidate * rcandidate);
-void agent_signal_component_state_change(NiceAgent * agent, uint32_t stream_id, uint32_t component_id, NiceComponentState state);
-void agent_signal_new_candidate(NiceAgent * agent, NiceCandidate * candidate);
-void agent_signal_new_remote_candidate(NiceAgent * agent, NiceCandidate * candidate);
-void agent_signal_initial_binding_request_received(NiceAgent * agent, Stream * stream);
-uint64_t agent_candidate_pair_priority(NiceAgent * agent, NiceCandidate * local, NiceCandidate * remote);
-void agent_timeout_add(NiceAgent * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data);
-StunUsageIceCompatibility agent_to_ice_compatibility(NiceAgent * agent);
-StunUsageTurnCompatibility agent_to_turn_compatibility(NiceAgent * agent);
-void agent_remove_local_candidate(NiceAgent * agent, NiceCandidate * candidate);
-void nice_agent_init_stun_agent(NiceAgent * agent, StunAgent * stun_agent);
-void _priv_set_socket_tos(NiceAgent * agent, NiceSocket * sock, int32_t tos);
+void agent_signal_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t * lcandidate, n_cand_t * rcandidate);
+void n_sig_comp_state_change(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, NiceComponentState state);
+void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate);
+void agent_sig_new_remote_cand(n_agent_t * agent, n_cand_t * candidate);
+void agent_signal_initial_binding_request_received(n_agent_t * agent, Stream * stream);
+uint64_t agent_candidate_pair_priority(n_agent_t * agent, n_cand_t * local, n_cand_t * remote);
+void agent_timeout_add(n_agent_t * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data);
+StunUsageIceCompatibility agent_to_ice_compatibility(n_agent_t * agent);
+StunUsageTurnCompatibility agent_to_turn_compatibility(n_agent_t * agent);
+void agent_remove_local_candidate(n_agent_t * agent, n_cand_t * candidate);
+void nice_agent_init_stun_agent(n_agent_t * agent, StunAgent * stun_agent);
+void _priv_set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos);
 int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
 uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t * buffer, uint32_t buffer_length);
 uint8_t * compact_input_message(const n_input_msg_t * message, uint32_t * buffer_length);
 uint8_t * compact_output_message(const n_output_msg_t * message, uint32_t * buffer_length);
 uint32_t output_message_get_size(const n_output_msg_t * message);
-int32_t agent_socket_send(NiceSocket * sock, const NiceAddress * addr, uint32_t len,  const gchar * buf);
+int32_t agent_socket_send(n_socket_t * sock, const n_addr_t * addr, uint32_t len,  const gchar * buf);
 
 uint32_t nice_candidate_ice_priority_full(uint32_t type_pref, uint32_t local_pref, uint32_t component_id);
-uint32_t nice_candidate_ice_priority(const NiceCandidate * candidate);
+uint32_t n_cand_ice_priority(const n_cand_t * candidate);
 uint64_t nice_candidate_pair_priority(uint32_t o_prio, uint32_t a_prio);
 
 /*

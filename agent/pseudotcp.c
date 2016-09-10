@@ -13,7 +13,7 @@
 #include "pseudotcp.h"
 #include "agent-priv.h"
 
-G_DEFINE_TYPE(PseudoTcpSocket, pst, G_TYPE_OBJECT);
+G_DEFINE_TYPE(pst_socket_t, pst, G_TYPE_OBJECT);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -396,7 +396,7 @@ typedef enum
 
 struct _PseudoTcpSocketPrivate
 {
-    PseudoTcpCallbacks callbacks;
+    pst_callback_t callbacks;
 
     Shutdown shutdown;  /* only used if !support_fin_ack */
     int shutdown_reads;
@@ -481,21 +481,21 @@ static void pst_set_property(GObject * object, uint32_t property_id, const GValu
 static void pst_finalize(GObject * object);
 
 
-static void queue_connect_message(PseudoTcpSocket * self);
-static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, TcpFlags flags);
-static PseudoTcpWriteResult packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now);
-static int parse(PseudoTcpSocket * self, const uint8_t * _header_buf, uint32_t header_buf_len, const uint8_t * data_buf, uint32_t data_buf_len);
-static int process(PseudoTcpSocket * self, Segment * seg);
-static int transmit(PseudoTcpSocket * self, SSegment * sseg, uint32_t now);
-static void attempt_send(PseudoTcpSocket * self, SendFlags sflags);
-static void closedown(PseudoTcpSocket * self, uint32_t err, ClosedownSource source);
-static void adjustMTU(PseudoTcpSocket * self);
-static void parse_options(PseudoTcpSocket * self, const uint8_t * data, uint32_t len);
-static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size);
-static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size);
-static void set_state(PseudoTcpSocket * self, PseudoTcpState new_state);
-static void set_state_established(PseudoTcpSocket * self);
-static void set_state_closed(PseudoTcpSocket * self, uint32_t err);
+static void queue_connect_message(pst_socket_t * self);
+static uint32_t queue(pst_socket_t * self, const char * data, uint32_t len, TcpFlags flags);
+static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now);
+static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t header_buf_len, const uint8_t * data_buf, uint32_t data_buf_len);
+static int process(pst_socket_t * self, Segment * seg);
+static int transmit(pst_socket_t * self, SSegment * sseg, uint32_t now);
+static void attempt_send(pst_socket_t * self, SendFlags sflags);
+static void closedown(pst_socket_t * self, uint32_t err, ClosedownSource source);
+static void adjustMTU(pst_socket_t * self);
+static void parse_options(pst_socket_t * self, const uint8_t * data, uint32_t len);
+static void resize_send_buffer(pst_socket_t * self, uint32_t new_size);
+static void resize_receive_buffer(pst_socket_t * self, uint32_t new_size);
+static void set_state(pst_socket_t * self, PseudoTcpState new_state);
+static void set_state_established(pst_socket_t * self);
+static void set_state_closed(pst_socket_t * self, uint32_t err);
 
 static const char * pseudo_tcp_state_get_name(PseudoTcpState state);
 static int pseudo_tcp_state_has_sent_fin(PseudoTcpState state);
@@ -506,7 +506,7 @@ static PseudoTcpDebugLevel debug_level = PSEUDO_TCP_DEBUG_NONE;
 
 #define DEBUG(level, fmt, ...)                                          \
   if (debug_level >= level)                                             \
-    g_log (level == PSEUDO_TCP_DEBUG_NORMAL ? "libnice-pseudotcp" : "libnice-pseudotcp-verbose", G_LOG_LEVEL_DEBUG, "PseudoTcpSocket %p %s: " fmt, \
+    g_log (level == PSEUDO_TCP_DEBUG_NORMAL ? "libnice-pseudotcp" : "libnice-pseudotcp-verbose", G_LOG_LEVEL_DEBUG, "pst_socket_t %p %s: " fmt, \
         self, pseudo_tcp_state_get_name (self->priv->state), ## __VA_ARGS__)
 
 void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level)
@@ -514,7 +514,7 @@ void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level)
     debug_level = level;
 }
 
-static uint32_t pseudo_tcp_get_current_time(PseudoTcpSocket * socket)
+static uint32_t pseudo_tcp_get_current_time(pst_socket_t * socket)
 {
     if (socket->priv->current_time != 0)
         return socket->priv->current_time;
@@ -522,12 +522,12 @@ static uint32_t pseudo_tcp_get_current_time(PseudoTcpSocket * socket)
     return (uint32_t)(g_get_monotonic_time() / 1000);
 }
 
-void pst_set_time(PseudoTcpSocket * self, uint32_t current_time)
+void pst_set_time(pst_socket_t * self, uint32_t current_time)
 {
     self->priv->current_time = current_time;
 }
 
-static void pst_class_init(PseudoTcpSocketClass * cls)
+static void pst_class_init(pst_socket_tClass * cls)
 {
     GObjectClass * object_class = G_OBJECT_CLASS(cls);
 
@@ -577,12 +577,12 @@ static void pst_class_init(PseudoTcpSocketClass * cls)
                                             G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     /**
-     * PseudoTcpSocket:support-fin-ack:
+     * pst_socket_t:support-fin-ack:
      *
      * Whether to support the FIN?ACK extension to the pseudo-TCP protocol for
      * this socket. The extension is only compatible with other libnice pseudo-TCP
      * stacks, and not with Jingle pseudo-TCP stacks. If enabled, support is
-     * negotiatied on connection setup, so it is safe for a #PseudoTcpSocket with
+     * negotiatied on connection setup, so it is safe for a #pst_socket_t with
      * support enabled to be used with one with it disabled, or with a Jingle
      * pseudo-TCP socket which doesn?t support it at all.
      *
@@ -600,7 +600,7 @@ static void pst_class_init(PseudoTcpSocketClass * cls)
 
 static void pst_get_property(GObject * object,  uint32_t property_id, GValue * value, GParamSpec * pspec)
 {
-    PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
+    pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
 
     switch (property_id)
     {
@@ -636,7 +636,7 @@ static void pst_get_property(GObject * object,  uint32_t property_id, GValue * v
 
 static void pst_set_property(GObject * object,  uint32_t property_id,  const GValue * value, GParamSpec * pspec)
 {
-    PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
+    pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
 
     switch (property_id)
     {
@@ -645,7 +645,7 @@ static void pst_set_property(GObject * object,  uint32_t property_id,  const GVa
             break;
         case PROP_CALLBACKS:
         {
-            PseudoTcpCallbacks * c = g_value_get_pointer(value);
+            pst_callback_t * c = g_value_get_pointer(value);
             self->priv->callbacks = *c;
         }
         break;
@@ -674,7 +674,7 @@ static void pst_set_property(GObject * object,  uint32_t property_id,  const GVa
 
 static void pst_finalize(GObject * object)
 {
-    PseudoTcpSocket * self = PSEUDO_TCP_SOCKET(object);
+    pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
     PseudoTcpSocketPrivate * priv = self->priv;
     n_dlist_t * i;
     SSegment * sseg;
@@ -704,7 +704,7 @@ static void pst_finalize(GObject * object)
 }
 
 
-static void pst_init(PseudoTcpSocket * obj)
+static void pst_init(pst_socket_t * obj)
 {
     /* Use g_new0, and do not use g_object_set_private because the size of
      * our private data is too big (150KB+) and the g_slice_allow cannot allocate
@@ -761,13 +761,13 @@ static void pst_init(PseudoTcpSocket * obj)
     priv->support_fin_ack = TRUE;
 }
 
-PseudoTcpSocket * pst_new(uint32_t conversation, PseudoTcpCallbacks * callbacks)
+pst_socket_t * pst_new(uint32_t conversation, pst_callback_t * callbacks)
 {
 
     return g_object_new(PSEUDO_TCP_SOCKET_TYPE,  "conversation", conversation, "callbacks", callbacks, NULL);
 }
 
-static void queue_connect_message(PseudoTcpSocket * self)
+static void queue_connect_message(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint8_t buf[8];
@@ -794,7 +794,7 @@ static void queue_connect_message(PseudoTcpSocket * self)
     queue(self, (char *) buf, size, FLAG_CTL);
 }
 
-static void queue_fin_message(PseudoTcpSocket * self)
+static void queue_fin_message(pst_socket_t * self)
 {
     g_assert(self->priv->support_fin_ack);
 
@@ -802,7 +802,7 @@ static void queue_fin_message(PseudoTcpSocket * self)
     queue(self, "", 0, FLAG_FIN);
 }
 
-static void queue_rst_message(PseudoTcpSocket * self)
+static void queue_rst_message(pst_socket_t * self)
 {
     g_assert(self->priv->support_fin_ack);
 
@@ -810,7 +810,7 @@ static void queue_rst_message(PseudoTcpSocket * self)
     queue(self, "", 0, FLAG_RST);
 }
 
-int pst_connect(PseudoTcpSocket * self)
+int pst_connect(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -828,7 +828,7 @@ int pst_connect(PseudoTcpSocket * self)
     return TRUE;
 }
 
-void pst_notify_mtu(PseudoTcpSocket * self, guint16 mtu)
+void pst_notify_mtu(pst_socket_t * self, guint16 mtu)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     priv->mtu_advise = mtu;
@@ -838,7 +838,7 @@ void pst_notify_mtu(PseudoTcpSocket * self, guint16 mtu)
     }
 }
 
-void pst_notify_clock(PseudoTcpSocket * self)
+void pst_notify_clock(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now = pseudo_tcp_get_current_time(self);
@@ -930,7 +930,7 @@ void pst_notify_clock(PseudoTcpSocket * self)
 
 }
 
-int pst_notify_packet(PseudoTcpSocket * self, const char * buffer, uint32_t len)
+int pst_notify_packet(pst_socket_t * self, const char * buffer, uint32_t len)
 {
     int retval;
 
@@ -945,7 +945,7 @@ int pst_notify_packet(PseudoTcpSocket * self, const char * buffer, uint32_t len)
         return FALSE;
     }
 
-    /* Hold a reference to the PseudoTcpSocket during parsing, since it may be
+    /* Hold a reference to the pst_socket_t during parsing, since it may be
      * closed from within a callback. */
     g_object_ref(self);
     retval = parse(self, (uint8_t *) buffer, HEADER_SIZE,
@@ -957,7 +957,7 @@ int pst_notify_packet(PseudoTcpSocket * self, const char * buffer, uint32_t len)
 
 /* Assume there are two buffers in the given #n_input_msg_t: a 24-byte one
  * containing the header, and a bigger one for the data. */
-int pst_notify_message(PseudoTcpSocket * self, n_input_msg_t * message)
+int pst_notify_message(pst_socket_t * self, n_input_msg_t * message)
 {
     int retval;
 
@@ -981,7 +981,7 @@ int pst_notify_message(PseudoTcpSocket * self, n_input_msg_t * message)
         return FALSE;
     }
 
-    /* Hold a reference to the PseudoTcpSocket during parsing, since it may be
+    /* Hold a reference to the pst_socket_t during parsing, since it may be
      * closed from within a callback. */
     g_object_ref(self);
     retval = parse(self, message->buffers[0].buffer, message->buffers[0].size,
@@ -991,7 +991,7 @@ int pst_notify_message(PseudoTcpSocket * self, n_input_msg_t * message)
     return retval;
 }
 
-int pst_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
+int pst_get_next_clock(pst_socket_t * self, guint64 * timeout)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now = pseudo_tcp_get_current_time(self);
@@ -1078,7 +1078,7 @@ int pst_get_next_clock(PseudoTcpSocket * self, guint64 * timeout)
 }
 
 
-int32_t pst_recv(PseudoTcpSocket * self, char * buffer, size_t len)
+int32_t pst_recv(pst_socket_t * self, char * buffer, size_t len)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t bytesread;
@@ -1138,7 +1138,7 @@ int32_t pst_recv(PseudoTcpSocket * self, char * buffer, size_t len)
     return bytesread;
 }
 
-int32_t pst_send(PseudoTcpSocket * self, const char * buffer, uint32_t len)
+int32_t pst_send(pst_socket_t * self, const char * buffer, uint32_t len)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     int32_t written;
@@ -1170,7 +1170,7 @@ int32_t pst_send(PseudoTcpSocket * self, const char * buffer, uint32_t len)
     return written;
 }
 
-void pst_close(PseudoTcpSocket * self, int force)
+void pst_close(pst_socket_t * self, int force)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -1188,7 +1188,7 @@ void pst_close(PseudoTcpSocket * self, int force)
     pst_shutdown(self, PSEUDO_TCP_SHUTDOWN_RDWR);
 }
 
-void pst_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how)
+void pst_shutdown(pst_socket_t * self, PseudoTcpShutdown how)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -1270,7 +1270,7 @@ void pst_shutdown(PseudoTcpSocket * self, PseudoTcpShutdown how)
     }
 }
 
-int pst_get_error(PseudoTcpSocket * self)
+int pst_get_error(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     return priv->error;
@@ -1280,7 +1280,7 @@ int pst_get_error(PseudoTcpSocket * self)
 // Internal Implementation
 //
 
-static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, TcpFlags flags)
+static uint32_t queue(pst_socket_t * self, const char * data, uint32_t len, TcpFlags flags)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t available_space;
@@ -1325,8 +1325,7 @@ static uint32_t queue(PseudoTcpSocket * self, const char * data, uint32_t len, T
 // |len| is the number of bytes to read from |m_sbuf| as payload. If this
 // value is 0 then this is an ACK packet, otherwise this packet has payload.
 
-static PseudoTcpWriteResult
-packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags,
+static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags,
        uint32_t offset, uint32_t len, uint32_t now)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
@@ -1336,7 +1335,7 @@ packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags,
         guint16 u16[MAX_PACKET / 2];
         uint32_t u32[MAX_PACKET / 4];
     } buffer;
-    PseudoTcpWriteResult wres = WR_SUCCESS;
+    pst_wret_e wres = WR_SUCCESS;
 
     g_assert(HEADER_SIZE + len <= MAX_PACKET);
 
@@ -1386,7 +1385,7 @@ packet(PseudoTcpSocket * self, uint32_t seq, TcpFlags flags,
     return WR_SUCCESS;
 }
 
-static int parse(PseudoTcpSocket * self, const uint8_t * _header_buf, uint32_t header_buf_len,
+static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t header_buf_len,
       const uint8_t * data_buf, uint32_t data_buf_len)
 {
     Segment seg;
@@ -1471,7 +1470,7 @@ static int pseudo_tcp_state_has_received_fin(PseudoTcpState state)
     }
 }
 
-static int process(PseudoTcpSocket * self, Segment * seg)
+static int process(pst_socket_t * self, Segment * seg)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now;
@@ -2000,7 +1999,7 @@ static int process(PseudoTcpSocket * self, Segment * seg)
     return TRUE;
 }
 
-static int transmit(PseudoTcpSocket * self, SSegment * segment, uint32_t now)
+static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t nTransmit = min(segment->len, priv->mss);
@@ -2015,7 +2014,7 @@ static int transmit(PseudoTcpSocket * self, SSegment * segment, uint32_t now)
     {
         uint32_t seq = segment->seq;
         uint8_t flags = segment->flags;
-        PseudoTcpWriteResult wres;
+        pst_wret_e wres;
 
         /* The packet must not have already been acknowledged. */
         //g_assert_cmpuint(segment->seq - priv->snd_una, <= , 1024 * 1024 * 64);
@@ -2093,7 +2092,7 @@ static int transmit(PseudoTcpSocket * self, SSegment * segment, uint32_t now)
     return TRUE;
 }
 
-static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
+static void attempt_send(pst_socket_t * self, SendFlags sflags)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now = pseudo_tcp_get_current_time(self);
@@ -2216,7 +2215,7 @@ static void attempt_send(PseudoTcpSocket * self, SendFlags sflags)
 /* If @source is %CLOSEDOWN_REMOTE, don?t send an RST packet, since closedown()
  * has been called as a result of an RST segment being received.
  * See: RFC 1122, ?4.2.2.13. */
-static void closedown(PseudoTcpSocket * self, uint32_t err, ClosedownSource source)
+static void closedown(pst_socket_t * self, uint32_t err, ClosedownSource source)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2261,7 +2260,7 @@ static void closedown(PseudoTcpSocket * self, uint32_t err, ClosedownSource sour
     set_state_closed(self, err);
 }
 
-static void adjustMTU(PseudoTcpSocket * self)
+static void adjustMTU(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2283,21 +2282,21 @@ static void adjustMTU(PseudoTcpSocket * self)
     priv->cwnd = max(priv->cwnd, priv->mss);
 }
 
-static void apply_window_scale_option(PseudoTcpSocket * self, uint8_t scale_factor)
+static void apply_window_scale_option(pst_socket_t * self, uint8_t scale_factor)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
     priv->swnd_scale = scale_factor;
 }
 
-static void apply_fin_ack_option(PseudoTcpSocket * self)
+static void apply_fin_ack_option(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
     priv->support_fin_ack = TRUE;
 }
 
-static void apply_option(PseudoTcpSocket * self, uint8_t kind, const uint8_t * data,
+static void apply_option(pst_socket_t * self, uint8_t kind, const uint8_t * data,
              uint32_t len)
 {
     switch (kind)
@@ -2333,7 +2332,7 @@ static void apply_option(PseudoTcpSocket * self, uint8_t kind, const uint8_t * d
 }
 
 
-static void parse_options(PseudoTcpSocket * self, const uint8_t * data, uint32_t len)
+static void parse_options(pst_socket_t * self, const uint8_t * data, uint32_t len)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     int has_window_scaling_option = FALSE;
@@ -2411,7 +2410,7 @@ static void parse_options(PseudoTcpSocket * self, const uint8_t * data, uint32_t
     }
 }
 
-static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size)
+static void resize_send_buffer(pst_socket_t * self, uint32_t new_size)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2420,7 +2419,7 @@ static void resize_send_buffer(PseudoTcpSocket * self, uint32_t new_size)
 }
 
 
-static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size)
+static void resize_receive_buffer(pst_socket_t * self, uint32_t new_size)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint8_t scale_factor = 0;
@@ -2455,7 +2454,7 @@ static void resize_receive_buffer(PseudoTcpSocket * self, uint32_t new_size)
     priv->rcv_wnd = available_space;
 }
 
-int32_t pst_get_available_bytes(PseudoTcpSocket * self)
+int32_t pst_get_available_bytes(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2467,12 +2466,12 @@ int32_t pst_get_available_bytes(PseudoTcpSocket * self)
     return pst_fifo_get_buffered(&priv->rbuf);
 }
 
-int pst_can_send(PseudoTcpSocket * self)
+int pst_can_send(pst_socket_t * self)
 {
     return (pst_get_available_send_space(self) > 0);
 }
 
-uint32_t pst_get_available_send_space(PseudoTcpSocket * self)
+uint32_t pst_get_available_send_space(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t ret;
@@ -2521,7 +2520,7 @@ static const char * pseudo_tcp_state_get_name(PseudoTcpState state)
     }
 }
 
-static void set_state(PseudoTcpSocket * self, PseudoTcpState new_state)
+static void set_state(pst_socket_t * self, PseudoTcpState new_state)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     PseudoTcpState old_state = priv->state;
@@ -2568,7 +2567,7 @@ static void set_state(PseudoTcpSocket * self, PseudoTcpState new_state)
     priv->state = new_state;
 }
 
-static void set_state_established(PseudoTcpSocket * self)
+static void set_state_established(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2580,7 +2579,7 @@ static void set_state_established(PseudoTcpSocket * self)
 }
 
 /* (err == 0) means no error. */
-static void set_state_closed(PseudoTcpSocket * self, uint32_t err)
+static void set_state_closed(pst_socket_t * self, uint32_t err)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
@@ -2591,14 +2590,14 @@ static void set_state_closed(PseudoTcpSocket * self, uint32_t err)
         priv->callbacks.PseudoTcpClosed(self, err, priv->callbacks.user_data);
 }
 
-int pst_is_closed(PseudoTcpSocket * self)
+int pst_is_closed(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
     return (priv->state == TCP_CLOSED);
 }
 
-int pst_is_closed_remotely(PseudoTcpSocket * self)
+int pst_is_closed_remotely(pst_socket_t * self)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 

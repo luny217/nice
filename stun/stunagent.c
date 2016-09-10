@@ -253,7 +253,7 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
     if (!stun_message_has_cookie(request) && (counter & 1))
         ids[counter++] = ids[0];
 
-    if (stun_message_append_bytes(msg, STUN_ATTRIBUTE_UNKNOWN_ATTRIBUTES,
+    if (stun_message_append_bytes(msg, STUN_ATT_UNKNOWN_ATTRIBUTES,
                                   ids, counter * 2) == STUN_MESSAGE_RETURN_SUCCESS)
     {
         return stun_agent_finish_message(agent, msg, request->key, request->key_len);
@@ -300,8 +300,8 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uin
 		uint16_t realm_len;
 		uint16_t username_len;
 
-		realm = (uint8_t *)stun_message_find(msg, STUN_ATTRIBUTE_REALM, &realm_len);
-		username = (uint8_t *)stun_message_find(msg, STUN_ATTRIBUTE_USERNAME, &username_len);
+		realm = (uint8_t *)stun_message_find(msg, STUN_ATT_REALM, &realm_len);
+		username = (uint8_t *)stun_message_find(msg, STUN_ATT_USERNAME, &username_len);
 		if (username == NULL || realm == NULL)
 		{
 			skip = TRUE;
@@ -317,7 +317,7 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uin
         then don't send the message integrity */
         if (skip == FALSE)
         {
-            ptr = stun_message_append(msg, STUN_ATTRIBUTE_MESSAGE_INTEGRITY, 20);
+            ptr = stun_message_append(msg, STUN_ATT_MESSAGE_INTEGRITY, 20);
             if (ptr == NULL)
             {
                 return 0;
@@ -374,7 +374,7 @@ static uint32_t stun_agent_find_unknowns(StunAgent * agent, const StunMessage * 
 
     while ((offset < len) && (count < max))
     {
-        size_t alen = stun_getw(msg->buffer + offset + STUN_ATTRIBUTE_TYPE_LEN);
+        size_t alen = stun_getw(msg->buffer + offset + STUN_ATT_TYPE_LEN);
         uint16_t atype = stun_getw(msg->buffer + offset);
 
         if (!stun_optional(atype) && stun_agent_is_unknown(agent, atype))
@@ -386,7 +386,7 @@ static uint32_t stun_agent_find_unknowns(StunAgent * agent, const StunMessage * 
         if (!(agent->usage_flags & STUN_AGENT_USAGE_NO_ALIGNED_ATTRIBUTES))
             alen = stun_align(alen);
 
-        offset += STUN_ATTRIBUTE_VALUE_POS + alen;
+        offset += STUN_ATT_VALUE_POS + alen;
     }
 
     stun_debug("STUN unknown: %u mandatory attribute(s)!", count);

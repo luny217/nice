@@ -392,7 +392,7 @@ bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
  * and transaction ID as the message @request.  It will then add the ERROR-CODE
  * attribute with code #STUN_ERROR_UNKNOWN_ATTRIBUTE and add all the unknown
  * mandatory attributes from the @request STUN message in the
- * #STUN_ATTRIBUTE_UNKNOWN_ATTRIBUTES attribute, it will then finish the message
+ * #STUN_ATT_UNKNOWN_ATTRIBUTES attribute, it will then finish the message
  * by calling stun_agent_finish_message()
  * Returns: The size of the message built
  */

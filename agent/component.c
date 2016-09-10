@@ -64,7 +64,7 @@ static void socket_source_free(SocketSource * source)
     g_slice_free(SocketSource, source);
 }
 
-Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
+Component * component_new(uint32_t id, n_agent_t * agent, Stream * stream)
 {
     Component * component;
 
@@ -73,7 +73,7 @@ Component * component_new(uint32_t id, NiceAgent * agent, Stream * stream)
 
     component = n_slice_new0(Component);
     component->id = id;
-    component->state = COMPONENT_STATE_DISCONNECTED;
+    component->state = COMP_STATE_DISCONNECTED;
     component->restart_candidate = NULL;
     component->tcp = NULL;
     component->agent = agent;
@@ -112,10 +112,10 @@ void component_clean_turn_servers(Component * cmp)
 
     for (i = cmp->local_candidates; i;)
     {
-        NiceCandidate * candidate = i->data;
+        n_cand_t * candidate = i->data;
 		n_slist_t  * next = i->next;
 
-        if (candidate->type != CANDIDATE_TYPE_RELAYED)
+        if (candidate->type != CAND_TYPE_RELAYED)
         {
             i = next;
             continue;
@@ -135,10 +135,10 @@ void component_clean_turn_servers(Component * cmp)
             if (cmp->turn_candidate)
             {
                 refresh_prune_candidate(cmp->agent, cmp->turn_candidate);
-                discovery_prune_socket(cmp->agent, cmp->turn_candidate->sockptr);
+                disc_prune_socket(cmp->agent, cmp->turn_candidate->sockptr);
                 conn_check_prune_socket(cmp->agent, cmp->stream, cmp,  cmp->turn_candidate->sockptr);
                 component_detach_socket(cmp, cmp->turn_candidate->sockptr);
-                nice_candidate_free(cmp->turn_candidate);
+                n_cand_free(cmp->turn_candidate);
             }
             /* Bring the priority down to 0, so that it will be replaced
              * on the new run.
@@ -149,18 +149,18 @@ void component_clean_turn_servers(Component * cmp)
         else
         {
             refresh_prune_candidate(cmp->agent, candidate);
-            discovery_prune_socket(cmp->agent, candidate->sockptr);
+            disc_prune_socket(cmp->agent, candidate->sockptr);
             conn_check_prune_socket(cmp->agent, cmp->stream, cmp, candidate->sockptr);
             component_detach_socket(cmp, candidate->sockptr);
             agent_remove_local_candidate(cmp->agent, candidate);
-            nice_candidate_free(candidate);
+            n_cand_free(candidate);
         }
         cmp->local_candidates = n_slist_delete_link(cmp->local_candidates, i);
         i = next;
     }
 }
 
-static void component_clear_selected_pair(Component * component)
+static void comp_clear_selected_pair(Component * component)
 {
     if (component->selected_pair.keepalive.tick_source != NULL)
     {
@@ -177,7 +177,7 @@ static void component_clear_selected_pair(Component * component)
 void component_close(Component * cmp)
 {
     IOCallbackData * data;
-    GOutputVector * vec;
+    n_outvector_t * vec;
 
     /* Start closing the pseudo-TCP socket first. FIXME: There is a very big and
      * reliably triggerable race here. pst_close() does not block
@@ -195,19 +195,19 @@ void component_close(Component * cmp)
     }
 
     if (cmp->restart_candidate)
-        nice_candidate_free(cmp->restart_candidate), cmp->restart_candidate = NULL;
+        n_cand_free(cmp->restart_candidate), cmp->restart_candidate = NULL;
 
     if (cmp->turn_candidate)
-        nice_candidate_free(cmp->turn_candidate),  cmp->turn_candidate = NULL;
+        n_cand_free(cmp->turn_candidate),  cmp->turn_candidate = NULL;
 
     while (cmp->local_candidates)
     {
         agent_remove_local_candidate(cmp->agent, cmp->local_candidates->data);
-        nice_candidate_free(cmp->local_candidates->data);
+        n_cand_free(cmp->local_candidates->data);
         cmp->local_candidates = n_slist_delete_link(cmp->local_candidates, cmp->local_candidates);
     }
 
-    n_slist_free_full(cmp->remote_candidates, (n_destroy_notify) nice_candidate_free);
+    n_slist_free_full(cmp->remote_candidates, (n_destroy_notify) n_cand_free);
     cmp->remote_candidates = NULL;
     component_free_socket_sources(cmp);
     n_slist_free_full(cmp->incoming_checks, (n_destroy_notify) incoming_check_free);
@@ -237,7 +237,7 @@ void component_close(Component * cmp)
     while ((vec = n_queue_pop_head(&cmp->queued_tcp_packets)) != NULL)
     {
         n_free((void *) vec->buffer);
-        g_slice_free(GOutputVector, vec);
+        g_slice_free(n_outvector_t, vec);
     }
 }
 
@@ -282,15 +282,15 @@ void component_free(Component * cmp)
  * @return TRUE if pair found, pointer to pair stored at 'pair'
  */
 int
-component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair)
+component_find_pair(Component * cmp, n_agent_t * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair)
 {
     n_slist_t  * i;
     CandidatePair result = { 0, };
 
     for (i = cmp->local_candidates; i; i = i->next)
     {
-        NiceCandidate * candidate = i->data;
-        if (strncmp(candidate->foundation, lfoundation, CANDIDATE_MAX_FOUNDATION) == 0)
+        n_cand_t * candidate = i->data;
+        if (strncmp(candidate->foundation, lfoundation, CAND_MAX_FOUNDATION) == 0)
         {
             result.local = candidate;
             break;
@@ -299,8 +299,8 @@ component_find_pair(Component * cmp, NiceAgent * agent, const gchar * lfoundatio
 
     for (i = cmp->remote_candidates; i; i = i->next)
     {
-        NiceCandidate * candidate = i->data;
-        if (strncmp(candidate->foundation, rfoundation, CANDIDATE_MAX_FOUNDATION) == 0)
+        n_cand_t * candidate = i->data;
+        if (strncmp(candidate->foundation, rfoundation, CAND_MAX_FOUNDATION) == 0)
         {
             result.remote = candidate;
             break;
@@ -329,7 +329,7 @@ component_restart(Component * cmp)
 
     for (i = cmp->remote_candidates; i; i = i->next)
     {
-        NiceCandidate * candidate = i->data;
+        n_cand_t * candidate = i->data;
 
         /* note: do not remove the local candidate that is
          *       currently part of the 'selected pair', see ICE
@@ -337,11 +337,11 @@ component_restart(Component * cmp)
         if (candidate == cmp->selected_pair.remote)
         {
             if (cmp->restart_candidate)
-                nice_candidate_free(cmp->restart_candidate);
+                n_cand_free(cmp->restart_candidate);
             cmp->restart_candidate = candidate;
         }
         else
-            nice_candidate_free(candidate);
+            n_cand_free(candidate);
     }
     n_slist_free(cmp->remote_candidates),
                  cmp->remote_candidates = NULL;
@@ -372,16 +372,16 @@ void component_update_selected_pair(Component * component, const CandidatePair *
             component->selected_pair.local == component->turn_candidate)
     {
         refresh_prune_candidate(component->agent, component->turn_candidate);
-        discovery_prune_socket(component->agent,
+        disc_prune_socket(component->agent,
                                component->turn_candidate->sockptr);
         conn_check_prune_socket(component->agent, component->stream, component,
                                 component->turn_candidate->sockptr);
         component_detach_socket(component, component->turn_candidate->sockptr);
-        nice_candidate_free(component->turn_candidate);
+        n_cand_free(component->turn_candidate);
         component->turn_candidate = NULL;
     }
 
-    component_clear_selected_pair(component);
+    comp_clear_selected_pair(component);
 
     component->selected_pair.local = pair->local;
     component->selected_pair.remote = pair->remote;
@@ -395,21 +395,17 @@ void component_update_selected_pair(Component * component, const CandidatePair *
  *
  * @return pointer to candidate or NULL if not found
  */
-NiceCandidate *
-component_find_remote_candidate(const Component * component, const NiceAddress * addr, NiceCandidateTransport transport)
+n_cand_t * comp_find_remote_cand(const Component * comp, const n_addr_t * addr)
 {
     n_slist_t  * i;
 
-    for (i = component->remote_candidates; i; i = i->next)
+    for (i = comp->remote_candidates; i; i = i->next)
     {
-        NiceCandidate * candidate = i->data;
+        n_cand_t * candidate = i->data;
 
-        if (nice_address_equal(&candidate->addr, addr) &&
-                candidate->transport == transport)
+        if (nice_address_equal(&candidate->addr, addr))
             return candidate;
-
     }
-
     return NULL;
 }
 
@@ -420,10 +416,10 @@ component_find_remote_candidate(const Component * component, const NiceAddress *
  * this candidate.
  */
 
-NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Component * component, NiceCandidate * candidate)
+n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, Component * component, n_cand_t * candidate)
 {
-    NiceCandidate * local = NULL;
-    NiceCandidate * remote = NULL;
+    n_cand_t * local = NULL;
+    n_cand_t * remote = NULL;
     guint64 priority = 0;
     n_slist_t  * item = NULL;
 
@@ -431,12 +427,12 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
 
     for (item = component->local_candidates; item; item = n_slist_next(item))
     {
-        NiceCandidate * tmp = item->data;
+        n_cand_t * tmp = item->data;
         uint64_t tmp_prio = 0;
 
         if (tmp->transport != candidate->transport ||
                 tmp->addr.s.addr.sa_family != candidate->addr.s.addr.sa_family ||
-                tmp->type != CANDIDATE_TYPE_HOST)
+                tmp->type != CAND_TYPE_HOST)
             continue;
 
         tmp_prio = agent_candidate_pair_priority(agent, tmp, candidate);
@@ -451,16 +447,16 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
     if (local == NULL)
         return NULL;
 
-    remote = component_find_remote_candidate(component, &candidate->addr, candidate->transport);
+    remote = comp_find_remote_cand(component, &candidate->addr);
 
     if (!remote)
     {
         remote = nice_candidate_copy(candidate);
         component->remote_candidates = n_slist_append(component->remote_candidates, remote);
-        agent_signal_new_remote_candidate(agent, remote);
+        agent_sig_new_remote_cand(agent, remote);
     }
 
-    component_clear_selected_pair(component);
+    comp_clear_selected_pair(component);
 
     component->selected_pair.local = local;
     component->selected_pair.remote = remote;
@@ -472,14 +468,14 @@ NiceCandidate * component_set_selected_remote_candidate(NiceAgent * agent, Compo
 static int32_t _find_socket_source(const void * a, const void * b)
 {
     const SocketSource * source_a = a;
-    const NiceSocket * socket_b = b;
+    const n_socket_t * socket_b = b;
 
     return (source_a->socket == socket_b) ? 0 : 1;
 }
 
 /* This takes ownership of the socket.
  * It creates and attaches a source to the components context. */
-void component_attach_socket(Component * component, NiceSocket * nicesock)
+void component_attach_socket(Component * component, n_socket_t * nicesock)
 {
     n_slist_t  * l;
     SocketSource * socket_source;
@@ -546,7 +542,7 @@ component_reattach_all_sockets(Component * component)
  * If the @socket doesn?t exist in this @component, do nothing.
  */
 void
-component_detach_socket(Component * component, NiceSocket * nicesock)
+component_detach_socket(Component * component, n_socket_t * nicesock)
 {
     n_slist_t  * l;
     SocketSource * socket_source;
@@ -610,7 +606,7 @@ void component_free_socket_sources(Component * component)
     component->socket_sources = NULL;
     component->socket_sources_age++;
 
-    component_clear_selected_pair(component);
+    comp_clear_selected_pair(component);
 }
 
 GMainContext * component_dup_io_context(Component * component)
@@ -725,7 +721,7 @@ static int emit_io_callback_cb(void * user_data)
     NiceAgentRecvFunc io_callback;
     void * io_user_data;
     uint32_t stream_id, component_id;
-    NiceAgent * agent;
+    n_agent_t * agent;
 
     agent = component->agent;
 
@@ -768,7 +764,7 @@ static int emit_io_callback_cb(void * user_data)
                     io_user_data);
 
         /* Check for the user destroying things underneath our feet. */
-        if (!agent_find_component(agent, stream_id, component_id,
+        if (!agent_find_comp(agent, stream_id, component_id,
                                   NULL, &component))
         {
             nice_debug("%s: Agent or component destroyed.", G_STRFUNC);
@@ -793,7 +789,7 @@ done:
 /* This must be called with the agent lock *held*. */
 void component_emit_io_callback(Component * component,  const uint8_t * buf, uint32_t buf_len)
 {
-    NiceAgent * agent;
+    n_agent_t * agent;
     uint32_t stream_id, component_id;
     NiceAgentRecvFunc io_callback;
     void * io_user_data;

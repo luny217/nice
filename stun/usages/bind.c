@@ -49,7 +49,7 @@
 
 /** Non-blocking mode STUN binding discovery */
 
-size_t stun_usage_bind_create(StunAgent * agent, StunMessage * msg,
+size_t stun_bind_create(StunAgent * agent, StunMessage * msg,
                               uint8_t * buffer, size_t buffer_len)
 {
     stun_agent_init_request(agent, msg, buffer, buffer_len, STUN_BINDING);
@@ -57,7 +57,7 @@ size_t stun_usage_bind_create(StunAgent * agent, StunMessage * msg,
     return stun_agent_finish_message(agent, msg, NULL, 0);
 }
 
-StunBind stun_usage_bind_process(StunMessage * msg,
+StunBind stun_bind_process(StunMessage * msg,
         struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len)
 {
@@ -92,7 +92,7 @@ StunBind stun_usage_bind_process(StunMessage * msg,
             {
                 if (alternate_server && alternate_server_len)
                 {
-                    if (stun_message_find_addr(msg, STUN_ATTRIBUTE_ALTERNATE_SERVER,
+                    if (stun_message_find_addr(msg, STUN_ATT_ALTERNATE_SERVER,
                                                (struct sockaddr_storage *) alternate_server,
                                                alternate_server_len) != STUN_MESSAGE_RETURN_SUCCESS)
                     {
@@ -102,7 +102,7 @@ StunBind stun_usage_bind_process(StunMessage * msg,
                 }
                 else
                 {
-                    if (!stun_message_has_attribute(msg, STUN_ATTRIBUTE_ALTERNATE_SERVER))
+                    if (!stun_message_has_attribute(msg, STUN_ATT_ALTERNATE_SERVER))
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
                         return STUN_BIND_ERROR;
@@ -122,14 +122,14 @@ StunBind stun_usage_bind_process(StunMessage * msg,
 
     stun_debug("Received %u-bytes STUN message", stun_message_length(msg));
 
-    val = stun_message_find_xor_addr(msg,
-                                     STUN_ATTRIBUTE_XOR_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
+    val = stun_msg_find_xor_addr(msg,
+                                     STUN_ATT_XOR_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
                                      addrlen);
     if (val != STUN_MESSAGE_RETURN_SUCCESS)
     {
         stun_debug(" No XOR-MAPPED-ADDRESS: %d", val);
         val = stun_message_find_addr(msg,
-                                     STUN_ATTRIBUTE_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
+                                     STUN_ATT_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
                                      addrlen);
         if (val != STUN_MESSAGE_RETURN_SUCCESS)
         {
@@ -147,7 +147,7 @@ StunBind stun_usage_bind_process(StunMessage * msg,
 /** Binding keep-alive (Binding discovery indication!) */
 
 size_t
-stun_usage_bind_keepalive(StunAgent * agent, StunMessage * msg,
+stun_bind_keepalive(StunAgent * agent, StunMessage * msg,
                           uint8_t * buf, size_t len)
 {
 
@@ -415,7 +415,7 @@ static StunTrans stun_trans_poll(StunTransport * tr, unsigned int delay)
 
 
 /** Blocking mode STUN binding discovery */
-StunBind stun_usage_bind_run(const struct sockaddr * srv, socklen_t srvlen, struct sockaddr_storage * addr, socklen_t * addrlen)
+StunBind stun_bind_run(const struct sockaddr * srv, socklen_t srvlen, struct sockaddr_storage * addr, socklen_t * addrlen)
 {
     StunTimer timer;
     StunTransport trans;
@@ -434,7 +434,7 @@ StunBind stun_usage_bind_run(const struct sockaddr * srv, socklen_t srvlen, stru
 
     stun_agent_init(&agent, 0);
 
-    len = stun_usage_bind_create(&agent, &req, req_buf, sizeof(req_buf));
+    len = stun_bind_create(&agent, &req, req_buf, sizeof(req_buf));
 
     ret = stun_trans_create(&trans, SOCK_DGRAM, 0, srv, srvlen);
     if (ret != STUN_TRANS_SUCCESS)
@@ -498,7 +498,7 @@ StunBind stun_usage_bind_run(const struct sockaddr * srv, socklen_t srvlen, stru
         }
         else
         {
-            bind_ret = stun_usage_bind_process(&msg, (struct sockaddr *)  addr,
+            bind_ret = stun_bind_process(&msg, (struct sockaddr *)  addr,
                                                addrlen, (struct sockaddr *) &alternate_server, &alternate_server_len);
             if (bind_ret == STUN_BIND_ALTERNATE_SERVER)
             {

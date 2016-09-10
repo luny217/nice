@@ -11,7 +11,7 @@
 #include "stun/stunagent.h"
 #include "stun/usages/timer.h"
 
-#define CANDIDATE_PAIR_MAX_FOUNDATION		CANDIDATE_MAX_FOUNDATION*2
+#define CANDIDATE_PAIR_MAX_FOUNDATION		CAND_MAX_FOUNDATION*2
 
 /**
  * NiceCheckState:
@@ -40,12 +40,12 @@ typedef struct _CandidateCheckPair CandidateCheckPair;
 
 struct _CandidateCheckPair
 {
-    NiceAgent * agent;        /* back pointer to owner */
+    n_agent_t * agent;        /* back pointer to owner */
     uint32_t stream_id;
 	uint32_t component_id;
-    NiceCandidate * local;
-    NiceCandidate * remote;
-    NiceSocket * sockptr;
+    n_cand_t * local;
+    n_cand_t * remote;
+    n_socket_t * sockptr;
     char foundation[CANDIDATE_PAIR_MAX_FOUNDATION];
     NiceCheckState state;
     int nominated;
@@ -58,17 +58,17 @@ struct _CandidateCheckPair
     StunMessage stun_message;
 };
 
-int conn_check_add_for_candidate(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * remote);
-int conn_check_add_for_local_candidate(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * local);
-int conn_check_add_for_candidate_pair(NiceAgent * agent, uint32_t stream_id, Component * component, NiceCandidate * local, NiceCandidate * remote);
-void conn_check_free(NiceAgent * agent);
-int conn_check_schedule_next(NiceAgent * agent);
-int conn_check_send(NiceAgent * agent, CandidateCheckPair * pair);
-void conn_check_prune_stream(NiceAgent * agent, Stream * stream);
-int conn_check_handle_inbound_stun(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * udp_socket, const NiceAddress * from, char * buf, uint32_t len);
+int conn_check_add_for_candidate(n_agent_t * agent, uint32_t stream_id, Component * component, n_cand_t * remote);
+int conn_check_add_for_local_candidate(n_agent_t * agent, uint32_t stream_id, Component * component, n_cand_t * local);
+int conn_check_add_for_candidate_pair(n_agent_t * agent, uint32_t stream_id, Component * component, n_cand_t * local, n_cand_t * remote);
+void conn_check_free(n_agent_t * agent);
+int conn_check_schedule_next(n_agent_t * agent);
+int conn_check_send(n_agent_t * agent, CandidateCheckPair * pair);
+void conn_check_prune_stream(n_agent_t * agent, Stream * stream);
+int co_chk_handle_in_stun(n_agent_t * agent, Stream * stream, Component * component, n_socket_t * udp_socket, const n_addr_t * from, char * buf, uint32_t len);
 int32_t conn_check_compare(const CandidateCheckPair * a, const CandidateCheckPair * b);
-void conn_check_remote_candidates_set(NiceAgent * agent);
+void co_chk_remote_cands_set(n_agent_t * agent);
 NiceCandidateTransport conn_check_match_transport(NiceCandidateTransport transport);
-void conn_check_prune_socket(NiceAgent * agent, Stream * stream, Component * component, NiceSocket * sock);
+void conn_check_prune_socket(n_agent_t * agent, Stream * stream, Component * component, n_socket_t * sock);
 
 #endif /*_NICE_CONNCHECK_H */

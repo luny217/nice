@@ -15,27 +15,27 @@
  */
 
 /**
- * STUN_ATTRIBUTE_LENGTH_LEN:
+ * STUN_ATT_LENGTH_LEN:
  *
  * Length of the length field of a STUN attribute (in bytes).
  */
 /**
- * STUN_ATTRIBUTE_LENGTH_POS:
+ * STUN_ATT_LENGTH_POS:
  *
  * Offset of the length field of a STUN attribute (in bytes).
  */
 /**
- * STUN_ATTRIBUTE_TYPE_LEN:
+ * STUN_ATT_TYPE_LEN:
  *
  * Length of the type field of a STUN attribute (in bytes).
  */
 /**
- * STUN_ATTRIBUTE_TYPE_POS:
+ * STUN_ATT_TYPE_POS:
  *
  * Offset of the type field of a STUN attribute (in bytes).
  */
 /**
- * STUN_ATTRIBUTE_VALUE_POS:
+ * STUN_ATT_VALUE_POS:
  *
  * Offset of the value field of a STUN attribute (in bytes).
  */
@@ -118,20 +118,20 @@
 
 #define STUN_MESSAGE_HEADER_LENGTH STUN_MESSAGE_ATTRIBUTES_POS
 
-#define STUN_ATTRIBUTE_TYPE_POS 0
-#define STUN_ATTRIBUTE_TYPE_LEN 2
-#define STUN_ATTRIBUTE_LENGTH_POS \
-  (STUN_ATTRIBUTE_TYPE_POS + STUN_ATTRIBUTE_TYPE_LEN)
-#define STUN_ATTRIBUTE_LENGTH_LEN 2
-#define STUN_ATTRIBUTE_VALUE_POS \
-  (STUN_ATTRIBUTE_LENGTH_POS + STUN_ATTRIBUTE_LENGTH_LEN)
+#define STUN_ATT_TYPE_POS 0
+#define STUN_ATT_TYPE_LEN 2
+#define STUN_ATT_LENGTH_POS \
+  (STUN_ATT_TYPE_POS + STUN_ATT_TYPE_LEN)
+#define STUN_ATT_LENGTH_LEN 2
+#define STUN_ATT_VALUE_POS \
+  (STUN_ATT_LENGTH_POS + STUN_ATT_LENGTH_LEN)
 
 /**
- * STUN_ATTRIBUTE_HEADER_LENGTH:
+ * STUN_ATT_HEADER_LENGTH:
  *
  * Length of a single STUN attribute header (in bytes).
  */
-#define STUN_ATTRIBUTE_HEADER_LENGTH STUN_ATTRIBUTE_VALUE_POS
+#define STUN_ATT_HEADER_LENGTH STUN_ATT_VALUE_POS
 
 
 #define STUN_MAX_MESSAGE_SIZE_IPV4 576

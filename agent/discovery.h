@@ -11,10 +11,10 @@
 
 typedef struct
 {
-    NiceAgent * agent;        /* back pointer to owner */
-    NiceCandidateType type;   /* candidate type STUN or TURN */
-    NiceSocket * nicesock; /* XXX: should be taken from local cand: existing socket to use */
-    NiceAddress server;       /* STUN/TURN server address */
+    n_agent_t * agent;        /* back pointer to owner */
+    n_cand_type_e type;   /* candidate type STUN or TURN */
+    n_socket_t * nicesock; /* XXX: should be taken from local cand: existing socket to use */
+    n_addr_t server;       /* STUN/TURN server address */
 	n_timeval_t next_tick;       /* next tick timestamp */
     int pending;         /* is discovery in progress? */
     int done;            /* is discovery complete? */
@@ -27,14 +27,14 @@ typedef struct
     StunMessage stun_message;
     uint8_t stun_resp_buffer[STUN_MAX_MESSAGE_SIZE];
     StunMessage stun_resp_msg;
-} CandidateDiscovery;
+} n_cand_disc_t; 
 
 typedef struct
 {
-    NiceAgent * agent;        /* back pointer to owner */
-    NiceSocket * nicesock;    /* existing socket to use */
-    NiceAddress server;       /* STUN/TURN server address */
-    NiceCandidate * candidate; /* candidate to refresh */
+    n_agent_t * agent;        /* back pointer to owner */
+    n_socket_t * nicesock;    /* existing socket to use */
+    n_addr_t server;       /* STUN/TURN server address */
+    n_cand_t * candidate; /* candidate to refresh */
     Stream * stream;
     Component * component;
     StunAgent stun_agent;
@@ -47,17 +47,17 @@ typedef struct
     StunMessage stun_resp_msg;
 } CandidateRefresh;
 
-void refresh_free(NiceAgent * agent);
-void refresh_prune_stream(NiceAgent * agent, uint32_t stream_id);
-void refresh_prune_candidate(NiceAgent * agent, NiceCandidate * candidate);
-void refresh_prune_socket(NiceAgent * agent, NiceSocket * sock);
+void refresh_free(n_agent_t * agent);
+void refresh_prune_stream(n_agent_t * agent, uint32_t stream_id);
+void refresh_prune_candidate(n_agent_t * agent, n_cand_t * candidate);
+void refresh_prune_socket(n_agent_t * agent, n_socket_t * sock);
 void refresh_cancel(CandidateRefresh * refresh);
 
 
-void discovery_free(NiceAgent * agent);
-void discovery_prune_stream(NiceAgent * agent, uint32_t stream_id);
-void discovery_prune_socket(NiceAgent * agent, NiceSocket * sock);
-void discovery_schedule(NiceAgent * agent);
+void disc_free(n_agent_t * agent);
+void disc_prune_stream(n_agent_t * agent, uint32_t stream_id);
+void disc_prune_socket(n_agent_t * agent, n_socket_t * sock);
+void disc_schedule(n_agent_t * agent);
 
 typedef enum
 {
@@ -68,49 +68,49 @@ typedef enum
 } HostCandidateResult;  //cand_ret_e
 
 HostCandidateResult
-discovery_add_local_host_candidate(
-    NiceAgent * agent,
+disc_add_local_host_cand(
+    n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    NiceAddress * address,
-    NiceCandidate ** candidate);
+    n_addr_t * address,
+    n_cand_t ** candidate);
 
-NiceCandidate *
-discovery_add_relay_candidate(
-    NiceAgent * agent,
+n_cand_t *
+disc_add_relay_cand(
+    n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    NiceAddress * address,
-    NiceSocket * base_socket,
+    n_addr_t * address,
+    n_socket_t * base_socket,
     TurnServer * turn);
 
-NiceCandidate *
-discovery_add_server_reflexive_candidate(
-    NiceAgent * agent,
+n_cand_t *
+disc_add_server_cand(
+    n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    NiceAddress * address,
-    NiceSocket * base_socket);
+    n_addr_t * address,
+    n_socket_t * base_socket);
 
-NiceCandidate *
-discovery_add_peer_reflexive_candidate(
-    NiceAgent * agent,
+n_cand_t *
+disc_add_peer_cand(
+    n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
-    NiceAddress * address,
-    NiceSocket * base_socket,
-    NiceCandidate * local,
-    NiceCandidate * remote);
+    n_addr_t * address,
+    n_socket_t * base_socket,
+    n_cand_t * local,
+    n_cand_t * remote);
 
-NiceCandidate *
-discovery_learn_remote_peer_reflexive_candidate(
-    NiceAgent * agent,
+n_cand_t *
+disc_learn_remote_peer_cand(
+    n_agent_t * agent,
     Stream * stream,
     Component * component,
 	uint32_t priority,
-    const NiceAddress * remote_address,
-    NiceSocket * udp_socket,
-    NiceCandidate * local,
-    NiceCandidate * remote);
+    const n_addr_t * remote_address,
+    n_socket_t * udp_socket,
+    n_cand_t * local,
+    n_cand_t * remote);
 
 #endif /*_NICE_CONNCHECK_H */

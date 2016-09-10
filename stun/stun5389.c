@@ -112,6 +112,6 @@ StunMessageReturn stun_message_append_software(StunMessage * msg,
         len++;
     }
 
-    return stun_message_append_bytes(msg, STUN_ATTRIBUTE_SOFTWARE, software,
+    return stun_message_append_bytes(msg, STUN_ATT_SOFTWARE, software,
                                      ptr - software);
 }

@@ -127,21 +127,21 @@ static int inet_pton_win32(int af, const char * src, void * dst)
 
 
 
-void nice_address_init(NiceAddress * addr)
+void nice_address_init(n_addr_t * addr)
 {
     addr->s.addr.sa_family = AF_UNSPEC;
     memset(&addr->s, 0, sizeof(addr->s));
 }
 
-NiceAddress * nice_address_new(void)
+n_addr_t * nice_address_new(void)
 {
-    NiceAddress * addr = n_slice_new0(NiceAddress);
+    n_addr_t * addr = n_slice_new0(n_addr_t);
     nice_address_init(addr);
     return addr;
 }
 
 
-void nice_address_set_ipv4(NiceAddress * addr, guint32 addr_ipv4)
+void nice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4)
 {
     addr->s.ip4.sin_family = AF_INET;
 #ifdef HAVE_SA_LEN
@@ -152,7 +152,7 @@ void nice_address_set_ipv4(NiceAddress * addr, guint32 addr_ipv4)
 }
 
 
-void nice_address_set_ipv6(NiceAddress * addr, const guchar * addr_ipv6)
+void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6)
 {
     addr->s.ip6.sin6_family = AF_INET6;
 #ifdef HAVE_SA_LEN
@@ -164,7 +164,7 @@ void nice_address_set_ipv6(NiceAddress * addr, const guchar * addr_ipv6)
 }
 
 
-void nice_address_set_port(NiceAddress * addr, uint32_t port)
+void nice_address_set_port(n_addr_t * addr, uint32_t port)
 {
     g_assert(addr);
 
@@ -182,7 +182,7 @@ void nice_address_set_port(NiceAddress * addr, uint32_t port)
 }
 
 
-uint32_t nice_address_get_port(const NiceAddress * addr)
+uint32_t nice_address_get_port(const n_addr_t * addr)
 {
     if (!addr)
         return 0;
@@ -199,7 +199,7 @@ uint32_t nice_address_get_port(const NiceAddress * addr)
 }
 
 
- int nice_address_set_from_string(NiceAddress * addr, const char * str)
+ int nice_address_set_from_string(n_addr_t * addr, const char * str)
 {
     struct addrinfo hints;
     struct addrinfo * res;
@@ -213,7 +213,7 @@ uint32_t nice_address_get_port(const NiceAddress * addr)
     if (getaddrinfo(str, NULL, &hints, &res) != 0)
         return FALSE;  /* invalid address */
 
-    nice_address_set_from_sockaddr(addr, res->ai_addr);
+    n_addr_set_from_sock(addr, res->ai_addr);
 
     freeaddrinfo(res);
 
@@ -221,7 +221,7 @@ uint32_t nice_address_get_port(const NiceAddress * addr)
 }
 
 
-void nice_address_set_from_sockaddr(NiceAddress * addr, const struct sockaddr * sa)
+void n_addr_set_from_sock(n_addr_t * addr, const struct sockaddr * sa)
 {
     switch (sa->sa_family)
     {
@@ -237,7 +237,7 @@ void nice_address_set_from_sockaddr(NiceAddress * addr, const struct sockaddr * 
 }
 
 
-void nice_address_copy_to_sockaddr(const NiceAddress * addr, struct sockaddr * _sa)
+void nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * _sa)
 {
     union
     {
@@ -263,7 +263,7 @@ void nice_address_copy_to_sockaddr(const NiceAddress * addr, struct sockaddr * _
     }
 }
 
-void nice_address_to_string(const NiceAddress * addr, char * dst)
+void nice_address_to_string(const n_addr_t * addr, char * dst)
 {
     switch (addr->s.addr.sa_family)
     {
@@ -279,7 +279,7 @@ void nice_address_to_string(const NiceAddress * addr, char * dst)
 }
 
 
-int nice_address_equal(const NiceAddress * a, const NiceAddress * b)
+int nice_address_equal(const n_addr_t * a, const n_addr_t * b)
 {
     if (a->s.addr.sa_family != b->s.addr.sa_family)
         return FALSE;
@@ -301,18 +301,18 @@ int nice_address_equal(const NiceAddress * a, const NiceAddress * b)
 }
 
 
-NiceAddress * nice_address_dup(const NiceAddress * a)
+n_addr_t * nice_address_dup(const n_addr_t * a)
 {
-    NiceAddress * dup = g_slice_new0(NiceAddress);
+    n_addr_t * dup = g_slice_new0(n_addr_t);
 
     *dup = *a;
     return dup;
 }
 
 
-void nice_address_free(NiceAddress * addr)
+void nice_address_free(n_addr_t * addr)
 {
-    n_slice_free(NiceAddress, addr);
+    n_slice_free(n_addr_t, addr);
 }
 
 
@@ -349,7 +349,7 @@ static int ipv6_address_is_private(const guchar * addr)
 }
 
 
-int nice_address_is_private(const NiceAddress * a)
+int nice_address_is_private(const n_addr_t * a)
 {
     switch (a->s.addr.sa_family)
     {
@@ -363,7 +363,7 @@ int nice_address_is_private(const NiceAddress * a)
 }
 
 
-int nice_address_is_valid(const NiceAddress * a)
+int n_addr_is_valid(const n_addr_t * a)
 {
     switch (a->s.addr.sa_family)
     {
@@ -375,7 +375,7 @@ int nice_address_is_valid(const NiceAddress * a)
     }
 }
 
-int nice_address_ip_version(const NiceAddress * addr)
+int nice_address_ip_version(const n_addr_t * addr)
 {
     switch (addr->s.addr.sa_family)
     {
@@ -388,7 +388,7 @@ int nice_address_ip_version(const NiceAddress * addr)
     }
 }
 
-int nice_address_equal_no_port(const NiceAddress * a, const NiceAddress * b)
+int nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b)
 {
     if (a->s.addr.sa_family != b->s.addr.sa_family)
         return FALSE;

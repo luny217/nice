@@ -34,7 +34,7 @@
  * @STUN_BIND_TIMEOUT: The binding was unsuccessful because it has
  * timed out.
  *
- * Return value of stun_usage_bind_process() and stun_usage_bind_run() which
+ * Return value of stun_bind_process() and stun_bind_run() which
  * allows you to see what status the function call returned.
  */
 typedef enum
@@ -49,7 +49,7 @@ StunBind;
 
 
 /**
- * stun_usage_bind_create:
+ * stun_bind_create:
  * @agent: The #StunAgent to use to create the binding request
  * @msg: The #StunMessage to build
  * @buffer: The buffer to use for creating the #StunMessage
@@ -58,11 +58,11 @@ StunBind;
  * Create a new STUN binding request to use with a STUN server.
  * Returns: The length of the built message.
  */
-size_t stun_usage_bind_create(StunAgent * agent, StunMessage * msg,
+size_t stun_bind_create(StunAgent * agent, StunMessage * msg,
                               uint8_t * buffer, size_t buffer_len);
 
 /**
- * stun_usage_bind_process:
+ * stun_bind_process:
  * @msg: The #StunMessage to process
  * @addr: A pointer to a #sockaddr structure to fill with the mapped address
  * that the STUN server gives us
@@ -82,12 +82,12 @@ size_t stun_usage_bind_create(StunAgent * agent, StunMessage * msg,
  * Returns: A #StunBind value.
  * Note that #STUN_BIND_TIMEOUT cannot be returned by this function
  */
-StunBind stun_usage_bind_process(StunMessage * msg,
+StunBind stun_bind_process(StunMessage * msg,
         struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len);
 
 /**
- * stun_usage_bind_keepalive:
+ * stun_bind_keepalive:
  * @agent: The #StunAgent to use to build the message
  * @msg: The #StunMessage to build
  * @buf: The buffer to use for creating the #StunMessage
@@ -98,11 +98,11 @@ StunBind stun_usage_bind_process(StunMessage * msg,
  * and it can only be used as a keepalive message.
  * Returns: The length of the message to send
  */
-size_t stun_usage_bind_keepalive(StunAgent * agent, StunMessage * msg,
+size_t stun_bind_keepalive(StunAgent * agent, StunMessage * msg,
                                  uint8_t * buf, size_t len);
 
 /**
- * stun_usage_bind_run:
+ * stun_bind_run:
  * @srv: A pointer to the #sockaddr structure representing the STUN server's
  * address
  * @srvlen: The length of @srv
@@ -117,6 +117,6 @@ size_t stun_usage_bind_keepalive(StunAgent * agent, StunMessage * msg,
  * Possible return values are #STUN_BIND_SUCCESS,
  * #STUN_BIND_ERROR and #STUN_BIND_TIMEOUT
  */
-StunBind stun_usage_bind_run(const struct sockaddr * srv,
+StunBind stun_bind_run(const struct sockaddr * srv,
                                         socklen_t srvlen, struct sockaddr_storage * addr, socklen_t * addrlen);
 #endif
