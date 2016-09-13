@@ -18,15 +18,15 @@ typedef struct
 	n_timeval_t next_tick;       /* next tick timestamp */
     int pending;         /* is discovery in progress? */
     int done;            /* is discovery complete? */
-    Stream * stream;
-    Component * component;
+    n_stream_t * stream;
+    n_comp_t * component;
     TurnServer * turn;
-    StunAgent stun_agent;
+    stun_agent_t stun_agent;
     StunTimer timer;
     uint8_t stun_buffer[STUN_MAX_MESSAGE_SIZE_IPV6];
-    StunMessage stun_message;
+    stun_msg_t stun_message;
     uint8_t stun_resp_buffer[STUN_MAX_MESSAGE_SIZE];
-    StunMessage stun_resp_msg;
+    stun_msg_t stun_resp_msg;
 } n_cand_disc_t; 
 
 typedef struct
@@ -35,23 +35,23 @@ typedef struct
     n_socket_t * nicesock;    /* existing socket to use */
     n_addr_t server;       /* STUN/TURN server address */
     n_cand_t * candidate; /* candidate to refresh */
-    Stream * stream;
-    Component * component;
-    StunAgent stun_agent;
+    n_stream_t * stream;
+    n_comp_t * component;
+    stun_agent_t stun_agent;
     GSource * timer_source;
     GSource * tick_source;
     StunTimer timer;
     uint8_t stun_buffer[STUN_MAX_MESSAGE_SIZE_IPV6];
-    StunMessage stun_message;
+    stun_msg_t stun_message;
     uint8_t stun_resp_buffer[STUN_MAX_MESSAGE_SIZE];
-    StunMessage stun_resp_msg;
-} CandidateRefresh;
+    stun_msg_t stun_resp_msg;
+} n_cand_refresh_t; 
 
 void refresh_free(n_agent_t * agent);
 void refresh_prune_stream(n_agent_t * agent, uint32_t stream_id);
 void refresh_prune_candidate(n_agent_t * agent, n_cand_t * candidate);
 void refresh_prune_socket(n_agent_t * agent, n_socket_t * sock);
-void refresh_cancel(CandidateRefresh * refresh);
+void refresh_cancel(n_cand_refresh_t * refresh);
 
 
 void disc_free(n_agent_t * agent);
@@ -105,8 +105,8 @@ disc_add_peer_cand(
 n_cand_t *
 disc_learn_remote_peer_cand(
     n_agent_t * agent,
-    Stream * stream,
-    Component * component,
+    n_stream_t * stream,
+    n_comp_t * component,
 	uint32_t priority,
     const n_addr_t * remote_address,
     n_socket_t * udp_socket,

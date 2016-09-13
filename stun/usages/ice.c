@@ -18,38 +18,38 @@
 /** ICE connectivity checks **/
 #include "ice.h"
 
-size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
+size_t stun_ice_cocheck_create(stun_agent_t * agent, stun_msg_t * msg,
                                        uint8_t * buffer, size_t buffer_len,
                                        const uint8_t * username, const size_t username_len,
                                        const uint8_t * password, const size_t password_len,
                                        int cand_use, int controlling, uint32_t priority, uint64_t tie)
 {
-    StunMessageReturn val;
+    stun_msg_ret_e val;
 
     stun_agent_init_request(agent, msg, buffer, buffer_len, STUN_BINDING);
 
     if (cand_use)
     {
-        val = stun_message_append_flag(msg, STUN_ATT_USE_CANDIDATE);
-        if (val != STUN_MESSAGE_RETURN_SUCCESS)
+        val = stun_msg_append_flag(msg, STUN_ATT_USE_CANDIDATE);
+        if (val != STUN_MSG_RET_SUCCESS)
             return 0;
     }
 
-    val = stun_message_append32(msg, STUN_ATT_PRIORITY, priority);
-    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+    val = stun_msg_append32(msg, STUN_ATT_PRIORITY, priority);
+    if (val != STUN_MSG_RET_SUCCESS)
         return 0;
 
     if (controlling)
-        val = stun_message_append64(msg, STUN_ATT_ICE_CONTROLLING, tie);
+        val = stun_msg_append64(msg, STUN_ATT_ICE_CONTROLLING, tie);
     else
-        val = stun_message_append64(msg, STUN_ATT_ICE_CONTROLLED, tie);
-    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+        val = stun_msg_append64(msg, STUN_ATT_ICE_CONTROLLED, tie);
+    if (val != STUN_MSG_RET_SUCCESS)
         return 0;
 
     if (username && username_len > 0)
     {
-        val = stun_message_append_bytes(msg, STUN_ATT_USERNAME,  username, username_len);
-        if (val != STUN_MESSAGE_RETURN_SUCCESS)
+        val = stun_msg_append_bytes(msg, STUN_ATT_USERNAME,  username, username_len);
+        if (val != STUN_MSG_RET_SUCCESS)
             return 0;
     }
 
@@ -57,55 +57,55 @@ size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
 }
 
 
-StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg, struct sockaddr_storage * addr, socklen_t * addrlen)
+stun_ice_ret_e stun_ice_cocheck_process(stun_msg_t * msg, struct sockaddr_storage * addr, socklen_t * addrlen)
 {
     int code = -1;
-    StunMessageReturn val;
+    stun_msg_ret_e val;
 
-    if (stun_message_get_method(msg) != STUN_BINDING)
-        return STUN_USAGE_ICE_RETURN_INVALID;
+    if (stun_msg_get_method(msg) != STUN_BINDING)
+        return STUN_ICE_RET_INVALID;
 
-    switch (stun_message_get_class(msg))
+    switch (stun_msg_get_class(msg))
     {
         case STUN_REQUEST:
         case STUN_INDICATION:
-            return STUN_USAGE_ICE_RETURN_INVALID;
+            return STUN_ICE_RET_INVALID;
 
         case STUN_RESPONSE:
             break;
 
         case STUN_ERROR:
         default:
-            if (stun_message_find_error(msg, &code) != STUN_MESSAGE_RETURN_SUCCESS)
+            if (stun_msg_find_error(msg, &code) != STUN_MSG_RET_SUCCESS)
             {
                 /* missing ERROR-CODE: ignore message */
-                return STUN_USAGE_ICE_RETURN_INVALID;
+                return STUN_ICE_RET_INVALID;
             }
 
             if (code  == STUN_ERROR_ROLE_CONFLICT)
-                return STUN_USAGE_ICE_RETURN_ROLE_CONFLICT;
+                return STUN_ICE_RET_ROLE_CONFLICT;
 
             /* NOTE: currently we ignore unauthenticated messages if the context
              * is authenticated, for security reasons. */
             stun_debug(" STUN error message received (code: %d)", code);
 
-            return STUN_USAGE_ICE_RETURN_ERROR;
+            return STUN_ICE_RET_ERROR;
     }
 
-    stun_debug("Received %u-bytes STUN message", stun_message_length(msg));
+    stun_debug("Received %u-bytes STUN message", stun_msg_len(msg));
 
     val = stun_msg_find_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, addr, addrlen);
-    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+    if (val != STUN_MSG_RET_SUCCESS)
     {
         stun_debug(" No XOR-MAPPED-ADDRESS: %d", val);
-        return STUN_USAGE_ICE_RETURN_NO_MAPPED_ADDRESS;
+        return STUN_ICE_RET_NO_MAPPED_ADDRESS;
     }
     stun_debug("Mapped address found!");
-    return STUN_USAGE_ICE_RETURN_SUCCESS;
+    return STUN_ICE_RET_SUCCESS;
 }
 
-static int stun_bind_error(StunAgent * agent, StunMessage * msg,
-                           uint8_t * buf, size_t * plen, const StunMessage * req,  StunError code)
+static int stun_bind_error(stun_agent_t * agent, stun_msg_t * msg,
+                           uint8_t * buf, size_t * plen, const stun_msg_t * req,  stun_err_e code)
 {
     size_t len = *plen;
     int val;
@@ -127,9 +127,9 @@ static int stun_bind_error(StunAgent * agent, StunMessage * msg,
     return 1;
 }
 
-StunUsageIceReturn
-stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
-                                      StunMessage * msg, uint8_t * buf, size_t * plen,
+stun_ice_ret_e
+stun_ice_cocheck_create_reply(stun_agent_t * agent, stun_msg_t * req,
+                                      stun_msg_t * msg, uint8_t * buf, size_t * plen,
                                       const struct sockaddr_storage * src, socklen_t srclen,
                                       int * control, uint64_t tie)
 {
@@ -137,31 +137,31 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
     uint16_t username_len;
     size_t len = *plen;
     uint64_t q;
-    StunMessageReturn val = STUN_MESSAGE_RETURN_SUCCESS;
-    StunUsageIceReturn ret = STUN_USAGE_ICE_RETURN_SUCCESS;
+    stun_msg_ret_e val = STUN_MSG_RET_SUCCESS;
+    stun_ice_ret_e ret = STUN_ICE_RET_SUCCESS;
 
     *plen = 0;
     stun_debug("STUN Reply (buffer size = %u)...", (unsigned)len);
 
-    if (stun_message_get_class(req) != STUN_REQUEST)
+    if (stun_msg_get_class(req) != STUN_REQUEST)
     {
         stun_debug(" Unhandled non-request (class %u) message.",
-                   stun_message_get_class(req));
-        return STUN_USAGE_ICE_RETURN_INVALID_REQUEST;
+                   stun_msg_get_class(req));
+        return STUN_ICE_RET_INVALID_REQUEST;
     }
 
-    if (stun_message_get_method(req) != STUN_BINDING)
+    if (stun_msg_get_method(req) != STUN_BINDING)
     {
-        stun_debug(" Bad request (method %u) message.", stun_message_get_method(req));
+        stun_debug(" Bad request (method %u) message.", stun_msg_get_method(req));
         stun_bind_error(agent, msg, buf, &len, req, STUN_ERROR_BAD_REQUEST);
         *plen = len;
-        return STUN_USAGE_ICE_RETURN_INVALID_METHOD;
+        return STUN_ICE_RET_INVALID_METHOD;
     }
 
     /* Role conflict handling */
     assert(control != NULL);
-    if (stun_message_find64(req, *control ? STUN_ATT_ICE_CONTROLLING
-                            : STUN_ATT_ICE_CONTROLLED, &q) == STUN_MESSAGE_RETURN_SUCCESS)
+    if (stun_msg_find64(req, *control ? STUN_ATT_ICE_CONTROLLING
+                            : STUN_ATT_ICE_CONTROLLED, &q) == STUN_MSG_RET_SUCCESS)
     {
         stun_debug("STUN Role Conflict detected:");
 
@@ -170,14 +170,14 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
             stun_debug(" switching role from \"controll%s\" to \"controll%s\"",
                        *control ? "ing" : "ed", *control ? "ed" : "ing");
             *control = !*control;
-            ret = STUN_USAGE_ICE_RETURN_ROLE_CONFLICT;
+            ret = STUN_ICE_RET_ROLE_CONFLICT;
         }
         else
         {
             stun_debug(" staying \"controll%s\" (sending error)", *control ? "ing" : "ed");
             stun_bind_error(agent, msg, buf, &len, req, STUN_ERROR_ROLE_CONFLICT);
             *plen = len;
-            return STUN_USAGE_ICE_RETURN_SUCCESS;
+            return STUN_ICE_RET_SUCCESS;
         }
     }
     else
@@ -191,28 +191,28 @@ stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
         goto failure;
     }
 
-    if (stun_message_has_cookie(msg))
+    if (stun_msg_has_cookie(msg))
     {
-        val = stun_message_append_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, src, srclen);
+        val = stun_msg_append_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, src, srclen);
     }
     else
     {
-        val = stun_message_append_addr(msg, STUN_ATT_MAPPED_ADDRESS, (struct sockaddr *) src, srclen);
+        val = stun_msg_append_addr(msg, STUN_ATT_MAPPED_ADDRESS, (struct sockaddr *) src, srclen);
     }
 
-    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+    if (val != STUN_MSG_RET_SUCCESS)
     {
         stun_debug(" Mapped address problem: %d", val);
         goto failure;
     }
 
-    username = (const char *)stun_message_find(req, STUN_ATT_USERNAME, &username_len);
+    username = (const char *)stun_msg_find(req, STUN_ATT_USERNAME, &username_len);
     if (username)
     {
-        val = stun_message_append_bytes(msg, STUN_ATT_USERNAME, username, username_len);
+        val = stun_msg_append_bytes(msg, STUN_ATT_USERNAME, username, username_len);
     }
 
-    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+    if (val != STUN_MSG_RET_SUCCESS)
     {
         stun_debug("Error appending username: %d", val);
         goto failure;
@@ -233,31 +233,31 @@ failure:
 
     switch (val)
     {
-        case STUN_MESSAGE_RETURN_NOT_ENOUGH_SPACE:
-            return STUN_USAGE_ICE_RETURN_MEMORY_ERROR;
-        case STUN_MESSAGE_RETURN_INVALID:
-        case STUN_MESSAGE_RETURN_UNSUPPORTED_ADDRESS:
-            return STUN_USAGE_ICE_RETURN_INVALID_ADDRESS;
-        case STUN_MESSAGE_RETURN_SUCCESS:
+        case STUN_MSG_RET_NOT_ENOUGH_SPACE:
+            return STUN_ICE_RET_MEMORY_ERROR;
+        case STUN_MSG_RET_INVALID:
+        case STUN_MSG_RET_UNSUPPORTED_ADDRESS:
+            return STUN_ICE_RET_INVALID_ADDRESS;
+        case STUN_MSG_RET_SUCCESS:
             assert(0);   /* shouldnt be reached */
-        case STUN_MESSAGE_RETURN_NOT_FOUND:
+        case STUN_MSG_RET_NOT_FOUND:
         default:
-            return STUN_USAGE_ICE_RETURN_ERROR;
+            return STUN_ICE_RET_ERROR;
     }
 }
 
-uint32_t stun_usage_ice_conncheck_priority(const StunMessage * msg)
+uint32_t stun_ice_cocheck_priority(const stun_msg_t * msg)
 {
     uint32_t value;
 
-    if (stun_message_find32(msg, STUN_ATT_PRIORITY, &value) != STUN_MESSAGE_RETURN_SUCCESS)
+    if (stun_msg_find32(msg, STUN_ATT_PRIORITY, &value) != STUN_MSG_RET_SUCCESS)
         return 0;
     return value;
 }
 
 
-bool stun_usage_ice_conncheck_use_candidate(const StunMessage * msg)
+bool stun_ice_cocheck_use_cand(const stun_msg_t * msg)
 {
-    return (stun_message_find_flag(msg, STUN_ATT_USE_CANDIDATE) == STUN_MESSAGE_RETURN_SUCCESS);
+    return (stun_msg_find_flag(msg, STUN_ATT_USE_CANDIDATE) == STUN_MSG_RET_SUCCESS);
 }
 

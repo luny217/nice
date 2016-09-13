@@ -11,17 +11,15 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-static int stun_agent_is_unknown(StunAgent * agent, uint16_t type);
-static unsigned stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg, uint16_t * list, unsigned max);
+static int stun_agent_is_unknown(stun_agent_t * agent, uint16_t type);
+static unsigned stun_agent_find_unknowns(stun_agent_t * agent, const stun_msg_t * msg, uint16_t * list, unsigned max);
 
-void stun_agent_init(StunAgent * agent, StunAgentUsageFlags usage_flags)
+void stun_agent_init(stun_agent_t * agent, stun_flags_e usage_flags)
 {
     int i;
 
-    agent->known_attributes = (uint16_t *) STUN_ALL_KNOWN_ATTRIBUTES;
-    agent->compatibility = STUN_COMPATIBILITY_RFC5389;
+    agent->known_attributes = (uint16_t *) STUN_ALL_KNOWN_ATTRS;
     agent->usage_flags = usage_flags;
-    agent->software_attribute = NULL;
 
     for (i = 0; i < STUN_AGENT_MAX_SAVED_IDS; i++)
     {
@@ -29,9 +27,9 @@ void stun_agent_init(StunAgent * agent, StunAgentUsageFlags usage_flags)
     }
 }
 
-StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, const uint8_t * buffer, size_t buffer_len)
+stun_valid_status_e stun_agent_validate(stun_agent_t * agent, stun_msg_t * msg, const uint8_t * buffer, size_t buffer_len)
 {
-    StunTransactionId msg_id;
+    stun_trans_id msg_id;
     int len;
     uint8_t * key = NULL;
     size_t key_len;
@@ -40,12 +38,12 @@ StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, c
     uint8_t long_term_key[16] = { 0 };
     bool long_term_key_valid = FALSE;
 
-    len = stun_message_validate_buffer_length(buffer, buffer_len,  1);
-    if (len == STUN_MESSAGE_BUFFER_INVALID)
+    len = stun_msg_valid_buflen(buffer, buffer_len,  1);
+    if (len == STUN_MSG_BUFFER_INVALID)
     {
         return STUN_VALIDATION_NOT_STUN;
     }
-    else if (len == STUN_MESSAGE_BUFFER_INCOMPLETE)
+    else if (len == STUN_MSG_BUFFER_INCOMPLETE)
     {
         return STUN_VALIDATION_INCOMPLETE_STUN;
     }
@@ -62,20 +60,20 @@ StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, c
     msg->long_term_valid = FALSE;
 
     /* TODO: reject it or not ? */
-    if (!stun_message_has_cookie(msg))
+    if (!stun_msg_has_cookie(msg))
     {
         stun_debug("STUN demux error: no cookie!");
         return STUN_VALIDATION_BAD_REQUEST;
     }
 
-    if (stun_message_get_class(msg) == STUN_RESPONSE || stun_message_get_class(msg) == STUN_ERROR)
+    if (stun_msg_get_class(msg) == STUN_RESPONSE || stun_msg_get_class(msg) == STUN_ERROR)
     {
-        stun_message_id(msg, msg_id);
+        stun_msg_id(msg, msg_id);
         for (sent_id_idx = 0; sent_id_idx < STUN_AGENT_MAX_SAVED_IDS; sent_id_idx++)
         {
             if (agent->sent_ids[sent_id_idx].valid == TRUE &&
-                    agent->sent_ids[sent_id_idx].method == stun_message_get_method(msg) &&
-                    memcmp(msg_id, agent->sent_ids[sent_id_idx].id, sizeof(StunTransactionId)) == 0)
+                    agent->sent_ids[sent_id_idx].method == stun_msg_get_method(msg) &&
+                    memcmp(msg_id, agent->sent_ids[sent_id_idx].id, sizeof(stun_trans_id)) == 0)
             {
                 key = agent->sent_ids[sent_id_idx].key;
                 key_len = agent->sent_ids[sent_id_idx].key_len;
@@ -97,7 +95,7 @@ StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, c
 
     if (stun_agent_find_unknowns(agent, msg, &unknown, 1) > 0)
     {
-        if (stun_message_get_class(msg) == STUN_REQUEST)
+        if (stun_msg_get_class(msg) == STUN_REQUEST)
             return STUN_VALIDATION_UNKNOWN_REQUEST_ATTRIBUTE;
         else
             return STUN_VALIDATION_UNKNOWN_ATTRIBUTE;
@@ -105,13 +103,13 @@ StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, c
     return STUN_VALIDATION_SUCCESS;
 }
 
-bool stun_agent_forget_transaction(StunAgent * agent, StunTransactionId id)
+bool stun_agent_forget_trans(stun_agent_t * agent, stun_trans_id id)
 {
     int i;
 
     for (i = 0; i < STUN_AGENT_MAX_SAVED_IDS; i++)
     {
-        if (agent->sent_ids[i].valid == TRUE && memcmp(id, agent->sent_ids[i].id, sizeof(StunTransactionId)) == 0)
+        if (agent->sent_ids[i].valid == TRUE && memcmp(id, agent->sent_ids[i].id, sizeof(stun_trans_id)) == 0)
         {
             agent->sent_ids[i].valid = FALSE;
             return TRUE;
@@ -121,10 +119,10 @@ bool stun_agent_forget_transaction(StunAgent * agent, StunTransactionId id)
     return FALSE;
 }
 
-bool stun_agent_init_request(StunAgent * agent, StunMessage * msg, uint8_t * buffer, size_t buffer_len, StunMethod m)
+bool stun_agent_init_request(stun_agent_t * agent, stun_msg_t * msg, uint8_t * buffer, size_t buffer_len, stun_method_e m)
 {
     bool ret;
-    StunTransactionId id;
+    stun_trans_id id;
 
     msg->buffer = buffer;
     msg->buffer_len = buffer_len;
@@ -135,22 +133,22 @@ bool stun_agent_init_request(StunAgent * agent, StunMessage * msg, uint8_t * buf
 
     stun_make_transid(id);
 
-    ret = stun_message_init(msg, STUN_REQUEST, m, id);
+    ret = stun_msg_init(msg, STUN_REQUEST, m, id);
 
     if (ret)
     {
         uint32_t cookie = htonl(STUN_MAGIC_COOKIE);
-        memcpy(msg->buffer + STUN_MESSAGE_TRANS_ID_POS, &cookie, sizeof(cookie));
+        memcpy(msg->buffer + STUN_MSG_TRANS_ID_POS, &cookie, sizeof(cookie));
     }
 
     return ret;
 }
 
 
-bool stun_agent_init_indication(StunAgent * agent, StunMessage * msg, uint8_t * buffer, size_t buffer_len, StunMethod m)
+bool stun_agent_init_indication(stun_agent_t * agent, stun_msg_t * msg, uint8_t * buffer, size_t buffer_len, stun_method_e m)
 {
     bool ret;
-    StunTransactionId id;
+    stun_trans_id id;
 
     msg->buffer = buffer;
     msg->buffer_len = buffer_len;
@@ -160,24 +158,24 @@ bool stun_agent_init_indication(StunAgent * agent, StunMessage * msg, uint8_t * 
     msg->long_term_valid = FALSE;
 
     stun_make_transid(id);
-    ret = stun_message_init(msg, STUN_INDICATION, m, id);
+    ret = stun_msg_init(msg, STUN_INDICATION, m, id);
 
     if (ret)
     {
         uint32_t cookie = htonl(STUN_MAGIC_COOKIE);
-        memcpy(msg->buffer + STUN_MESSAGE_TRANS_ID_POS, &cookie, sizeof(cookie));
+        memcpy(msg->buffer + STUN_MSG_TRANS_ID_POS, &cookie, sizeof(cookie));
     }
 
     return ret;
 }
 
 
-bool stun_agent_init_response(StunAgent * agent, StunMessage * msg, uint8_t * buffer, size_t buffer_len, const StunMessage * request)
+bool stun_agent_init_response(stun_agent_t * agent, stun_msg_t * msg, uint8_t * buffer, size_t buffer_len, const stun_msg_t * request)
 {
 
-    StunTransactionId id;
+    stun_trans_id id;
 
-    if (stun_message_get_class(request) != STUN_REQUEST)
+    if (stun_msg_get_class(request) != STUN_REQUEST)
     {
         return FALSE;
     }
@@ -190,9 +188,9 @@ bool stun_agent_init_response(StunAgent * agent, StunMessage * msg, uint8_t * bu
     memmove(msg->long_term_key, request->long_term_key, sizeof(msg->long_term_key));
     msg->long_term_valid = request->long_term_valid;
 
-    stun_message_id(request, id);
+    stun_msg_id(request, id);
 
-    if (stun_message_init(msg, STUN_RESPONSE, stun_message_get_method(request), id))
+    if (stun_msg_init(msg, STUN_RESPONSE, stun_msg_get_method(request), id))
     {
         return TRUE;
     }
@@ -200,13 +198,13 @@ bool stun_agent_init_response(StunAgent * agent, StunMessage * msg, uint8_t * bu
 }
 
 
-bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
-                           uint8_t * buffer, size_t buffer_len, const StunMessage * request,
-                           StunError err)
+bool stun_agent_init_error(stun_agent_t * agent, stun_msg_t * msg,
+                           uint8_t * buffer, size_t buffer_len, const stun_msg_t * request,
+                           stun_err_e err)
 {
-    StunTransactionId id;
+    stun_trans_id id;
 
-    if (stun_message_get_class(request) != STUN_REQUEST)
+    if (stun_msg_get_class(request) != STUN_REQUEST)
     {
         return FALSE;
     }
@@ -219,12 +217,12 @@ bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
     memmove(msg->long_term_key, request->long_term_key, sizeof(msg->long_term_key));
     msg->long_term_valid = request->long_term_valid;
 
-    stun_message_id(request, id);
+    stun_msg_id(request, id);
 
 
-    if (stun_message_init(msg, STUN_ERROR, stun_message_get_method(request), id))
+    if (stun_msg_init(msg, STUN_ERROR, stun_msg_get_method(request), id))
     {
-        if (stun_message_append_error(msg, err) == STUN_MESSAGE_RETURN_SUCCESS)
+        if (stun_msg_append_error(msg, err) == STUN_MSG_RET_SUCCESS)
         {
             return TRUE;
         }
@@ -233,9 +231,9 @@ bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
 }
 
 
-size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
-        StunMessage * msg, uint8_t * buffer, size_t buffer_len,
-        const StunMessage * request)
+size_t stun_agent_build_unknown_attributes_error(stun_agent_t * agent,
+        stun_msg_t * msg, uint8_t * buffer, size_t buffer_len,
+        const stun_msg_t * request)
 {
 
     unsigned counter;
@@ -250,11 +248,11 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
 
     /* NOTE: Old RFC3489 compatibility:
      * When counter is odd, duplicate one value for 32-bits padding. */
-    if (!stun_message_has_cookie(request) && (counter & 1))
+    if (!stun_msg_has_cookie(request) && (counter & 1))
         ids[counter++] = ids[0];
 
-    if (stun_message_append_bytes(msg, STUN_ATT_UNKNOWN_ATTRIBUTES,
-                                  ids, counter * 2) == STUN_MESSAGE_RETURN_SUCCESS)
+    if (stun_msg_append_bytes(msg, STUN_ATT_UNKNOWN_ATTRIBUTES,
+                                  ids, counter * 2) == STUN_MSG_RET_SUCCESS)
     {
         return stun_agent_finish_message(agent, msg, request->key, request->key_len);
     }
@@ -263,14 +261,14 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
 }
 
 
-size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uint8_t * key, size_t key_len)
+size_t stun_agent_finish_message(stun_agent_t * agent, stun_msg_t * msg, const uint8_t * key, size_t key_len)
 {
     uint8_t * ptr;
     //uint32_t fpr;
     int saved_id_idx = 0;
     uint8_t md5[16];
 
-    if (stun_message_get_class(msg) == STUN_REQUEST)
+    if (stun_msg_get_class(msg) == STUN_REQUEST)
     {
         for (saved_id_idx = 0; saved_id_idx < STUN_AGENT_MAX_SAVED_IDS; saved_id_idx++)
         {
@@ -300,8 +298,8 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uin
 		uint16_t realm_len;
 		uint16_t username_len;
 
-		realm = (uint8_t *)stun_message_find(msg, STUN_ATT_REALM, &realm_len);
-		username = (uint8_t *)stun_message_find(msg, STUN_ATT_USERNAME, &username_len);
+		realm = (uint8_t *)stun_msg_find(msg, STUN_ATT_REALM, &realm_len);
+		username = (uint8_t *)stun_msg_find(msg, STUN_ATT_USERNAME, &username_len);
 		if (username == NULL || realm == NULL)
 		{
 			skip = TRUE;
@@ -317,13 +315,13 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uin
         then don't send the message integrity */
         if (skip == FALSE)
         {
-            ptr = stun_message_append(msg, STUN_ATT_MESSAGE_INTEGRITY, 20);
+            ptr = stun_msg_append(msg, STUN_ATT_MESSAGE_INTEGRITY, 20);
             if (ptr == NULL)
             {
                 return 0;
             }
 
-            stun_sha1(msg->buffer, stun_message_length(msg), stun_message_length(msg) - 20, ptr, md5, sizeof(md5), FALSE);          
+            stun_sha1(msg->buffer, stun_msg_len(msg), stun_msg_len(msg) - 20, ptr, md5, sizeof(md5), FALSE);          
 
             stun_debug(" Message HMAC-SHA1 message integrity:");
             stun_debug_bytes("  key     : ", key, key_len);
@@ -331,10 +329,10 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uin
         }
     }
 
-    if (stun_message_get_class(msg) == STUN_REQUEST)
+    if (stun_msg_get_class(msg) == STUN_REQUEST)
     {
-        stun_message_id(msg, agent->sent_ids[saved_id_idx].id);
-        agent->sent_ids[saved_id_idx].method = stun_message_get_method(msg);
+        stun_msg_id(msg, agent->sent_ids[saved_id_idx].id);
+        agent->sent_ids[saved_id_idx].method = stun_msg_get_method(msg);
         agent->sent_ids[saved_id_idx].key = (uint8_t *) key;
         agent->sent_ids[saved_id_idx].key_len = key_len;
         memcpy(agent->sent_ids[saved_id_idx].long_term_key, msg->long_term_key,  sizeof(msg->long_term_key));
@@ -344,13 +342,13 @@ size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg, const uin
 
     msg->key = (uint8_t *) key;
     msg->key_len = key_len;
-    return stun_message_length(msg);
+    return stun_msg_len(msg);
 }
 
-static int stun_agent_is_unknown(StunAgent * agent, uint16_t type)
+static int stun_agent_is_unknown(stun_agent_t * agent, uint16_t type)
 {
 
-    uint16_t * known_attr = (uint16_t *)STUN_ALL_KNOWN_ATTRIBUTES; //agent->known_attributes;
+    uint16_t * known_attr = (uint16_t *)STUN_ALL_KNOWN_ATTRS; //agent->known_attributes;
 
     while (*known_attr != 0)
     {
@@ -364,13 +362,13 @@ static int stun_agent_is_unknown(StunAgent * agent, uint16_t type)
     return TRUE;
 }
 
-static uint32_t stun_agent_find_unknowns(StunAgent * agent, const StunMessage * msg, uint16_t * list, unsigned max)
+static uint32_t stun_agent_find_unknowns(stun_agent_t * agent, const stun_msg_t * msg, uint16_t * list, unsigned max)
 {
     unsigned count = 0;
-    uint16_t len = stun_message_length(msg);
+    uint16_t len = stun_msg_len(msg);
     size_t offset = 0;
 
-    offset = STUN_MESSAGE_ATTRIBUTES_POS;
+    offset = STUN_MSG_ATTRIBUTES_POS;
 
     while ((offset < len) && (count < max))
     {
@@ -383,7 +381,7 @@ static uint32_t stun_agent_find_unknowns(StunAgent * agent, const StunMessage * 
             list[count++] = htons(atype);
         }
 
-        if (!(agent->usage_flags & STUN_AGENT_USAGE_NO_ALIGNED_ATTRIBUTES))
+        if (!(agent->usage_flags & STUN_AGENT_NO_ALIGNED_ATTRIBUTES))
             alen = stun_align(alen);
 
         offset += STUN_ATT_VALUE_POS + alen;

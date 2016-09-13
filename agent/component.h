@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <glib.h>
 
-typedef struct _Component Component;
+typedef struct _comp_st n_comp_t;
 
 #include "agent.h"
 #include "agent-priv.h"
@@ -26,11 +26,11 @@ typedef struct _Component Component;
  * would end up with 2*K host candidates if an agent has K interfaces.""
  */
 
-typedef struct _CandidatePair CandidatePair;
-typedef struct _CandidatePairKeepalive CandidatePairKeepalive;
-typedef struct _IncomingCheck IncomingCheck;
+typedef struct _cand_pair_st n_cand_pair_t;
+typedef struct _cand_pair_alive_st n_cand_pair_alive_t;
+typedef struct _inchk_st n_inchk_t;
 
-struct _CandidatePairKeepalive
+struct _cand_pair_alive_st
 {
     n_agent_t * agent;
     GSource * tick_source;
@@ -38,18 +38,18 @@ struct _CandidatePairKeepalive
     uint32_t component_id;
     StunTimer timer;
     uint8_t stun_buffer[STUN_MAX_MESSAGE_SIZE_IPV6];
-    StunMessage stun_message;
+    stun_msg_t stun_message;
 };
 
-struct _CandidatePair
+struct _cand_pair_st
 {
     n_cand_t * local;
     n_cand_t * remote;
     uint32_t priority;           /* candidate pair priority */
-    CandidatePairKeepalive keepalive;
+    n_cand_pair_alive_t keepalive;
 };
 
-struct _IncomingCheck
+struct _inchk_st
 {
     n_addr_t from;
     n_socket_t * local_socket;
@@ -59,21 +59,21 @@ struct _IncomingCheck
     uint16_t username_len;
 };
 
-void incoming_check_free(IncomingCheck * icheck);
+void incoming_check_free(n_inchk_t * icheck);
 
 /* A pair of a socket and the GSource which polls it from the main loop. All
- * GSources in a Component must be attached to the same main context:
+ * GSources in a n_comp_t must be attached to the same main context:
  * component->ctx.
  *
  * Socket must be non-NULL, but source may be NULL if it has been detached.
  *
- * The Component is stored so this may be used as the user data for a GSource
+ * The n_comp_t is stored so this may be used as the user data for a GSource
  * callback. */
 typedef struct
 {
     n_socket_t * socket;
     GSource * source;
-    Component * component;
+    n_comp_t * component;
 } SocketSource;
 
 
@@ -85,7 +85,7 @@ typedef struct
  *
  * The @offset member gives the byte offset into @buf which has already been
  * sent to the client. #IOCallbackData buffers remain in the
- * #Component::pending_io_messages queue until all of their bytes have been sent
+ * #n_comp_t::pending_io_messages queue until all of their bytes have been sent
  * to the client.
  *
  * @offset is guaranteed to be smaller than @buf_len. */
@@ -99,18 +99,18 @@ typedef struct
 IOCallbackData * io_callback_data_new(const uint8_t * buf, uint32_t buf_len);
 void io_callback_data_free(IOCallbackData * data);
 
-struct _Component
+struct _comp_st
 {
-    NiceComponentType type;
+    n_comp_type_e type;
     uint32_t id;                    /* component id */
-    NiceComponentState state;
+    n_comp_state_e state;
 	n_slist_t * local_candidates;   /* list of n_cand_t objs */
 	n_slist_t * remote_candidates;  /* list of n_cand_t objs */
 	n_slist_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
     uint32_t socket_sources_age;    /* incremented when socket_sources changes */
-	n_slist_t * incoming_checks;    /* list of IncomingCheck objs */
+	n_slist_t * incoming_checks;    /* list of n_inchk_t objs */
 	n_dlist_t * turn_servers;            /* List of TurnServer objs */
-    CandidatePair selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
+    n_cand_pair_t selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
     n_cand_t * restart_candidate; /* for storing active remote candidate during a restart */
     n_cand_t * turn_candidate; /* for storing active turn candidate if turn servers have been cleared */
     /* I/O handling. The main context must always be non-NULL, and is used for all
@@ -118,14 +118,14 @@ struct _Component
      * context too.
      *
      * recv_messages and io_callback are mutually exclusive, but it is allowed for
-     * both to be NULL if the Component is not currently ready to receive data. */
+     * both to be NULL if the n_comp_t is not currently ready to receive data. */
     GMutex io_mutex;                  /* protects io_callback, io_user_data,
                                          pending_io_messages and io_callback_id.
                                          immutable: can be accessed without
                                          holding the agent lock; if the agent
                                          lock is to be taken, it must always be
                                          taken before this one */
-    NiceAgentRecvFunc io_callback;    /* function called on io cb */
+    n_agent_recv_func io_callback;    /* function called on io cb */
     void * io_user_data;            /* data passed to the io function */
     n_queue_t pending_io_messages;       /* queue of messages which have been
                                          received but not passed to the client
@@ -146,10 +146,10 @@ struct _Component
 
     n_agent_t * agent;  /* unowned, immutable: can be accessed without holding the
                       * agent lock */
-    Stream * stream;  /* unowned, immutable: can be accessed without holding the
+    n_stream_t * stream;  /* unowned, immutable: can be accessed without holding the
                     * agent lock */
 
-    StunAgent stun_agent; /* This stun agent is used to validate all stun requests */
+    stun_agent_t stun_agent; /* This stun agent is used to validate all stun requests */
 
 
     GCancellable * stop_cancellable;
@@ -172,30 +172,25 @@ struct _Component
     n_queue_t queued_tcp_packets;
 };
 
-Component * component_new(uint32_t component_id, n_agent_t * agent, Stream * stream);
-void component_close(Component * cmp);
-void component_free(Component * cmp);
-int component_find_pair(Component * cmp, n_agent_t * agent, const gchar * lfoundation, const gchar * rfoundation, CandidatePair * pair);
-void component_restart(Component * cmp);
-void component_update_selected_pair(Component * component, const CandidatePair * pair);
-n_cand_t * comp_find_remote_cand(const Component * component, const n_addr_t * addr);
-n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, Component * component, n_cand_t * candidate);
-void component_attach_socket(Component * component, n_socket_t * nsocket);
-void component_detach_socket(Component * component, n_socket_t * nsocket);
-void component_detach_all_sockets(Component * component);
-void component_free_socket_sources(Component * component);
+n_comp_t * component_new(uint32_t component_id, n_agent_t * agent, n_stream_t * stream);
+void component_close(n_comp_t * cmp);
+void component_free(n_comp_t * cmp);
+int comp_find_pair(n_comp_t * cmp, n_agent_t * agent, const gchar * lfoundation, const gchar * rfoundation, n_cand_pair_t * pair);
+void component_restart(n_comp_t * cmp);
+void comp_update_selected_pair(n_comp_t * component, const n_cand_pair_t * pair);
+n_cand_t * comp_find_remote_cand(const n_comp_t * component, const n_addr_t * addr);
+n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, n_comp_t * component, n_cand_t * candidate);
+void component_attach_socket(n_comp_t * component, n_socket_t * nsocket);
+void component_detach_socket(n_comp_t * component, n_socket_t * nsocket);
+void component_detach_all_sockets(n_comp_t * component);
+void component_free_socket_sources(n_comp_t * component);
 
-GSource * component_input_source_new(n_agent_t * agent, uint32_t stream_id,
-                                     uint32_t component_id, GPollableInputStream * pollable_istream, GCancellable * cancellable);
-
-GMainContext * component_dup_io_context(Component * component);
-void component_set_io_context(Component * component, GMainContext * context);
-void component_set_io_callback(Component * component,  NiceAgentRecvFunc func, void * user_data,
-                               n_input_msg_t * recv_messages, uint32_t n_recv_messages, GError ** error);
-void component_emit_io_callback(Component * component, const uint8_t * buf, uint32_t buf_len);
-int component_has_io_callback(Component * component);
-void component_clean_turn_servers(Component * component);
-TurnServer * turn_server_new(const gchar * server_ip, uint32_t server_port, const char * username, const char * password, NiceRelayType type);
+void comp_set_io_context(n_comp_t * component, GMainContext * context);
+void comp_set_io_callback(n_comp_t * component,  n_agent_recv_func func, void * user_data);
+void component_emit_io_callback(n_comp_t * component, const uint8_t * buf, uint32_t buf_len);
+int component_has_io_callback(n_comp_t * component);
+void component_clean_turn_servers(n_comp_t * component);
+TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password, n_relay_type_e type);
 TurnServer * turn_server_ref(TurnServer * turn);
 void turn_server_unref(TurnServer * turn);
 

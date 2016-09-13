@@ -80,28 +80,28 @@ static uint16_t nice_candidate_ice_local_preference(const n_cand_t * candidate)
 
     switch (candidate->transport)
     {
-	case CANDIDATE_TRANSPORT_TCP_ACTIVE:
+	case CAND_TRANS_TCP_ACTIVE:
 		if (candidate->type == CAND_TYPE_SERVER ||
 			candidate->type == CAND_TYPE_PREF_NAT)
 			direction_preference = 4;
 		else
 			direction_preference = 6;
 		break;
-	case CANDIDATE_TRANSPORT_TCP_PASSIVE:
+	case CAND_TRANS_TCP_PASSIVE:
 		if (candidate->type == CAND_TYPE_SERVER ||
 			candidate->type == CAND_TYPE_PREF_NAT)
 			direction_preference = 2;
 		else
 			direction_preference = 4;
 		break;
-	case CANDIDATE_TRANSPORT_TCP_SO:
+	case CAND_TRANS_TCP_SO:
 		if (candidate->type == CAND_TYPE_SERVER ||
 			candidate->type == CAND_TYPE_PREF_NAT)
 			direction_preference = 6;
 		else
 			direction_preference = 2;
 		break;
-        case CANDIDATE_TRANSPORT_UDP:
+        case CAND_TRANS_UDP:
         default:
             return 1;
             break;
@@ -133,7 +133,7 @@ static uint8_t nice_candidate_ice_type_preference(const n_cand_t * candidate)
             break;
     }
 
-    if (candidate->transport == CANDIDATE_TRANSPORT_UDP)
+    if (candidate->transport == CAND_TRANS_UDP)
     {
         type_preference = type_preference / 2;
     }
@@ -156,7 +156,7 @@ uint32_t n_cand_ice_priority(const n_cand_t * candidate)
  * Calculates the pair priority as specified in ICE
  * sect 5.7.2. "Computing Pair Priority and Ordering Pairs" (ID-19).
  */
-uint64_t nice_candidate_pair_priority(uint32_t o_prio, uint32_t a_prio)
+uint64_t n_cand_pair_priority(uint32_t o_prio, uint32_t a_prio)
 {
     uint32_t max = o_prio > a_prio ? o_prio : a_prio;
     uint32_t min = o_prio < a_prio ? o_prio : a_prio;

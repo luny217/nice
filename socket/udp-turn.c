@@ -23,7 +23,7 @@
 
 typedef struct
 {
-    StunMessage message;
+    stun_msg_t message;
     uint8_t buffer[STUN_MAX_MESSAGE_SIZE];
     StunTimer timer;
 } TURNMessage;
@@ -39,7 +39,7 @@ typedef struct
 typedef struct
 {
     GMainContext * ctx;
-    StunAgent agent;
+    stun_agent_t agent;
     n_dlist_t  * channels;
     n_dlist_t  * pending_bindings;
     ChannelBinding * current_binding;
@@ -70,7 +70,7 @@ typedef struct
 
 typedef struct
 {
-    StunTransactionId id;
+    stun_trans_id id;
     GSource * source;
     UdpTurnPriv * priv;
 } SendRequest;
@@ -96,8 +96,8 @@ static int priv_retrans_tick_unlocked(UdpTurnPriv * priv);
 static int priv_retrans_tick(void * pointer);
 static void priv_schedule_tick(UdpTurnPriv * priv);
 static void priv_send_turn_message(UdpTurnPriv * priv, TURNMessage * msg);
-static int priv_send_create_permission(UdpTurnPriv * priv,  StunMessage * resp, const n_addr_t * peer);
-static int priv_send_channel_bind(UdpTurnPriv * priv, StunMessage * resp, uint16_t channel, const n_addr_t * peer);
+static int priv_send_create_permission(UdpTurnPriv * priv,  stun_msg_t * resp, const n_addr_t * peer);
+static int priv_send_channel_bind(UdpTurnPriv * priv, stun_msg_t * resp, uint16_t channel, const n_addr_t * peer);
 static int _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer);
 static int priv_forget_send_request(void * pointer);
 static void priv_clear_permissions(UdpTurnPriv * priv);
@@ -139,7 +139,7 @@ n_socket_t * n_udp_turn_new(GMainContext * ctx, n_addr_t * addr,
 
     priv = g_new0(UdpTurnPriv, 1);
 
-	stun_agent_init(&priv->agent, STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS);
+	stun_agent_init(&priv->agent, STUN_AGENT_LONG_TERM_CREDENTIALS);
 
     priv->channels = NULL;
     priv->current_binding = NULL;
@@ -218,7 +218,7 @@ static void socket_close(n_socket_t * sock)
         g_source_unref(r->source);
         r->source = NULL;
 
-        stun_agent_forget_transaction(&priv->agent, r->id);
+        stun_agent_forget_trans(&priv->agent, r->id);
 
         n_slice_free(SendRequest, r);
 
@@ -371,30 +371,30 @@ _timeout_add_with_context(UdpTurnPriv * priv, uint32_t interval, int seconds, GS
     return source;
 }
 
-static StunMessageReturn
-stun_message_append_ms_connection_id(StunMessage * msg,
+static stun_msg_ret_e
+stun_msg_append_ms_connection_id(stun_msg_t * msg,
                                      uint8_t * ms_connection_id, uint32_t ms_sequence_num)
 {
     uint8_t buf[24];
 
     memcpy(buf, ms_connection_id, 20);
     *(uint32_t *)(buf + 20) = htonl(ms_sequence_num);
-    return stun_message_append_bytes(msg, STUN_ATT_MS_SEQUENCE_NUMBER,
+    return stun_msg_append_bytes(msg, STUN_ATT_MS_SEQUENCE_NUMBER,
                                      buf, 24);
 }
 
 static void
-stun_message_ensure_ms_realm(StunMessage * msg, uint8_t * realm)
+stun_msg_ensure_ms_realm(stun_msg_t * msg, uint8_t * realm)
 {
     /* With MS-TURN, original clients do not send REALM attribute in Send and Set
      * Active Destination requests, but use it to compute MESSAGE-INTEGRITY. We
      * simply append cached realm value to the message and use it in subsequent
      * stun_agent_finish_message() call. Messages with this additional attribute
      * are handled correctly on OCS Access Edge working as TURN server. */
-    if (stun_message_get_method(msg) == STUN_SEND ||
-            stun_message_get_method(msg) == STUN_OLD_SET_ACTIVE_DST)
+    if (stun_msg_get_method(msg) == STUN_SEND ||
+            stun_msg_get_method(msg) == STUN_OLD_SET_ACTIVE_DST)
     {
-        stun_message_append_bytes(msg, STUN_ATT_REALM, realm,
+        stun_msg_append_bytes(msg, STUN_ATT_REALM, realm,
                                   strlen((char *)realm));
     }
 }
@@ -595,7 +595,7 @@ static void socket_dequeue_all_data(UdpTurnPriv * priv, const n_addr_t * to)
 static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const n_output_msg_t * message, int reliable)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
-    StunMessage msg;
+    stun_msg_t msg;
     uint8_t buffer[STUN_MAX_MESSAGE_SIZE];
     size_t msg_len;
     union
@@ -680,16 +680,16 @@ static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const
 
 		if (!stun_agent_init_indication(&priv->agent, &msg, buffer, sizeof(buffer), STUN_IND_SEND))
 			goto error;
-		if (stun_message_append_xor_addr(&msg, STUN_ATT_PEER_ADDRESS, &sa.storage, sizeof(sa)) != STUN_MESSAGE_RETURN_SUCCESS)
+		if (stun_msg_append_xor_addr(&msg, STUN_ATT_PEER_ADDRESS, &sa.storage, sizeof(sa)) != STUN_MSG_RET_SUCCESS)
 			goto error;
         
         /* Slow path! We have to compact the buffers to append them to the message.
          * FIXME: This could be improved by adding vectored I/O support to
-          * stun_message_append_bytes(). */
+          * stun_msg_append_bytes(). */
         compacted_buf = compact_output_message(message, &compacted_buf_len);
 
-        if (stun_message_append_bytes(&msg, STUN_ATT_DATA,
-                                      compacted_buf, compacted_buf_len) != STUN_MESSAGE_RETURN_SUCCESS)
+        if (stun_msg_append_bytes(&msg, STUN_ATT_DATA,
+                                      compacted_buf, compacted_buf_len) != STUN_MSG_RET_SUCCESS)
         {
             g_free(compacted_buf);
             goto error;
@@ -699,12 +699,12 @@ static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const
 
         /* Finish the message. */
         msg_len = stun_agent_finish_message(&priv->agent, &msg, priv->password, priv->password_len);
-        if (msg_len > 0 && stun_message_get_class(&msg) == STUN_REQUEST)
+        if (msg_len > 0 && stun_msg_get_class(&msg) == STUN_REQUEST)
         {
             SendRequest * req = g_slice_new0(SendRequest);
 
             req->priv = priv;
-            stun_message_id(&msg, req->id);
+            stun_msg_id(&msg, req->id);
             req->source = _timeout_add_with_context(priv, STUN_END_TIMEOUT, FALSE, priv_forget_send_request, req);
             n_queue_push_tail(priv->send_requests, req);
         }
@@ -850,7 +850,7 @@ static int priv_forget_send_request(void * pointer)
         return FALSE;
     }
 
-    stun_agent_forget_transaction(&req->priv->agent, req->id);
+    stun_agent_forget_trans(&req->priv->agent, req->id);
 
     n_queue_remove(req->priv->send_requests, req);
 
@@ -1026,8 +1026,8 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 {
 
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
-    StunValidationStatus valid;
-    StunMessage msg;
+    stun_valid_status_e valid;
+    stun_msg_t msg;
     n_dlist_t  * l;
     ChannelBinding * binding = NULL;
 
@@ -1059,27 +1059,27 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                     priv->compatibility != NICE_TURN_SOCKET_COMPATIBILITY_RFC5766)
             {
                 uint32_t cookie;
-                if (stun_message_find32(&msg, STUN_ATT_MAGIC_COOKIE,
-                                        &cookie) != STUN_MESSAGE_RETURN_SUCCESS)
+                if (stun_msg_find32(&msg, STUN_ATT_MAGIC_COOKIE,
+                                        &cookie) != STUN_MSG_RET_SUCCESS)
                     goto recv;
                 if (cookie != TURN_MAGIC_COOKIE)
                     goto recv;
             }
 
-            if (stun_message_get_method(&msg) == STUN_SEND)
+            if (stun_msg_get_method(&msg) == STUN_SEND)
             {
-                if (stun_message_get_class(&msg) == STUN_RESPONSE)
+                if (stun_msg_get_class(&msg) == STUN_RESPONSE)
                 {
                     SendRequest * req = NULL;
                     n_dlist_t  * i = n_queue_peek_head_link(priv->send_requests);
-                    StunTransactionId msg_id;
+                    stun_trans_id msg_id;
 
-                    stun_message_id(&msg, msg_id);
+                    stun_msg_id(&msg, msg_id);
 
                     for (; i; i = i->next)
                     {
                         SendRequest * r = i->data;
-                        if (memcmp(&r->id, msg_id, sizeof(StunTransactionId)) == 0)
+                        if (memcmp(&r->id, msg_id, sizeof(stun_trans_id)) == 0)
                         {
                             req = r;
                             break;
@@ -1099,22 +1099,22 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                 }
                 return 0;
             }
-            else if (stun_message_get_method(&msg) == STUN_OLD_SET_ACTIVE_DST)
+            else if (stun_msg_get_method(&msg) == STUN_OLD_SET_ACTIVE_DST)
             {
-                StunTransactionId request_id;
-                StunTransactionId response_id;
+                stun_trans_id request_id;
+                stun_trans_id response_id;
 
                 if (priv->current_binding && priv->current_binding_msg)
                 {
-                    stun_message_id(&msg, response_id);
-                    stun_message_id(&priv->current_binding_msg->message, request_id);
+                    stun_msg_id(&msg, response_id);
+                    stun_msg_id(&priv->current_binding_msg->message, request_id);
                     if (memcmp(request_id, response_id,
-                               sizeof(StunTransactionId)) == 0)
+                               sizeof(stun_trans_id)) == 0)
                     {
                         g_free(priv->current_binding_msg);
                         priv->current_binding_msg = NULL;
 
-                        if (stun_message_get_class(&msg) == STUN_RESPONSE &&
+                        if (stun_msg_get_class(&msg) == STUN_RESPONSE &&
                                 (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007 ||
                                  priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN))
                         {
@@ -1130,17 +1130,17 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
                 return 0;
             }
-            else if (stun_message_get_method(&msg) == STUN_CHANNELBIND)
+            else if (stun_msg_get_method(&msg) == STUN_CHANNELBIND)
             {
-                StunTransactionId request_id;
-                StunTransactionId response_id;
+                stun_trans_id request_id;
+                stun_trans_id response_id;
 
                 if (priv->current_binding_msg)
                 {
-                    stun_message_id(&msg, response_id);
-                    stun_message_id(&priv->current_binding_msg->message, request_id);
+                    stun_msg_id(&msg, response_id);
+                    stun_msg_id(&priv->current_binding_msg->message, request_id);
                     if (memcmp(request_id, response_id,
-                               sizeof(StunTransactionId)) == 0)
+                               sizeof(stun_trans_id)) == 0)
                     {
 
                         if (priv->current_binding)
@@ -1177,7 +1177,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                             }
                         }
 
-                        if (stun_message_get_class(&msg) == STUN_ERROR)
+                        if (stun_msg_get_class(&msg) == STUN_ERROR)
                         {
                             int code = -1;
                             uint8_t * sent_realm = NULL;
@@ -1186,16 +1186,16 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                             uint16_t recv_realm_len = 0;
 
                             sent_realm =
-                                (uint8_t *) stun_message_find(
+                                (uint8_t *) stun_msg_find(
                                     &priv->current_binding_msg->message,
                                     STUN_ATT_REALM, &sent_realm_len);
                             recv_realm =
-                                (uint8_t *) stun_message_find(&msg,
+                                (uint8_t *) stun_msg_find(&msg,
                                                               STUN_ATT_REALM, &recv_realm_len);
 
                             /* check for unauthorized error response */
-                            if (stun_message_find_error(&msg, &code) ==
-                                    STUN_MESSAGE_RETURN_SUCCESS &&
+                            if (stun_msg_find_error(&msg, &code) ==
+                                    STUN_MSG_RET_SUCCESS &&
                                     (code == 438 || (code == 401 &&
                                                      !(recv_realm != NULL &&
                                                        recv_realm_len > 0 &&
@@ -1220,7 +1220,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                                 priv_process_pending_bindings(priv);
                             }
                         }
-                        else if (stun_message_get_class(&msg) == STUN_RESPONSE)
+                        else if (stun_msg_get_class(&msg) == STUN_RESPONSE)
                         {
                             g_free(priv->current_binding_msg);
                             priv->current_binding_msg = NULL;
@@ -1252,10 +1252,10 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                 }
                 return 0;
             }
-            else if (stun_message_get_method(&msg) == STUN_CREATEPERMISSION)
+            else if (stun_msg_get_method(&msg) == STUN_CREATEPERMISSION)
             {
-                StunTransactionId request_id;
-                StunTransactionId response_id;
+                stun_trans_id request_id;
+                stun_trans_id response_id;
                 n_dlist_t  * i, *next;
                 TURNMessage * current_create_perm_msg;
 
@@ -1264,11 +1264,11 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                     current_create_perm_msg = (TURNMessage *) i->data;
                     next = i->next;
 
-                    stun_message_id(&msg, response_id);
-                    stun_message_id(&current_create_perm_msg->message, request_id);
+                    stun_msg_id(&msg, response_id);
+                    stun_msg_id(&current_create_perm_msg->message, request_id);
 
                     if (memcmp(request_id, response_id,
-                               sizeof(StunTransactionId)) == 0)
+                               sizeof(stun_trans_id)) == 0)
                     {
                         union
                         {
@@ -1285,7 +1285,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                         n_addr_set_from_sock(&to, &peer.addr);
 
                         /* unathorized => resend with realm and nonce */
-                        if (stun_message_get_class(&msg) == STUN_ERROR)
+                        if (stun_msg_get_class(&msg) == STUN_ERROR)
                         {
                             int code = -1;
                             uint8_t * sent_realm = NULL;
@@ -1294,16 +1294,16 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                             uint16_t recv_realm_len = 0;
 
                             sent_realm =
-                                (uint8_t *) stun_message_find(
+                                (uint8_t *) stun_msg_find(
                                     &current_create_perm_msg->message,
                                     STUN_ATT_REALM, &sent_realm_len);
                             recv_realm =
-                                (uint8_t *) stun_message_find(&msg,
+                                (uint8_t *) stun_msg_find(&msg,
                                                               STUN_ATT_REALM, &recv_realm_len);
 
                             /* check for unauthorized error response */
-                            if (stun_message_find_error(&msg, &code) ==
-                                    STUN_MESSAGE_RETURN_SUCCESS &&
+                            if (stun_msg_find_error(&msg, &code) ==
+                                    STUN_MSG_RET_SUCCESS &&
                                     (code == 438 || (code == 401 &&
                                                      !(recv_realm != NULL &&
                                                        recv_realm_len > 0 &&
@@ -1331,7 +1331,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
                         /* install timer to schedule refresh of the permission */
                         /* (will not schedule refresh if we got an error) */
-                        if (stun_message_get_class(&msg) == STUN_RESPONSE &&
+                        if (stun_msg_get_class(&msg) == STUN_RESPONSE &&
                                 !priv->permission_timeout_source)
                         {
                             priv->permission_timeout_source =
@@ -1353,8 +1353,8 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
                 return 0;
             }
-            else if (stun_message_get_class(&msg) == STUN_INDICATION &&
-                     stun_message_get_method(&msg) == STUN_IND_DATA)
+            else if (stun_msg_get_class(&msg) == STUN_INDICATION &&
+                     stun_msg_get_method(&msg) == STUN_IND_DATA)
             {
                 uint16_t data_len;
                 uint8_t * data;
@@ -1370,18 +1370,18 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                 {
                     if (stun_msg_find_xor_addr(&msg, STUN_ATT_REMOTE_ADDRESS,
                                                    &sa.storage, &from_len) !=
-                            STUN_MESSAGE_RETURN_SUCCESS)
+                            STUN_MSG_RET_SUCCESS)
                         goto recv;
                 }
                 else
                 {
-                    if (stun_message_find_addr(&msg, STUN_ATT_REMOTE_ADDRESS,
+                    if (stun_msg_find_addr(&msg, STUN_ATT_REMOTE_ADDRESS,
                                                &sa.storage, &from_len) !=
-                            STUN_MESSAGE_RETURN_SUCCESS)
+                            STUN_MSG_RET_SUCCESS)
                         goto recv;
                 }
 
-                data = (uint8_t *) stun_message_find(&msg, STUN_ATT_DATA,
+                data = (uint8_t *) stun_msg_find(&msg, STUN_ATT_DATA,
                                                      &data_len);
 
                 if (data == NULL)
@@ -1515,10 +1515,10 @@ static int priv_retrans_tick_unlocked(UdpTurnPriv * priv)
             case STUN_TIMER_RET_TIMEOUT:
             {
                 /* Time out */
-                StunTransactionId id;
+                stun_trans_id id;
 
-                stun_message_id(&priv->current_binding_msg->message, id);
-                stun_agent_forget_transaction(&priv->agent, id);
+                stun_msg_id(&priv->current_binding_msg->message, id);
+                stun_agent_forget_trans(&priv->agent, id);
 
                 n_free(priv->current_binding);
                 priv->current_binding = NULL;
@@ -1531,7 +1531,7 @@ static int priv_retrans_tick_unlocked(UdpTurnPriv * priv)
             case STUN_TIMER_RET_RETRANSMIT:
                 /* Retransmit */
                 _socket_send_wrapped(priv->base_socket, &priv->server_addr,
-                                     stun_message_length(&priv->current_binding_msg->message),
+                                     stun_msg_len(&priv->current_binding_msg->message),
                                      (gchar *)priv->current_binding_msg->buffer);
                 ret = TRUE;
                 break;
@@ -1563,7 +1563,7 @@ static int priv_retrans_create_perm_tick_unlocked(UdpTurnPriv * priv, n_dlist_t 
             case STUN_TIMER_RET_TIMEOUT:
             {
                 /* Time out */
-                StunTransactionId id;
+                stun_trans_id id;
                 n_addr_t to;
                 union
                 {
@@ -1572,8 +1572,8 @@ static int priv_retrans_create_perm_tick_unlocked(UdpTurnPriv * priv, n_dlist_t 
                 } addr;
                 socklen_t addr_len = sizeof(addr);
 
-                stun_message_id(&current_create_perm_msg->message, id);
-                stun_agent_forget_transaction(&priv->agent, id);
+                stun_msg_id(&current_create_perm_msg->message, id);
+                stun_agent_forget_trans(&priv->agent, id);
                 stun_msg_find_xor_addr(&current_create_perm_msg->message, STUN_ATT_XOR_PEER_ADDRESS, &addr.storage, &addr_len);
                 n_addr_set_from_sock(&to, &addr.addr);
 
@@ -1595,7 +1595,7 @@ static int priv_retrans_create_perm_tick_unlocked(UdpTurnPriv * priv, n_dlist_t 
             case STUN_TIMER_RET_RETRANSMIT:
                 /* Retransmit */
                 _socket_send_wrapped(priv->base_socket, &priv->server_addr,
-                                     stun_message_length(&current_create_perm_msg->message),
+                                     stun_msg_len(&current_create_perm_msg->message),
                                      (char *)current_create_perm_msg->buffer);
                 ret = TRUE;
                 break;
@@ -1733,7 +1733,7 @@ static void priv_schedule_tick(UdpTurnPriv * priv)
 
 static void priv_send_turn_message(UdpTurnPriv * priv, TURNMessage * msg)
 {
-    size_t stun_len = stun_message_length(&msg->message);
+    size_t stun_len = stun_msg_len(&msg->message);
 
     if (priv->current_binding_msg)
     {
@@ -1748,7 +1748,7 @@ static void priv_send_turn_message(UdpTurnPriv * priv, TURNMessage * msg)
     priv_schedule_tick(priv);
 }
 
-static int priv_send_create_permission(UdpTurnPriv * priv, StunMessage * resp, const n_addr_t * peer)
+static int priv_send_create_permission(UdpTurnPriv * priv, stun_msg_t * resp, const n_addr_t * peer)
 {
     uint32_t msg_buf_len;
     int res = FALSE;
@@ -1765,8 +1765,8 @@ static int priv_send_create_permission(UdpTurnPriv * priv, StunMessage * resp, c
 
     if (resp)
     {
-        realm = (uint8_t *) stun_message_find(resp, STUN_ATT_REALM, &realm_len);
-		nonce = (uint8_t *) stun_message_find(resp, STUN_ATT_NONCE, &nonce_len);
+        realm = (uint8_t *) stun_msg_find(resp, STUN_ATT_REALM, &realm_len);
+		nonce = (uint8_t *) stun_msg_find(resp, STUN_ATT_NONCE, &nonce_len);
     }
 
     /* register this peer as being pening a permission (if not already pending) */
@@ -1806,7 +1806,7 @@ static int priv_send_create_permission(UdpTurnPriv * priv, StunMessage * resp, c
     return res;
 }
 
-static int priv_send_channel_bind(UdpTurnPriv * priv,  StunMessage * resp, uint16_t channel, const n_addr_t * peer)
+static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16_t channel, const n_addr_t * peer)
 {
     uint32_t channel_attr = channel << 16;
     size_t stun_len;
@@ -1827,17 +1827,17 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  StunMessage * resp, uint1
         return FALSE;
     }
 
-    if (stun_message_append32(&msg->message, STUN_ATT_CHANNEL_NUMBER,
-                              channel_attr) != STUN_MESSAGE_RETURN_SUCCESS)
+    if (stun_msg_append32(&msg->message, STUN_ATT_CHANNEL_NUMBER,
+                              channel_attr) != STUN_MSG_RET_SUCCESS)
     {
         g_free(msg);
         return FALSE;
     }
 
-    if (stun_message_append_xor_addr(&msg->message, STUN_ATT_PEER_ADDRESS,
+    if (stun_msg_append_xor_addr(&msg->message, STUN_ATT_PEER_ADDRESS,
                                      &sa.storage,
                                      sizeof(sa))
-            != STUN_MESSAGE_RETURN_SUCCESS)
+            != STUN_MSG_RET_SUCCESS)
     {
         g_free(msg);
         return FALSE;
@@ -1845,9 +1845,9 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  StunMessage * resp, uint1
 
     if (priv->username != NULL && priv->username_len > 0)
     {
-        if (stun_message_append_bytes(&msg->message, STUN_ATT_USERNAME,
+        if (stun_msg_append_bytes(&msg->message, STUN_ATT_USERNAME,
                                       priv->username, priv->username_len)
-                != STUN_MESSAGE_RETURN_SUCCESS)
+                != STUN_MSG_RET_SUCCESS)
         {
             g_free(msg);
             return FALSE;
@@ -1860,23 +1860,23 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  StunMessage * resp, uint1
         uint8_t * nonce;
         uint16_t len;
 
-        realm = (uint8_t *) stun_message_find(resp, STUN_ATT_REALM, &len);
+        realm = (uint8_t *) stun_msg_find(resp, STUN_ATT_REALM, &len);
         if (realm != NULL)
         {
-            if (stun_message_append_bytes(&msg->message, STUN_ATT_REALM,
+            if (stun_msg_append_bytes(&msg->message, STUN_ATT_REALM,
                                           realm, len)
-                    != STUN_MESSAGE_RETURN_SUCCESS)
+                    != STUN_MSG_RET_SUCCESS)
             {
                 g_free(msg);
                 return 0;
             }
         }
-        nonce = (uint8_t *) stun_message_find(resp, STUN_ATT_NONCE, &len);
+        nonce = (uint8_t *) stun_msg_find(resp, STUN_ATT_NONCE, &len);
         if (nonce != NULL)
         {
-            if (stun_message_append_bytes(&msg->message, STUN_ATT_NONCE,
+            if (stun_msg_append_bytes(&msg->message, STUN_ATT_NONCE,
                                           nonce, len)
-                    != STUN_MESSAGE_RETURN_SUCCESS)
+                    != STUN_MSG_RET_SUCCESS)
             {
                 g_free(msg);
                 return 0;
@@ -1958,9 +1958,9 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
             return FALSE;
         }
 
-        if (stun_message_append32(&msg->message, STUN_ATT_MAGIC_COOKIE,
+        if (stun_msg_append32(&msg->message, STUN_ATT_MAGIC_COOKIE,
                                   TURN_MAGIC_COOKIE)
-                != STUN_MESSAGE_RETURN_SUCCESS)
+                != STUN_MSG_RET_SUCCESS)
         {
             g_free(msg);
             return FALSE;
@@ -1968,9 +1968,9 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
 
         if (priv->username != NULL && priv->username_len > 0)
         {
-            if (stun_message_append_bytes(&msg->message, STUN_ATT_USERNAME,
+            if (stun_msg_append_bytes(&msg->message, STUN_ATT_USERNAME,
                                           priv->username, priv->username_len)
-                    != STUN_MESSAGE_RETURN_SUCCESS)
+                    != STUN_MSG_RET_SUCCESS)
             {
                 g_free(msg);
                 return FALSE;
@@ -1980,16 +1980,16 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
         if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007)
         {
             if (priv->ms_connection_id_valid)
-                stun_message_append_ms_connection_id(&msg->message,
+                stun_msg_append_ms_connection_id(&msg->message,
                                                      priv->ms_connection_id, ++priv->ms_sequence_num);
 
-            stun_message_ensure_ms_realm(&msg->message, priv->ms_realm);
+            stun_msg_ensure_ms_realm(&msg->message, priv->ms_realm);
         }
 
-        if (stun_message_append_addr(&msg->message,
+        if (stun_msg_append_addr(&msg->message,
                                      STUN_ATT_DESTINATION_ADDRESS,
                                      &sa.addr, sizeof(sa))
-                != STUN_MESSAGE_RETURN_SUCCESS)
+                != STUN_MSG_RET_SUCCESS)
         {
             g_free(msg);
             return FALSE;
@@ -2025,11 +2025,11 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
 }
 
 void
-nice_udp_turn_socket_set_ms_realm(n_socket_t * sock, StunMessage * msg)
+nice_udp_turn_socket_set_ms_realm(n_socket_t * sock, stun_msg_t * msg)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *)sock->priv;
     uint16_t alen;
-    const uint8_t * realm = stun_message_find(msg, STUN_ATT_REALM, &alen);
+    const uint8_t * realm = stun_msg_find(msg, STUN_ATT_REALM, &alen);
 
     if (realm && alen <= STUN_MAX_MS_REALM_LEN)
     {
@@ -2039,11 +2039,11 @@ nice_udp_turn_socket_set_ms_realm(n_socket_t * sock, StunMessage * msg)
 }
 
 void
-nice_udp_turn_socket_set_ms_connection_id(n_socket_t * sock, StunMessage * msg)
+nice_udp_turn_socket_set_ms_connection_id(n_socket_t * sock, stun_msg_t * msg)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *)sock->priv;
     uint16_t alen;
-    const uint8_t * ms_seq_num = stun_message_find(msg,
+    const uint8_t * ms_seq_num = stun_msg_find(msg,
                                  STUN_ATT_MS_SEQUENCE_NUMBER, &alen);
 
     if (ms_seq_num && alen == 24)

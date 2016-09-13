@@ -13,16 +13,16 @@ static volatile unsigned int n_streams_destroyed = 0;
  * @file stream.c
  * @brief ICE stream functionality
  */
-Stream * stream_new(uint32_t n_components, n_agent_t * agent)
+n_stream_t * stream_new(uint32_t n_components, n_agent_t * agent)
 {
-    Stream * stream;
+    n_stream_t * stream;
     uint32_t n;
-    Component * component;
+    n_comp_t * component;
 
     g_atomic_int_inc(&n_streams_created);
-    nice_debug("[%s agent:0x%p]: Created NiceStream (%u created, %u destroyed)", G_STRFUNC, agent, n_streams_created, n_streams_destroyed);
+    nice_debug("[%s]: Created NiceStream (%u created, %u destroyed)", G_STRFUNC, n_streams_created, n_streams_destroyed);
 
-    stream = n_slice_new0(Stream);
+    stream = n_slice_new0(n_stream_t);
     for (n = 0; n < n_components; n++)
     {
         component = component_new(n + 1, agent, stream);
@@ -35,34 +35,34 @@ Stream * stream_new(uint32_t n_components, n_agent_t * agent)
     return stream;
 }
 
-void stream_close(Stream * stream)
+void stream_close(n_stream_t * stream)
 {
 	n_slist_t * i;
 
     for (i = stream->components; i; i = i->next)
     {
-        Component * component = i->data;
+        n_comp_t * component = i->data;
         component_close(component);
     }
 }
 
-void stream_free(Stream * stream)
+void stream_free(n_stream_t * stream)
 {
     free(stream->name);
     n_slist_free_full(stream->components, (n_destroy_notify) component_free);
-    n_slice_free(Stream, stream);
+    n_slice_free(n_stream_t, stream);
 
     g_atomic_int_inc(&n_streams_destroyed);
     nice_debug("Destroyed NiceStream (%u created, %u destroyed)", n_streams_created, n_streams_destroyed);
 }
 
-Component * stream_find_comp_by_id(const Stream * stream, uint32_t id)
+n_comp_t * stream_find_comp_by_id(const n_stream_t * stream, uint32_t id)
 {
     n_slist_t * i;
 
     for (i = stream->components; i; i = i->next)
     {
-        Component * component = i->data;
+        n_comp_t * component = i->data;
         if (component && component->id == id)
             return component;
     }
@@ -74,13 +74,13 @@ Component * stream_find_comp_by_id(const Stream * stream, uint32_t id)
  * Returns true if all components of the stream are either
  * 'CONNECTED' or 'READY' (connected plus nominated).
  */
-int stream_all_components_ready(const Stream * stream)
+int stream_all_components_ready(const n_stream_t * stream)
 {
 	n_slist_t * i;
 
     for (i = stream->components; i; i = i->next)
     {
-        Component * component = i->data;
+        n_comp_t * component = i->data;
         if (component &&
                 !(component->state == COMP_STATE_CONNECTED ||
                   component->state == COMP_STATE_READY))
@@ -94,24 +94,24 @@ int stream_all_components_ready(const Stream * stream)
 /*
  * Initialized the local crendentials for the stream.
  */
-void stream_initialize_credentials(Stream * stream, NiceRNG * rng)
+void stream_initialize_credentials(n_stream_t * stream, NiceRNG * rng)
 {
     /* note: generate ufrag/pwd for the stream (see ICE 15.4.
      *       '"ice-ufrag" and "ice-pwd" Attributes', ID-19) */
-    nice_rng_generate_bytes_print(rng, NICE_STREAM_DEF_UFRAG - 1, stream->local_ufrag);
-    nice_rng_generate_bytes_print(rng, NICE_STREAM_DEF_PWD - 1, stream->local_password);
+    nice_rng_generate_bytes_print(rng, N_STREAM_DEF_UFRAG - 1, stream->local_ufrag);
+    nice_rng_generate_bytes_print(rng, N_STREAM_DEF_PWD - 1, stream->local_password);
 }
 
 /*
  * Resets the stream state to that of a ICE restarted
  * session.
  */
-void stream_restart(n_agent_t * agent, Stream * stream)
+void stream_restart(n_agent_t * agent, n_stream_t * stream)
 {
 	n_slist_t * i;
 
     /* step: clean up all connectivity checks */
-    conn_check_prune_stream(agent, stream);
+    cocheck_prune_stream(agent, stream);
 
     stream->initial_binding_request_received = FALSE;
 
@@ -119,7 +119,7 @@ void stream_restart(n_agent_t * agent, Stream * stream)
 
     for (i = stream->components; i; i = i->next)
     {
-        Component * component = i->data;
+        n_comp_t * component = i->data;
 
         component_restart(component);
     }

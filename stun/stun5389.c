@@ -87,16 +87,16 @@ uint32_t stun_fingerprint(const uint8_t * msg, size_t len,
     return htonl(stun_crc32(data, 3, wlm2009_stupid_crc32_typo) ^ 0x5354554e);
 }
 
-bool stun_message_has_cookie(const StunMessage * msg)
+bool stun_msg_has_cookie(const stun_msg_t * msg)
 {
-    StunTransactionId id;
+    stun_trans_id id;
     uint32_t cookie = htonl(STUN_MAGIC_COOKIE);
-    stun_message_id(msg, id);
+    stun_msg_id(msg, id);
     return memcmp(id, &cookie, sizeof(cookie)) == 0;
 }
 
 
-StunMessageReturn stun_message_append_software(StunMessage * msg,
+stun_msg_ret_e stun_msg_append_software(stun_msg_t * msg,
         const char * software)
 {
     int len = 0;
@@ -112,6 +112,6 @@ StunMessageReturn stun_message_append_software(StunMessage * msg,
         len++;
     }
 
-    return stun_message_append_bytes(msg, STUN_ATT_SOFTWARE, software,
+    return stun_msg_append_bytes(msg, STUN_ATT_SOFTWARE, software,
                                      ptr - software);
 }

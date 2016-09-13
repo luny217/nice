@@ -117,7 +117,7 @@ void disc_prune_socket(n_agent_t * agent, n_socket_t * sock)
  * Frees the n_cand_disc_t structure pointed to
  * by 'user data'. Compatible with n_slist_free_full().
  */
-static void refresh_free_item(CandidateRefresh * cand)
+static void refresh_free_item(n_cand_refresh_t * cand)
 {
     n_agent_t * agent = cand->agent;
     uint8_t * username;
@@ -125,7 +125,6 @@ static void refresh_free_item(CandidateRefresh * cand)
     uint8_t * password;
     uint32_t password_len;
     size_t buffer_len = 0;
-    StunUsageTurnCompatibility turn_compat = agent_to_turn_compatibility(agent);
 
     if (cand->timer_source != NULL)
     {
@@ -148,18 +147,16 @@ static void refresh_free_item(CandidateRefresh * cand)
     buffer_len = turn_create_refresh(&cand->stun_agent,
                  &cand->stun_message,  cand->stun_buffer, sizeof(cand->stun_buffer),
                  cand->stun_resp_msg.buffer == NULL ? NULL : &cand->stun_resp_msg, 0,
-                 username, username_len,
-                 password, password_len,
-                 agent_to_turn_compatibility(agent));
+                 username, username_len, password, password_len);
 
     if (buffer_len > 0)
     {
-        StunTransactionId id;
+        stun_trans_id id;
 
         /* forget the transaction since we don't care about the result and
          * we don't implement retransmissions/timeout */
-        stun_message_id(&cand->stun_message, id);
-        stun_agent_forget_transaction(&cand->stun_agent, id);
+        stun_msg_id(&cand->stun_message, id);
+        stun_agent_forget_trans(&cand->stun_agent, id);
 
         /* send the refresh twice since we won't do retransmissions */
         agent_socket_send(cand->nicesock, &cand->server, buffer_len, (gchar *)cand->stun_buffer);
@@ -170,14 +167,7 @@ static void refresh_free_item(CandidateRefresh * cand)
 
     }
 
-    if (turn_compat == STUN_USAGE_TURN_COMPATIBILITY_MSN ||
-            turn_compat == STUN_USAGE_TURN_COMPATIBILITY_OC2007)
-    {
-        n_free(username);
-        n_free(password);
-    }
-
-    g_slice_free(CandidateRefresh, cand);
+    n_slice_free(n_cand_refresh_t, cand);
 }
 
 /*
@@ -201,7 +191,7 @@ void refresh_prune_stream(n_agent_t * agent, uint32_t stream_id)
 
     for (i = agent->refresh_list; i ;)
     {
-        CandidateRefresh * cand = i->data;
+        n_cand_refresh_t * cand = i->data;
         n_slist_t  * next = i->next;
 
         /* Don't free the candidate refresh to the currently selected local candidate
@@ -215,7 +205,6 @@ void refresh_prune_stream(n_agent_t * agent, uint32_t stream_id)
 
         i = next;
     }
-
 }
 
 void refresh_prune_candidate(n_agent_t * agent, n_cand_t * candidate)
@@ -225,7 +214,7 @@ void refresh_prune_candidate(n_agent_t * agent, n_cand_t * candidate)
     for (i = agent->refresh_list; i;)
     {
         n_slist_t  * next = i->next;
-        CandidateRefresh * refresh = i->data;
+        n_cand_refresh_t * refresh = i->data;
 
         if (refresh->candidate == candidate)
         {
@@ -244,7 +233,7 @@ void refresh_prune_socket(n_agent_t * agent, n_socket_t * sock)
     for (i = agent->refresh_list; i;)
     {
         n_slist_t  * next = i->next;
-        CandidateRefresh * refresh = i->data;
+        n_cand_refresh_t * refresh = i->data;
 
         if (refresh->nicesock == sock)
         {
@@ -256,7 +245,7 @@ void refresh_prune_socket(n_agent_t * agent, n_socket_t * sock)
     }
 }
 
-void refresh_cancel(CandidateRefresh * refresh)
+void refresh_cancel(n_cand_refresh_t * refresh)
 {
     refresh->agent->refresh_list = n_slist_remove(refresh->agent->refresh_list, refresh);
     refresh_free_item(refresh);
@@ -268,7 +257,7 @@ void refresh_cancel(CandidateRefresh * refresh)
  * defined in ICE spec section 4.1.3 "Eliminating Redundant
  * Candidates" (ID-19).
  */
-static int _add_local_cand_pruned(n_agent_t * agent, uint32_t stream_id, Component * component, n_cand_t * candidate)
+static int _add_local_cand_pruned(n_agent_t * agent, uint32_t stream_id, n_comp_t * component, n_cand_t * candidate)
 {
     n_slist_t  * i;
 
@@ -282,19 +271,19 @@ static int _add_local_cand_pruned(n_agent_t * agent, uint32_t stream_id, Compone
                 nice_address_equal(&c->addr, &candidate->addr) &&
                 c->transport == candidate->transport)
         {
-            nice_debug("[%s agent:0x%p]: Candidate %p (component-id %u) redundant, ignoring.", G_STRFUNC, agent, candidate, component->id);
+            nice_debug("[%s]: Candidate %p (component-id %u) redundant, ignoring.", G_STRFUNC, candidate, component->id);
 			nice_print_cand(agent, candidate, candidate);
             return FALSE;
         }
     }
 
     component->local_candidates = n_slist_append(component->local_candidates, candidate);
-    conn_check_add_for_local_candidate(agent, stream_id, component, candidate);
+    cocheck_add_local_cand(agent, stream_id, component, candidate);
 
     return TRUE;
 }
 
-static uint32_t _highest_remote_foundation(Component * component)
+static uint32_t _highest_remote_foundation(n_comp_t * component)
 {
     n_slist_t  * i;
     uint32_t highest = 1;
@@ -342,44 +331,41 @@ static int _compare_turn_servers(TurnServer * turn1, TurnServer * turn2)
  * Implements the mechanism described in ICE sect
  * 4.1.1.3 "Computing Foundations" (ID-19).
  */
-static void _assign_foundation(n_agent_t * agent, n_cand_t * candidate)
+static void _assign_foundation(n_agent_t * agent, n_cand_t * cand)
 {
     n_slist_t  * i, *j, *k;
 
     for (i = agent->streams_list; i; i = i->next)
     {
-        Stream * stream = i->data;
+        n_stream_t * stream = i->data;
         for (j = stream->components; j; j = j->next)
         {
-            Component * component = j->data;
-            for (k = component->local_candidates; k; k = k->next)
+            n_comp_t * comp= j->data;
+            for (k = comp->local_candidates; k; k = k->next)
             {
                 n_cand_t * n = k->data;
 
                 /* note: candidate must not on the local candidate list */
-                g_assert(candidate != n);
+                g_assert(cand != n);
 
-                if (candidate->type == n->type &&
-                        candidate->transport == n->transport &&
-                        candidate->stream_id == n->stream_id &&
-                        nice_address_equal_no_port(&candidate->base_addr, &n->base_addr) &&
-                        (candidate->type != CAND_TYPE_RELAYED ||
-                         _compare_turn_servers(candidate->turn, n->turn)))
+                if (cand->type == n->type && cand->transport == n->transport &&
+					cand->stream_id == n->stream_id && nice_address_equal_no_port(&cand->base_addr, &n->base_addr) &&
+                   (cand->type != CAND_TYPE_RELAYED || _compare_turn_servers(cand->turn, n->turn)))
                 {
                     /* note: currently only one STUN server per stream at a
                      *       time is supported, so there is no need to check
                      *       for candidates that would otherwise share the
                      *       foundation, but have different STUN servers */
-                    g_strlcpy(candidate->foundation, n->foundation, CAND_MAX_FOUNDATION);
+                    g_strlcpy(cand->foundation, n->foundation, CAND_MAX_FOUNDATION);
                     if (n->username)
                     {
-                        n_free(candidate->username);
-                        candidate->username = g_strdup(n->username);
+                        n_free(cand->username);
+						cand->username = g_strdup(n->username);
                     }
                     if (n->password)
                     {
-                        n_free(candidate->password);
-                        candidate->password = g_strdup(n->password);
+                        n_free(cand->password);
+						cand->password = g_strdup(n->password);
                     }
                     return;
                 }
@@ -387,21 +373,21 @@ static void _assign_foundation(n_agent_t * agent, n_cand_t * candidate)
         }
     }
 
-    g_snprintf(candidate->foundation, CAND_MAX_FOUNDATION, "%u", agent->next_candidate_id++);
+    g_snprintf(cand->foundation, CAND_MAX_FOUNDATION, "%u", agent->next_candidate_id++);
 }
 
 static void _assign_remote_foundation(n_agent_t * agent, n_cand_t * candidate)
 {
     n_slist_t  * i, *j, *k;
     uint32_t next_remote_id;
-    Component * component = NULL;
+    n_comp_t * component = NULL;
 
     for (i = agent->streams_list; i; i = i->next)
     {
-        Stream * stream = i->data;
+        n_stream_t * stream = i->data;
         for (j = stream->components; j; j = j->next)
         {
-            Component * c = j->data;
+            n_comp_t * c = j->data;
 
             if (c->id == candidate->component_id)
                 component = c;
@@ -451,8 +437,8 @@ static void _assign_remote_foundation(n_agent_t * agent, n_cand_t * candidate)
 HostCandidateResult disc_add_local_host_cand(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_addr_t * address, n_cand_t ** outcandidate)
 {
     n_cand_t * candidate;
-    Component * comp;
-    Stream * stream;
+    n_comp_t * comp;
+    n_stream_t * stream;
     n_socket_t * nicesock = NULL;
     HostCandidateResult res = CANDIDATE_FAILED;
 
@@ -460,7 +446,7 @@ HostCandidateResult disc_add_local_host_cand(n_agent_t * agent, uint32_t stream_
         return res;
 
     candidate = n_cand_new(CAND_TYPE_HOST);
-    candidate->transport = CANDIDATE_TRANSPORT_UDP;
+    candidate->transport = CAND_TRANS_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = comp_id;
     candidate->addr = *address;
@@ -487,7 +473,7 @@ HostCandidateResult disc_add_local_host_cand(n_agent_t * agent, uint32_t stream_
         goto errors;
     }
 
-    _priv_set_socket_tos(agent, nicesock, stream->tos);
+    _set_socket_tos(agent, nicesock, stream->tos);
     component_attach_socket(comp, nicesock);
 
     *outcandidate = candidate;
@@ -510,15 +496,15 @@ errors:
 n_cand_t * disc_add_server_cand(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_addr_t * address, n_socket_t * base_socket)
 {
     n_cand_t * candidate;
-    Component * comp;
-    Stream * stream;
+    n_comp_t * comp;
+    n_stream_t * stream;
     int result = FALSE;
 
     if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
         return NULL;
 
     candidate = n_cand_new(CAND_TYPE_SERVER);
-	candidate->transport = CANDIDATE_TRANSPORT_UDP;
+	candidate->transport = CAND_TRANS_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = comp_id;
     candidate->addr = *address;
@@ -554,15 +540,15 @@ n_cand_t * disc_add_server_cand(n_agent_t * agent, uint32_t stream_id, uint32_t 
 n_cand_t * disc_add_relay_cand(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_addr_t * address, n_socket_t * base_socket, TurnServer * turn)
 {
     n_cand_t * candidate;
-    Component * comp;
-    Stream * stream;
+    n_comp_t * comp;
+    n_stream_t * stream;
     n_socket_t * relay_socket = NULL;
 
     if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
         return NULL;
 
     candidate = n_cand_new(CAND_TYPE_RELAYED);
-    candidate->transport = CANDIDATE_TRANSPORT_UDP;
+    candidate->transport = CAND_TRANS_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = comp_id;
     candidate->addr = *address;
@@ -605,8 +591,8 @@ n_cand_t * disc_add_peer_cand(n_agent_t * agent, uint32_t stream_id, uint32_t co
 												n_addr_t * address, n_socket_t * base_socket,  n_cand_t * local, n_cand_t * remote)
 {
     n_cand_t * candidate;
-    Component * comp;
-    Stream * stream;
+    n_comp_t * comp;
+    n_stream_t * stream;
     int result;
 
     if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
@@ -614,7 +600,7 @@ n_cand_t * disc_add_peer_cand(n_agent_t * agent, uint32_t stream_id, uint32_t co
 
     candidate = n_cand_new(CAND_TYPE_PEER);
 
-	candidate->transport = CANDIDATE_TRANSPORT_UDP;
+	candidate->transport = CAND_TRANS_UDP;
     candidate->stream_id = stream_id;
     candidate->component_id = comp_id;
     candidate->addr = *address;
@@ -655,8 +641,8 @@ n_cand_t * disc_add_peer_cand(n_agent_t * agent, uint32_t stream_id, uint32_t co
  */
 n_cand_t * disc_learn_remote_peer_cand(
     n_agent_t * agent,
-    Stream * stream,
-    Component * component,
+    n_stream_t * stream,
+    n_comp_t * component,
     uint32_t priority,
     const n_addr_t * remote_address,
     n_socket_t * nicesock,
@@ -672,10 +658,10 @@ n_cand_t * disc_learn_remote_peer_cand(
     if (remote)
         candidate->transport = remote->transport;
     else if (local)
-        candidate->transport = conn_check_match_transport(local->transport);
+        candidate->transport = cocheck_match_trans(local->transport);
     else
     {       
-		candidate->transport = CANDIDATE_TRANSPORT_UDP;        
+		candidate->transport = CAND_TRANS_UDP;        
     }
     candidate->sockptr = nicesock;
     candidate->stream_id = stream->id;
@@ -731,7 +717,7 @@ static int _disc_tick_unlocked(void * pointer)
     {
         static int tick_counter = 0;
         if (tick_counter++ % 50 == 0)
-            nice_debug("[%s agent:0x%p]: discovery tick #%d with list %p (1)", G_STRFUNC, agent, tick_counter, agent->discovery_list);
+            nice_debug("[%s]: discovery tick #%d with list %p (1)", G_STRFUNC, tick_counter, agent->discovery_list);
     }
 
     for (i = agent->discovery_list; i ; i = i->next)
@@ -749,12 +735,12 @@ static int _disc_tick_unlocked(void * pointer)
             {
                 char tmpbuf[INET6_ADDRSTRLEN];
                 nice_address_to_string(&candidate->server, tmpbuf);
-                nice_debug("[%s agent:0x%p]: discovery - scheduling candidate type %u addr %s", G_STRFUNC, agent, candidate->type, tmpbuf);
+                nice_debug("[%s]: discovery - scheduling candidate type %u addr %s", G_STRFUNC, candidate->type, tmpbuf);
             }
 
             if (n_addr_is_valid(&candidate->server) && (candidate->type == CAND_TYPE_SERVER || candidate->type == CAND_TYPE_RELAYED))
             {
-                n_sig_comp_state_change(agent, candidate->stream->id, candidate->component->id,  COMP_STATE_GATHERING);
+                agent_sig_comp_state_change(agent, candidate->stream->id, candidate->component->id,  COMP_STATE_GATHERING);
 
                 if (candidate->type == CAND_TYPE_SERVER)
                 {
@@ -806,7 +792,7 @@ static int _disc_tick_unlocked(void * pointer)
 
             if (candidate->stun_message.buffer == NULL)
             {
-                nice_debug("[%s agent:0x%p]: STUN discovery was cancelled, marking discovery done.", G_STRFUNC, agent);
+                nice_debug("[%s]: STUN discovery was cancelled, marking discovery done.", G_STRFUNC);
 				//nice_print_cand(agent, candidate, candidate);
 				candidate->done = TRUE;
             }
@@ -818,15 +804,15 @@ static int _disc_tick_unlocked(void * pointer)
                     {
                         /* Time out */
                         /* case: error, abort processing */
-                        StunTransactionId id;
+                        stun_trans_id id;
 
-                        stun_message_id(&candidate->stun_message, id);
-                        stun_agent_forget_transaction(&candidate->stun_agent, id);
+                        stun_msg_id(&candidate->stun_message, id);
+                        stun_agent_forget_trans(&candidate->stun_agent, id);
 
 						candidate->done = TRUE;
 						candidate->stun_message.buffer = NULL;
 						candidate->stun_message.buffer_len = 0;
-                        nice_debug("[%s agent:0x%p]: bind discovery timed out, aborting discovery item", G_STRFUNC, agent);
+                        nice_debug("[%s]: bind discovery timed out, aborting discovery item", G_STRFUNC);
                         break;
                     }
                     case STUN_TIMER_RET_RETRANSMIT:
@@ -834,11 +820,11 @@ static int _disc_tick_unlocked(void * pointer)
                         /* case: not ready complete, so schedule next timeout */
                         unsigned int timeout = stun_timer_remainder(&candidate->timer);
 
-						nice_debug("[%s agent:0x%p]: STUN transaction retransmitted (timeout %dms)", G_STRFUNC, agent, timeout);
+						nice_debug("[%s]: STUN transaction retransmitted (timeout %dms)", G_STRFUNC, timeout);
 
                         /* retransmit */
                         agent_socket_send(candidate->nicesock, &candidate->server,
-                                          stun_message_length(&candidate->stun_message),
+                                          stun_msg_len(&candidate->stun_message),
                                           (char *)candidate->stun_buffer);
 
                         /* note: convert from milli to microseconds for g_time_val_add() */
@@ -855,7 +841,7 @@ static int _disc_tick_unlocked(void * pointer)
 						candidate->next_tick = now;
                         time_val_add(&candidate->next_tick, timeout * 1000);
 
-						nice_debug("[%s agent:0x%p]: STUN transaction success", G_STRFUNC, agent);
+						nice_debug("[%s]: STUN transaction success", G_STRFUNC);
 						//nice_print_cand(agent, candidate, candidate);
 
                         ++not_done; /* note: retry later */
@@ -875,7 +861,7 @@ static int _disc_tick_unlocked(void * pointer)
 
     if (not_done == 0)
     {
-        nice_debug("[%s agent:0x%p]: Candidate gathering FINISHED, stopping discovery timer", G_STRFUNC, agent);
+        nice_debug("[%s]: Candidate gathering FINISHED, stopping discovery timer", G_STRFUNC);
 		//nice_print_cand(agent, candidate, candidate);
         disc_free(agent);
         agent_gathering_done(agent);

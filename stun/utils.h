@@ -65,9 +65,9 @@ extern "C" {
 
     void * stun_setw(uint8_t * ptr, uint16_t value);
 
-    void stun_set_type(uint8_t * h, StunClass c, StunMethod m);
+    void stun_set_type(uint8_t * h, StunClass c, stun_method_e m);
 
-    StunMessageReturn stun_xor_address(const StunMessage * msg,
+    stun_msg_ret_e stun_xor_address(const stun_msg_t * msg,
                                        struct sockaddr_storage * addr, socklen_t addrlen,
                                        uint32_t magic_cookie);
 

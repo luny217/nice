@@ -16,7 +16,7 @@
  *  connectivity checks to create a stream of data between you and your peer.
  *
  * A #n_agent_t must always be used with a #GMainLoop running the #GMainContext
- * passed into nice_agent_new() (or nice_agent_new_reliable()). Without the
+ * passed into n_agent_new() (or nice_agent_new_reliable()). Without the
  * #GMainContext being iterated, the agent?s timers will not fire, etc.
  *
  * Streams and their components are referenced by integer IDs (with respect to a
@@ -24,7 +24,7 @@
  * for valid streams/components.
  *
  * To complete the ICE connectivity checks, the user must either register
- * an I/O callback (with nice_agent_attach_recv()) or call nice_agent_recv_messages()
+ * an I/O callback (with n_agent_attach_recv()) or call nice_agent_recv_messages()
  * in a loop on a dedicated thread.
  * Technically, #n_agent_t does not poll the streams on its own, since
  * user data could arrive at any time; to receive STUN packets
@@ -34,9 +34,9 @@
  * or returned from nice_agent_recv_messages() and related functions.
  *
  * Each stream can receive data in one of two ways: using
- * nice_agent_attach_recv() or nice_agent_recv_messages() (and the derived
+ * n_agent_attach_recv() or nice_agent_recv_messages() (and the derived
  * #NiceInputStream and #NiceIOStream classes accessible using
- * nice_agent_get_io_stream()). nice_agent_attach_recv() is non-blocking: it
+ * nice_agent_get_io_stream()). n_agent_attach_recv() is non-blocking: it
  * takes a user-provided callback function and attaches the stream?s socket to
  * the provided #GMainContext, invoking the callback in that context for every
  * packet received. nice_agent_recv_messages() instead blocks on receiving a
@@ -55,7 +55,7 @@
  *   n_slist_t  *lcands = NULL;
  *
  *   // Create a nice agent, passing in the global default GMainContext.
- *   n_agent_t *agent = nice_agent_new (NULL, NICE_COMPATIBILITY_RFC5245);
+ *   n_agent_t *agent = n_agent_new (NULL, NICE_COMPATIBILITY_RFC5245);
  *   spawn_thread_to_run_main_loop (g_main_loop_new (NULL, FALSE));
  *
  *   // Connect the signals
@@ -67,29 +67,29 @@
  *                     G_CALLBACK (cb_new_selected_pair), NULL);
  *
  *   // Create a new stream with one component and start gathering candidates
- *   stream_id = nice_agent_add_stream (agent, 1);
+ *   stream_id = n_agent_add_stream (agent, 1);
  *   n_agent_gather_cands (agent, stream_id);
  *
  *   // Attach I/O callback the component to ensure that:
  *   // 1) agent gets its STUN packets (not delivered to cb_nice_recv)
  *   // 2) you get your own data
- *   nice_agent_attach_recv (agent, stream_id, 1, NULL,
+ *   n_agent_attach_recv (agent, stream_id, 1, NULL,
  *                          cb_nice_recv, NULL);
  *
  *   // ... Wait until the signal candidate-gathering-done is fired ...
  *   lcands = n_agent_get_local_cands(agent, stream_id, 1);
 
- *   nice_agent_get_local_credentials(agent, stream_id, &ufrag, &pwd);
+ *   n_agent_get_local_credentials(agent, stream_id, &ufrag, &pwd);
  *
  *   // ... Send local candidates and credentials to the peer
  *
  *   // Set the peer's remote credentials and remote candidates
- *   nice_agent_set_remote_credentials (agent, stream_id, remote_ufrag, remote_pwd);
+ *   n_agent_set_remote_credentials (agent, stream_id, remote_ufrag, remote_pwd);
  *   n_agent_set_remote_cands (agent, stream_id, 1, rcands);
  *
  *   // ... Wait until the signal new-selected-pair is fired ...
  *   // Send our message!
- *   nice_agent_send (agent, stream_id, 1, sizeof(buffer), buffer);
+ *   n_agent_send (agent, stream_id, 1, sizeof(buffer), buffer);
  *
  *   // Anything received will be received through the cb_nice_recv callback.
  *   // You must be running a GMainLoop on the global default GMainContext in
@@ -231,7 +231,7 @@ GType nice_agent_get_type(void);
 #define MAX_REMOTE_CANDIDATES    25
 
 /**
- * NiceComponentState:
+ * n_comp_state_e:
  * @NICE_COMP_STATE_DISCONNECTED: No activity scheduled
  * @NICE_COMP_STATE_GATHERING: Gathering local candidates
  * @NICE_COMP_STATE_CONNECTING: Establishing connectivity
@@ -254,20 +254,20 @@ typedef enum
     COMP_STATE_READY,
     COMP_STATE_FAILED,
     COMP_STATE_LAST
-} NiceComponentState;
+} n_comp_state_e;
 
 
 /**
- * NiceComponentType:
- * @NICE_COMPONENT_TYPE_RTP: RTP Component type
- * @NICE_COMPONENT_TYPE_RTCP: RTCP Component type
+ * n_comp_type_e:
+ * @NICE_COMPONENT_TYPE_RTP: RTP n_comp_t type
+ * @NICE_COMPONENT_TYPE_RTCP: RTCP n_comp_t type
  *
  * Convenience enum representing the type of a component for use as the
  * component_id for RTP/RTCP usages.
  <example>
    <title>Example of use.</title>
    <programlisting>
-   nice_agent_send (agent, stream_id, NICE_COMPONENT_TYPE_RTP, len, buf);
+   n_agent_send (agent, stream_id, NICE_COMPONENT_TYPE_RTP, len, buf);
    </programlisting>
   </example>
  */
@@ -275,7 +275,7 @@ typedef enum
 {
     NICE_COMPONENT_TYPE_RTP = 1,
     NICE_COMPONENT_TYPE_RTCP = 2
-} NiceComponentType;
+} n_comp_type_e; 
 
 /**
  * NiceCompatibility:
@@ -291,7 +291,7 @@ typedef enum
  * @NICE_COMPATIBILITY_LAST: Dummy last compatibility mode
  *
  * An enum to specify which compatible specifications the #n_agent_t should use.
- * Use with nice_agent_new()
+ * Use with n_agent_new()
  *
  * <warning>@NICE_COMPATIBILITY_DRAFT19 is deprecated and should not be used
  * in newly-written code. It is kept for compatibility reasons and
@@ -342,22 +342,22 @@ typedef enum
 
 
 /**
- * NiceAgentRecvFunc:
+ * n_agent_recv_func:
  * @agent: The #n_agent_t Object
  * @stream_id: The id of the stream
  * @component_id: The id of the component of the stream
  *        which received the data
  * @len: The length of the data
  * @buf: The buffer containing the data received
- * @user_data: The user data set in nice_agent_attach_recv()
+ * @user_data: The user data set in n_agent_attach_recv()
  *
  * Callback function when data is received on a component
  *
  */
-typedef void (*NiceAgentRecvFunc)(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * user_data);
+typedef void (*n_agent_recv_func)(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * user_data);
 
 /**
- * nice_agent_new:
+ * n_agent_new:
  * @ctx: The Glib Mainloop Context to use for timers
  * @compat: The compatibility mode of the agent
  *
@@ -366,10 +366,10 @@ typedef void (*NiceAgentRecvFunc)(n_agent_t * agent, uint32_t stream_id, uint32_
  *
  * Returns: The new agent GObject
  */
-n_agent_t * nice_agent_new(GMainContext * ctx);
+n_agent_t * n_agent_new();
 
 /**
- * nice_agent_add_local_address:
+ * n_agent_add_local_addr:
  * @agent: The #n_agent_t Object
  * @addr: The address to listen to
  * If the port is 0, then a random port will be chosen by the system
@@ -384,10 +384,10 @@ n_agent_t * nice_agent_new(GMainContext * ctx);
  * See also: n_agent_gather_cands()
  * Returns: %TRUE on success, %FALSE on fatal (memory allocation) errors
  */
-int nice_agent_add_local_address(n_agent_t * agent, n_addr_t * addr);
+int n_agent_add_local_addr(n_agent_t * agent, n_addr_t * addr);
 
 /**
- * nice_agent_add_stream:
+ * n_agent_add_stream:
  * @agent: The #n_agent_t Object
  * @n_components: The number of components to add to the stream
  *
@@ -396,10 +396,10 @@ int nice_agent_add_local_address(n_agent_t * agent, n_addr_t * addr);
  *
  * Returns: The ID of the new stream, 0 on failure
  **/
-uint32_t nice_agent_add_stream(n_agent_t * agent, uint32_t n_components);
+uint32_t n_agent_add_stream(n_agent_t * agent, uint32_t n_components);
 
 /**
- * nice_agent_remove_stream:
+ * n_agent_remove_stream:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream to remove
  *
@@ -409,11 +409,11 @@ uint32_t nice_agent_add_stream(n_agent_t * agent, uint32_t n_components);
  * will get broken pipe errors.
  *
  **/
-void nice_agent_remove_stream(n_agent_t * agent, uint32_t stream_id);
+void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id);
 
 
 /**
- * nice_agent_set_port_range:
+ * n_agent_set_port_range:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
@@ -430,10 +430,10 @@ void nice_agent_remove_stream(n_agent_t * agent, uint32_t stream_id);
  * </para>
  *
  */
-void nice_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t min_port, uint32_t max_port);
+void n_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t min_port, uint32_t max_port);
 
 /**
- * nice_agent_set_relay_info:
+ * n_agent_set_relay_info:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
@@ -450,8 +450,8 @@ void nice_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t c
  * Returns: %TRUE if the TURN settings were accepted.
  * %FALSE if the address was invalid.
  */
-int nice_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,  const char * server_ip, uint32_t server_port,
-											const char * username, const char * password, NiceRelayType type);
+int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,  const char * server_ip, uint32_t server_port,
+											const char * username, const char * password, n_relay_type_e type);
 
 /**
  * n_agent_gather_cands:
@@ -467,15 +467,15 @@ int nice_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t co
  * n_agent_get_local_cands() will only return non-empty results after
  * calling this function.
  *
- * <para>See also: nice_agent_add_local_address()</para>
- * <para>See also: nice_agent_set_port_range()</para>
+ * <para>See also: n_agent_add_local_addr()</para>
+ * <para>See also: n_agent_set_port_range()</para>
  *
  * Returns: %FALSE if the stream ID is invalid or if a host candidate couldn't
  * be allocated on the requested interfaces/ports; %TRUE otherwise
  *
  <note>
    <para>
-    Local addresses can be previously set with nice_agent_add_local_address()
+    Local addresses can be previously set with n_agent_add_local_addr()
   </para>
   <para>
     Since 0.0.5, If no local address was previously added, then the nice agent
@@ -487,7 +487,7 @@ int nice_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t co
 int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id);
 
 /**
- * nice_agent_set_remote_credentials:
+ * n_agent_set_remote_credentials:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @ufrag: nul-terminated string containing an ICE username fragment
@@ -499,24 +499,24 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id);
  *
  <note>
    <para>
-     Stream credentials do not override per-candidate credentials if set
+     n_stream_t credentials do not override per-candidate credentials if set
    </para>
    <para>
      Due to the native of peer-reflexive candidates, any agent using a per-stream
      credentials (RFC5245, WLM2009, OC2007R2 and DRAFT19) instead of
      per-candidate credentials (GOOGLE, MSN, OC2007), must
-     use the nice_agent_set_remote_credentials() API instead of setting the
+     use the n_agent_set_remote_credentials() API instead of setting the
      username and password on the candidates.
    </para>
  </note>
  *
  * Returns: %TRUE on success, %FALSE on error.
  */
-int nice_agent_set_remote_credentials(n_agent_t * agent, uint32_t stream_id, const char * ufrag, const char * pwd);
+int n_agent_set_remote_credentials(n_agent_t * agent, uint32_t stream_id, const char * ufrag, const char * pwd);
 
 
 /**
- * nice_agent_set_local_credentials:
+ * n_agent_set_local_credentials:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @ufrag: nul-terminated string containing an ICE username fragment
@@ -536,7 +536,7 @@ int nice_agent_set_remote_credentials(n_agent_t * agent, uint32_t stream_id, con
  * Returns: %TRUE on success, %FALSE on error.
  */
 int
-nice_agent_set_local_credentials(
+n_agent_set_local_credentials(
     n_agent_t * agent,
     uint32_t stream_id,
     const gchar * ufrag,
@@ -544,7 +544,7 @@ nice_agent_set_local_credentials(
 
 
 /**
- * nice_agent_get_local_credentials:
+ * n_agent_get_local_credentials:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @ufrag: (out callee-allocates): return location for a nul-terminated string
@@ -553,7 +553,7 @@ nice_agent_set_local_credentials(
  * containing an ICE password; must be freed with n_free()
  *
  * Gets the local credentials for stream @stream_id. This may be called any time
- * after creating a stream using nice_agent_add_stream().
+ * after creating a stream using n_agent_add_stream().
  *
  * An error will be returned if this is called for a non-existent stream, or if
  * either of @ufrag or @pwd are %NULL.
@@ -561,7 +561,7 @@ nice_agent_set_local_credentials(
  * Returns: %TRUE on success, %FALSE on error.
  */
 int
-nice_agent_get_local_credentials(
+n_agent_get_local_credentials(
     n_agent_t * agent,
     uint32_t stream_id,
     gchar ** ufrag, gchar ** pwd);
@@ -606,7 +606,7 @@ n_agent_set_remote_cands(
 
 
 /**
- * nice_agent_send:
+ * n_agent_send:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream to send to
  * @component_id: The ID of the component to send to
@@ -617,7 +617,7 @@ n_agent_set_remote_cands(
  *
  <note>
    <para>
-     Component state MUST be NICE_COMP_STATE_READY, or as a special case,
+     n_comp_t state MUST be NICE_COMP_STATE_READY, or as a special case,
      in any state if component was in READY state before and was then restarted
    </para>
    <para>
@@ -640,7 +640,7 @@ n_agent_set_remote_cands(
  *
  * Returns: The number of bytes sent, or negative error code
  */
-int32_t nice_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, const char * buf);
+int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, const char * buf);
 
 /**
  * n_agent_send_msgs_nonblocking:
@@ -658,7 +658,7 @@ int32_t nice_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t componen
  * stream/component pair. Transmission is non-blocking, so a
  * %G_IO_ERROR_WOULD_BLOCK error may be returned if the send buffer is full.
  *
- * As with nice_agent_send(), the given component must be in
+ * As with n_agent_send(), the given component must be in
  * %NICE_COMP_STATE_READY or, as a special case, in any state if it was
  * previously ready and was then restarted.
  *
@@ -668,7 +668,7 @@ int32_t nice_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t componen
  * transmission would have blocked on the first message.
  *
  * In reliable mode, it is instead recommended to use
- * nice_agent_send().  The return value can be less than @n_messages
+ * n_agent_send().  The return value can be less than @n_messages
  * or 0 even if it is still possible to send a partial message. In
  * this case, "nice-agent-writable" will never be triggered, so the
  * application would have to use nice_agent_sent() to fill the buffer or have
@@ -750,7 +750,7 @@ n_agent_get_remote_cands(
     uint32_t component_id);
 
 /**
- * nice_agent_restart:
+ * n_agent_restart:
  * @agent: The #n_agent_t Object
  *
  * Restarts the session as defined in ICE draft 19. This function
@@ -760,10 +760,10 @@ n_agent_get_remote_cands(
  *
  * Returns: %TRUE on success %FALSE on error
  **/
-int nice_agent_restart(n_agent_t * agent);
+int n_agent_restart(n_agent_t * agent);
 
 /**
- * nice_agent_restart_stream:
+ * n_agent_restart_stream:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  *
@@ -772,18 +772,18 @@ int nice_agent_restart(n_agent_t * agent);
  * "ICE Restarts"), as well as when reacting (spec section 9.2.1.1.
  * "Detecting ICE Restart") to a restart.
  *
- * Unlike nice_agent_restart(), this applies to a single stream. It also
+ * Unlike n_agent_restart(), this applies to a single stream. It also
  * does not generate a new tie breaker.
  *
  * Returns: %TRUE on success %FALSE on error
  *
  * Since: 0.1.6
  **/
-int nice_agent_restart_stream(n_agent_t * agent, uint32_t stream_id);
+int n_agent_restart_stream(n_agent_t * agent, uint32_t stream_id);
 
 
 /**
- * nice_agent_attach_recv: (skip)
+ * n_agent_attach_recv: (skip)
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of stream
  * @component_id: The ID of the component
@@ -801,7 +801,7 @@ int nice_agent_restart_stream(n_agent_t * agent, uint32_t stream_id);
  * This must not be used in combination with nice_agent_recv_messages() (or
  * #NiceIOStream or #NiceInputStream) on the same stream/component pair.
  *
- * Calling nice_agent_attach_recv() with a %NULL @func will detach any existing
+ * Calling n_agent_attach_recv() with a %NULL @func will detach any existing
  * callback and cause reception to be paused for the given stream/component
  * pair. You must iterate the previously specified #GMainContext sufficiently to
  * ensure all pending I/O callbacks have been received before calling this
@@ -809,16 +809,16 @@ int nice_agent_restart_stream(n_agent_t * agent, uint32_t stream_id);
  *
  * Returns: %TRUE on success, %FALSE if the stream or component IDs are invalid.
  */
-int nice_agent_attach_recv(
+int n_agent_attach_recv(
     n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
     GMainContext * ctx,
-    NiceAgentRecvFunc func,
+    n_agent_recv_func func,
     void * data);
 
 /**
- * nice_agent_set_selected_pair:
+ * n_agent_set_selected_pair:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
@@ -833,7 +833,7 @@ int nice_agent_attach_recv(
  *
  * Returns: %TRUE on success, %FALSE if the candidate pair cannot be found
  */
-int nice_agent_set_selected_pair(
+int n_agent_set_selected_pair(
     n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
@@ -841,7 +841,7 @@ int nice_agent_set_selected_pair(
     const char * rfoundation);
 
 /**
- * nice_agent_get_selected_pair:
+ * n_agent_get_selected_pair:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
@@ -853,7 +853,7 @@ int nice_agent_set_selected_pair(
  *
  * Returns: %TRUE on success, %FALSE if there is no selected candidate pair
  */
-int nice_agent_get_selected_pair(
+int n_agent_get_selected_pair(
     n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
@@ -861,7 +861,7 @@ int nice_agent_get_selected_pair(
     n_cand_t ** remote);
 
 /**
- * nice_agent_get_selected_socket:
+ * n_agent_get_selected_socket:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
@@ -885,10 +885,10 @@ int nice_agent_get_selected_pair(
  *
  * Since: 0.1.5
  */
-GSocket * nice_agent_get_selected_socket(n_agent_t * agent, uint32_t stream_id, uint32_t component_id);
+GSocket * n_agent_get_selected_socket(n_agent_t * agent, uint32_t stream_id, uint32_t component_id);
 
 /**
- * nice_agent_set_selected_remote_candidate:
+ * n_agent_set_selected_rcand:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
@@ -905,7 +905,7 @@ GSocket * nice_agent_get_selected_socket(n_agent_t * agent, uint32_t stream_id, 
  * Returns: %TRUE on success, %FALSE on failure
  */
 int
-nice_agent_set_selected_remote_candidate(
+n_agent_set_selected_rcand(
     n_agent_t * agent,
     uint32_t stream_id,
     uint32_t component_id,
@@ -913,7 +913,7 @@ nice_agent_set_selected_remote_candidate(
 
 
 /**
- * nice_agent_set_stream_tos:
+ * n_agent_set_stream_tos:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @tos: The ToS to set
@@ -922,7 +922,7 @@ nice_agent_set_selected_remote_candidate(
  *
  * Since: 0.0.9
  */
-void nice_agent_set_stream_tos(
+void n_agent_set_stream_tos(
     n_agent_t * agent,
     uint32_t stream_id,
     int32_t tos);
@@ -960,7 +960,7 @@ void nice_agent_set_software(
     const gchar * software);
 
 /**
- * nice_agent_set_stream_name:
+ * n_agent_set_stream_name:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream to change
  * @name: The new name of the stream or %NULL
@@ -974,33 +974,33 @@ void nice_agent_set_software(
  *
  * <para>See also: nice_agent_generate_local_sdp()</para>
  * <para>See also: nice_agent_parse_remote_sdp()</para>
- * <para>See also: nice_agent_get_stream_name()</para>
+ * <para>See also: n_agent_get_stream_name()</para>
  *
  * Returns: %TRUE if the name has been set. %FALSE in case of error
  * (invalid stream or duplicate name).
  * Since: 0.1.4
  */
-int nice_agent_set_stream_name(
+int n_agent_set_stream_name(
     n_agent_t * agent,
     uint32_t stream_id,
     const gchar * name);
 
 /**
- * nice_agent_get_stream_name:
+ * n_agent_get_stream_name:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream to change
  *
  * This function will return the name assigned to a stream.
 
- * <para>See also: nice_agent_set_stream_name()</para>
+ * <para>See also: n_agent_set_stream_name()</para>
  *
  * Returns: The name of the stream. The name is only valid while the stream
- * exists or until it changes through a call to nice_agent_set_stream_name().
+ * exists or until it changes through a call to n_agent_set_stream_name().
  *
  *
  * Since: 0.1.4
  */
-const gchar * nice_agent_get_stream_name(
+const gchar * n_agent_get_stream_name(
     n_agent_t * agent,
     uint32_t stream_id);
 
@@ -1055,7 +1055,7 @@ nice_agent_get_default_local_candidate(
    </para>
  </note>
  *
- * <para>See also: nice_agent_set_stream_name() </para>
+ * <para>See also: n_agent_set_stream_name() </para>
  * <para>See also: nice_agent_parse_remote_sdp() </para>
  * <para>See also: nice_agent_generate_local_stream_sdp() </para>
  * <para>See also: nice_agent_generate_local_candidate_sdp() </para>
@@ -1095,7 +1095,7 @@ nice_agent_generate_local_sdp(
    </para>
  </note>
  *
- * <para>See also: nice_agent_set_stream_name() </para>
+ * <para>See also: n_agent_set_stream_name() </para>
  * <para>See also: nice_agent_parse_remote_stream_sdp() </para>
  * <para>See also: nice_agent_generate_local_sdp() </para>
  * <para>See also: nice_agent_generate_local_candidate_sdp() </para>
@@ -1144,13 +1144,13 @@ nice_agent_generate_local_candidate_sdp(
  <note>
    <para>
     This function will return an error if a stream has not been assigned a name
-    with nice_agent_set_stream_name() as it becomes troublesome to assign the
+    with n_agent_set_stream_name() as it becomes troublesome to assign the
     streams from the agent to the streams in the SDP.
    </para>
  </note>
  *
  *
- * <para>See also: nice_agent_set_stream_name() </para>
+ * <para>See also: n_agent_set_stream_name() </para>
  * <para>See also: nice_agent_generate_local_sdp() </para>
  * <para>See also: nice_agent_parse_remote_stream_sdp() </para>
  * <para>See also: nice_agent_parse_remote_candidate_sdp() </para>
@@ -1244,8 +1244,8 @@ nice_agent_get_io_stream(
     uint32_t component_id);
 
 /**
- * nice_comp_state_to_str:
- * @state: a #NiceComponentState
+ * n_comp_state_to_str:
+ * @state: a #n_comp_state_e
  *
  * Returns a string representation of the state, generally to use in debug
  * messages.
@@ -1254,16 +1254,16 @@ nice_agent_get_io_stream(
  * Since: 0.1.6
  */
 const gchar *
-nice_comp_state_to_str(NiceComponentState state);
+n_comp_state_to_str(n_comp_state_e state);
 
 /**
- * nice_agent_forget_relays:
+ * n_agent_forget_relays:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
  *
  * Forget all the relay servers previously added using
- * nice_agent_set_relay_info(). Currently connected streams will keep
+ * n_agent_set_relay_info(). Currently connected streams will keep
  * using the relay as long as they have not been restarted and haven't
  * succesfully negotiated a different path.
  *
@@ -1272,25 +1272,25 @@ nice_comp_state_to_str(NiceComponentState state);
  * Since: 0.1.6
  */
 int
-nice_agent_forget_relays(n_agent_t * agent,
+n_agent_forget_relays(n_agent_t * agent,
                          uint32_t stream_id,
                          uint32_t component_id);
 
 /**
- * nice_agent_get_component_state:
+ * n_agent_get_comp_state:
  * @agent: The #n_agent_t Object
  * @stream_id: The ID of the stream
  * @component_id: The ID of the component
  *
  * Retrieves the current state of a component.
  *
- * Returns: the #NiceComponentState of the component and
+ * Returns: the #n_comp_state_e of the component and
  * %NICE_COMP_STATE_FAILED if the component was invalid.
  *
  * Since: 0.1.8
  */
-NiceComponentState
-nice_agent_get_component_state(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id);
+n_comp_state_e
+n_agent_get_comp_state(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id);
 
 void nice_print_cand(n_agent_t * agent, n_cand_t * l_cand, n_cand_t * r_cand);
 

@@ -46,43 +46,43 @@ typedef enum
 
 
 /**
- * StunUsageIceReturn:
- * @STUN_USAGE_ICE_RETURN_SUCCESS: The function succeeded
- * @STUN_USAGE_ICE_RETURN_ERROR: There was an unspecified error
- * @STUN_USAGE_ICE_RETURN_INVALID: The message is invalid for processing
- * @STUN_USAGE_ICE_RETURN_ROLE_CONFLICT: A role conflict was detected
- * @STUN_USAGE_ICE_RETURN_INVALID_REQUEST: The message is an not a request
- * @STUN_USAGE_ICE_RETURN_INVALID_METHOD: The method of the request is invalid
- * @STUN_USAGE_ICE_RETURN_MEMORY_ERROR: The buffer size is too small to hold
+ * stun_ice_ret_e:
+ * @STUN_ICE_RET_SUCCESS: The function succeeded
+ * @STUN_ICE_RET_ERROR: There was an unspecified error
+ * @STUN_ICE_RET_INVALID: The message is invalid for processing
+ * @STUN_ICE_RET_ROLE_CONFLICT: A role conflict was detected
+ * @STUN_ICE_RET_INVALID_REQUEST: The message is an not a request
+ * @STUN_ICE_RET_INVALID_METHOD: The method of the request is invalid
+ * @STUN_ICE_RET_MEMORY_ERROR: The buffer size is too small to hold
  * the STUN reply
- * @STUN_USAGE_ICE_RETURN_INVALID_ADDRESS: The mapped address argument has
+ * @STUN_ICE_RET_INVALID_ADDRESS: The mapped address argument has
  * an invalid address family
- * @STUN_USAGE_ICE_RETURN_NO_MAPPED_ADDRESS: The response is valid but no
+ * @STUN_ICE_RET_NO_MAPPED_ADDRESS: The response is valid but no
  * MAPPED-ADDRESS or XOR-MAPPED-ADDRESS attribute was found
  *
- * Return value of stun_usage_ice_conncheck_process() and
- * stun_usage_ice_conncheck_create_reply() which allows you to see what
+ * Return value of stun_ice_cocheck_process() and
+ * stun_ice_cocheck_create_reply() which allows you to see what
  * status the function call returned.
  */
 typedef enum
 {
-    STUN_USAGE_ICE_RETURN_SUCCESS,
-    STUN_USAGE_ICE_RETURN_ERROR,
-    STUN_USAGE_ICE_RETURN_INVALID,
-    STUN_USAGE_ICE_RETURN_ROLE_CONFLICT,
-    STUN_USAGE_ICE_RETURN_INVALID_REQUEST,
-    STUN_USAGE_ICE_RETURN_INVALID_METHOD,
-    STUN_USAGE_ICE_RETURN_MEMORY_ERROR,
-    STUN_USAGE_ICE_RETURN_INVALID_ADDRESS,
-    STUN_USAGE_ICE_RETURN_NO_MAPPED_ADDRESS,
-} StunUsageIceReturn;
+    STUN_ICE_RET_SUCCESS,
+    STUN_ICE_RET_ERROR,
+    STUN_ICE_RET_INVALID,
+    STUN_ICE_RET_ROLE_CONFLICT,
+    STUN_ICE_RET_INVALID_REQUEST,
+    STUN_ICE_RET_INVALID_METHOD,
+    STUN_ICE_RET_MEMORY_ERROR,
+    STUN_ICE_RET_INVALID_ADDRESS,
+    STUN_ICE_RET_NO_MAPPED_ADDRESS,
+} stun_ice_ret_e; 
 
 
 /**
- * stun_usage_ice_conncheck_create:
- * @agent: The #StunAgent to use to build the request
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use for creating the #StunMessage
+ * stun_ice_cocheck_create:
+ * @agent: The #stun_agent_t to use to build the request
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use for creating the #stun_msg_t
  * @buffer_len: The size of the @buffer
  * @username: The username to use in the request
  * @username_len: The length of @username
@@ -106,15 +106,15 @@ typedef enum
  * @candidate_identifier argument is not used.
  * Returns: The length of the message built.
  */
-size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
+size_t stun_ice_cocheck_create(stun_agent_t * agent, stun_msg_t * msg,
                                 uint8_t * buffer, size_t buffer_len,
                                 const uint8_t * username, const size_t username_len,
                                 const uint8_t * password, const size_t password_len,
                                 int cand_use, int controlling, uint32_t priority, uint64_t tie);
 
 /**
- * stun_usage_ice_conncheck_process:
- * @msg: The #StunMessage to process
+ * stun_ice_cocheck_process:
+ * @msg: The #stun_msg_t to process
  * @addr: A pointer to a #sockaddr structure to fill with the mapped address
  * that the STUN connectivity check response contains
  * @addrlen: The length of @addr
@@ -123,18 +123,18 @@ size_t stun_usage_ice_conncheck_create(StunAgent * agent, StunMessage * msg,
  *
  * Process an ICE connectivity check STUN message and retreive the
  * mapped address from the message
- * <para> See also stun_usage_ice_conncheck_priority() and
- * stun_usage_ice_conncheck_use_candidate() </para>
- * Returns: A #StunUsageIceReturn value
+ * <para> See also stun_ice_cocheck_priority() and
+ * stun_ice_cocheck_use_cand() </para>
+ * Returns: A #stun_ice_ret_e value
  */
-StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg, struct sockaddr_storage * addr, socklen_t * addrlen);
+stun_ice_ret_e stun_ice_cocheck_process(stun_msg_t * msg, struct sockaddr_storage * addr, socklen_t * addrlen);
 
 /**
- * stun_usage_ice_conncheck_create_reply:
- * @agent: The #StunAgent to use to build the response
+ * stun_ice_cocheck_create_reply:
+ * @agent: The #stun_agent_t to use to build the response
  * @req: The original STUN request to reply to
- * @msg: The #StunMessage to build
- * @buf: The buffer to use for creating the #StunMessage
+ * @msg: The #stun_msg_t to build
+ * @buf: The buffer to use for creating the #stun_msg_t
  * @plen: A pointer containing the size of the @buffer on input.
  * Will contain the length of the message built on output.
  * @src: A pointer to a #sockaddr structure containing the source address from
@@ -157,30 +157,30 @@ StunUsageIceReturn stun_usage_ice_conncheck_process(StunMessage * msg, struct so
      If @plen has a size of 0, then no error response should be sent.
    </para>
  </note>
- * Returns: A #StunUsageIceReturn value
+ * Returns: A #stun_ice_ret_e value
  */
-StunUsageIceReturn
-stun_usage_ice_conncheck_create_reply(StunAgent * agent, StunMessage * req,
-                                      StunMessage * msg, uint8_t * buf, size_t * plen,
+stun_ice_ret_e
+stun_ice_cocheck_create_reply(stun_agent_t * agent, stun_msg_t * req,
+                                      stun_msg_t * msg, uint8_t * buf, size_t * plen,
                                       const struct sockaddr_storage * src, socklen_t srclen,
                                       int * control, uint64_t tie);
 
 /**
- * stun_usage_ice_conncheck_priority:
- * @msg: The #StunMessage to parse
+ * stun_ice_cocheck_priority:
+ * @msg: The #stun_msg_t to parse
  *
  * Extracts the priority from a STUN message.
  * Returns: host byte order priority, or 0 if not specified.
  */
-uint32_t stun_usage_ice_conncheck_priority(const StunMessage * msg);
+uint32_t stun_ice_cocheck_priority(const stun_msg_t * msg);
 
 /**
- * stun_usage_ice_conncheck_use_candidate:
- * @msg: The #StunMessage to parse
+ * stun_ice_cocheck_use_cand:
+ * @msg: The #stun_msg_t to parse
  *
  * Extracts the USE-CANDIDATE attribute flag from a STUN message.
  * Returns: %TRUE if the flag is set, %FALSE if not.
  */
-bool stun_usage_ice_conncheck_use_candidate(const StunMessage * msg);
+bool stun_ice_cocheck_use_cand(const stun_msg_t * msg);
 
 #endif

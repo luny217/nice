@@ -40,24 +40,24 @@ typedef enum
 } n_cand_type_e; 
 
 /**
- * NiceCandidateTransport:
- * @NICE_CANDIDATE_TRANSPORT_UDP: UDP transport
- * @NICE_CANDIDATE_TRANSPORT_TCP_ACTIVE: TCP Active transport
- * @NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE: TCP Passive transport
- * @NICE_CANDIDATE_TRANSPORT_TCP_SO: TCP Simultaneous-Open transport
+ * n_cand_trans_e:
+ * @NICE_CAND_TRANS_UDP: UDP transport
+ * @NICE_CAND_TRANS_TCP_ACTIVE: TCP Active transport
+ * @NICE_CAND_TRANS_TCP_PASSIVE: TCP Passive transport
+ * @NICE_CAND_TRANS_TCP_SO: TCP Simultaneous-Open transport
  *
  * An enum representing the type of transport to use
  */
 typedef enum
 {
-    CANDIDATE_TRANSPORT_UDP,
-    CANDIDATE_TRANSPORT_TCP_ACTIVE,
-    CANDIDATE_TRANSPORT_TCP_PASSIVE,
-    CANDIDATE_TRANSPORT_TCP_SO,
-} NiceCandidateTransport;
+    CAND_TRANS_UDP,
+    CAND_TRANS_TCP_ACTIVE,
+    CAND_TRANS_TCP_PASSIVE,
+    CAND_TRANS_TCP_SO,
+} n_cand_trans_e;
 
 /**
- * NiceRelayType:
+ * n_relay_type_e:
  * @NICE_RELAY_TYPE_TURN_UDP: A TURN relay using UDP
  * @NICE_RELAY_TYPE_TURN_TCP: A TURN relay using TCP
  * @NICE_RELAY_TYPE_TURN_TLS: A TURN relay using TLS over TCP
@@ -69,7 +69,7 @@ typedef enum
     RELAY_TYPE_TURN_UDP,
     RELAY_TYPE_TURN_TCP,
     RELAY_TYPE_TURN_TLS
-} NiceRelayType;
+} n_relay_type_e;
 
 
 typedef struct _cand_st n_cand_t; 
@@ -82,7 +82,7 @@ typedef struct _TurnServer TurnServer;
  * @server: The #n_addr_t of the TURN server
  * @username: The TURN username
  * @password: The TURN password
- * @type: The #NiceRelayType of the server
+ * @type: The #n_relay_type_e of the server
  *
  * A structure to store the TURN relay settings
  */
@@ -92,7 +92,7 @@ struct _TurnServer
     n_addr_t server;
     char * username;
     char * password;
-    NiceRelayType type;
+    n_relay_type_e type;
 };
 
 /**
@@ -106,9 +106,9 @@ struct _TurnServer
  * @component_id: The ID of the component to which belongs the candidate
  * @foundation: The foundation of the candidate
  * @username: The candidate-specific username to use (overrides the one set
- * by nice_agent_set_local_credentials() or nice_agent_set_remote_credentials())
+ * by n_agent_set_local_credentials() or n_agent_set_remote_credentials())
  * @password: The candidate-specific password to use (overrides the one set
- * by nice_agent_set_local_credentials() or nice_agent_set_remote_credentials())
+ * by n_agent_set_local_credentials() or n_agent_set_remote_credentials())
  * @turn: The #TurnServer settings if the candidate is
  * of type %NICE_CANDIDATE_TYPE_RELAYED
  * @sockptr: The underlying socket
@@ -126,7 +126,7 @@ struct _TurnServer
 struct _cand_st
 {
     n_cand_type_e type;
-    NiceCandidateTransport transport;
+    n_cand_trans_e transport;
     n_addr_t addr;
     n_addr_t base_addr;
     uint32_t priority;

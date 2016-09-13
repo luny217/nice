@@ -50,20 +50,20 @@ StunBind;
 
 /**
  * stun_bind_create:
- * @agent: The #StunAgent to use to create the binding request
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use for creating the #StunMessage
+ * @agent: The #stun_agent_t to use to create the binding request
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use for creating the #stun_msg_t
  * @buffer_len: The size of the @buffer
  *
  * Create a new STUN binding request to use with a STUN server.
  * Returns: The length of the built message.
  */
-size_t stun_bind_create(StunAgent * agent, StunMessage * msg,
+size_t stun_bind_create(stun_agent_t * agent, stun_msg_t * msg,
                               uint8_t * buffer, size_t buffer_len);
 
 /**
  * stun_bind_process:
- * @msg: The #StunMessage to process
+ * @msg: The #stun_msg_t to process
  * @addr: A pointer to a #sockaddr structure to fill with the mapped address
  * that the STUN server gives us
  * @addrlen: The length of @add. rMust be set to the size of the @addr socket
@@ -82,15 +82,15 @@ size_t stun_bind_create(StunAgent * agent, StunMessage * msg,
  * Returns: A #StunBind value.
  * Note that #STUN_BIND_TIMEOUT cannot be returned by this function
  */
-StunBind stun_bind_process(StunMessage * msg,
+StunBind stun_bind_process(stun_msg_t * msg,
         struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len);
 
 /**
  * stun_bind_keepalive:
- * @agent: The #StunAgent to use to build the message
- * @msg: The #StunMessage to build
- * @buf: The buffer to use for creating the #StunMessage
+ * @agent: The #stun_agent_t to use to build the message
+ * @msg: The #stun_msg_t to build
+ * @buf: The buffer to use for creating the #stun_msg_t
  * @len: The size of the @buf
  *
  * Creates a STUN binding indication that can be used for a keepalive.
@@ -98,7 +98,7 @@ StunBind stun_bind_process(StunMessage * msg,
  * and it can only be used as a keepalive message.
  * Returns: The length of the message to send
  */
-size_t stun_bind_keepalive(StunAgent * agent, StunMessage * msg,
+size_t stun_bind_keepalive(stun_agent_t * agent, stun_msg_t * msg,
                                  uint8_t * buf, size_t len);
 
 /**

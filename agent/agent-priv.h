@@ -36,9 +36,9 @@ typedef struct
     uint32_t offset;
 } NiceInputMessageIter;
 
-void nice_input_message_iter_reset(NiceInputMessageIter * iter);
-int nice_input_message_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * messages, uint32_t n_messages);
-uint32_t nice_input_message_iter_get_n_valid_messages(NiceInputMessageIter * iter);
+void n_input_msg_iter_reset(NiceInputMessageIter * iter);
+int n_input_msg_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * messages, uint32_t n_messages);
+uint32_t n_input_msg_iter_get_n_valid_msgs(NiceInputMessageIter * iter);
 
 #include "socket.h"
 #include "candidate.h"
@@ -74,7 +74,7 @@ struct _agent_st
     uint32_t timer_ta;                 /* property: timer Ta */
     uint32_t max_conn_checks;          /* property: max connectivity checks */
 	n_slist_t * local_addresses;        /* list of NiceAddresses for local interfaces */
-	n_slist_t * streams_list;               /* list of Stream objects */
+	n_slist_t * streams_list;               /* list of n_stream_t objects */
     GMainContext * main_context;    /* main context pointer */
     uint32_t next_candidate_id;        /* id of next created candidate */
     uint32_t next_stream_id;           /* id of next created candidate */
@@ -84,11 +84,10 @@ struct _agent_st
     GSource * disc_timer_source; /* source of discovery timer */
     GSource * conncheck_timer_source; /* source of conncheck timer */
     GSource * keepalive_timer_source; /* source of keepalive timer */
-	n_slist_t * refresh_list;        /* list of CandidateRefresh items */
+	n_slist_t * refresh_list;        /* list of n_cand_refresh_t items */
     uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
     NiceCompatibility compatibility; /* property: Compatibility mode */
     int32_t media_after_tick;       /* Received media after keepalive tick */
-    char * software_attribute;      /* SOFTWARE attribute */
     int32_t reliable;               /* property: reliable */
     int32_t keepalive_conncheck;    /* property: keepalive_conncheck */
     n_queue_t pending_signals;
@@ -97,27 +96,26 @@ struct _agent_st
     /* XXX: add pointer to internal data struct for ABI-safe extensions */
 };
 
-int32_t agent_find_comp(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, Stream ** stream, Component ** component);
-Stream * agent_find_stream(n_agent_t * agent, uint32_t stream_id);
+int32_t agent_find_comp(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_stream_t ** stream, n_comp_t ** component);
+n_stream_t * agent_find_stream(n_agent_t * agent, uint32_t stream_id);
 void agent_gathering_done(n_agent_t * agent);
-void agent_signal_gathering_done(n_agent_t * agent);
+void agent_sig_gathering_done(n_agent_t * agent);
 void agent_lock(void);
 void agent_unlock(void);
 void agent_unlock_and_emit(n_agent_t * agent);
 
-void agent_signal_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t * lcandidate, n_cand_t * rcandidate);
-void n_sig_comp_state_change(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, NiceComponentState state);
+void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t * lcandidate, n_cand_t * rcandidate);
+void agent_sig_comp_state_change(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_comp_state_e state);
 void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate);
 void agent_sig_new_remote_cand(n_agent_t * agent, n_cand_t * candidate);
-void agent_signal_initial_binding_request_received(n_agent_t * agent, Stream * stream);
+void agent_sig_initial_binding_request_received(n_agent_t * agent, n_stream_t * stream);
 uint64_t agent_candidate_pair_priority(n_agent_t * agent, n_cand_t * local, n_cand_t * remote);
 void agent_timeout_add(n_agent_t * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data);
-StunUsageIceCompatibility agent_to_ice_compatibility(n_agent_t * agent);
 StunUsageTurnCompatibility agent_to_turn_compatibility(n_agent_t * agent);
 void agent_remove_local_candidate(n_agent_t * agent, n_cand_t * candidate);
-void nice_agent_init_stun_agent(n_agent_t * agent, StunAgent * stun_agent);
-void _priv_set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos);
-int32_t component_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
+void n_agent_init_stun_agent(n_agent_t * agent, stun_agent_t * stun_agent);
+void _set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos);
+int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
 uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t * buffer, uint32_t buffer_length);
 uint8_t * compact_input_message(const n_input_msg_t * message, uint32_t * buffer_length);
 uint8_t * compact_output_message(const n_output_msg_t * message, uint32_t * buffer_length);
@@ -126,7 +124,7 @@ int32_t agent_socket_send(n_socket_t * sock, const n_addr_t * addr, uint32_t len
 
 uint32_t nice_candidate_ice_priority_full(uint32_t type_pref, uint32_t local_pref, uint32_t component_id);
 uint32_t n_cand_ice_priority(const n_cand_t * candidate);
-uint64_t nice_candidate_pair_priority(uint32_t o_prio, uint32_t a_prio);
+uint64_t n_cand_pair_priority(uint32_t o_prio, uint32_t a_prio);
 
 /*
  * nice_debug_init:

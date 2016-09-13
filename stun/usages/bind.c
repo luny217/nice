@@ -49,7 +49,7 @@
 
 /** Non-blocking mode STUN binding discovery */
 
-size_t stun_bind_create(StunAgent * agent, StunMessage * msg,
+size_t stun_bind_create(stun_agent_t * agent, stun_msg_t * msg,
                               uint8_t * buffer, size_t buffer_len)
 {
     stun_agent_init_request(agent, msg, buffer, buffer_len, STUN_BINDING);
@@ -57,17 +57,17 @@ size_t stun_bind_create(StunAgent * agent, StunMessage * msg,
     return stun_agent_finish_message(agent, msg, NULL, 0);
 }
 
-StunBind stun_bind_process(StunMessage * msg,
+StunBind stun_bind_process(stun_msg_t * msg,
         struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len)
 {
     int code = -1;
-    StunMessageReturn val;
+    stun_msg_ret_e val;
 
-    if (stun_message_get_method(msg) != STUN_BINDING)
+    if (stun_msg_get_method(msg) != STUN_BINDING)
         return STUN_BIND_INVALID;
 
-    switch (stun_message_get_class(msg))
+    switch (stun_msg_get_class(msg))
     {
         case STUN_REQUEST:
         case STUN_INDICATION:
@@ -77,7 +77,7 @@ StunBind stun_bind_process(StunMessage * msg,
             break;
 
         case STUN_ERROR:
-            if (stun_message_find_error(msg, &code) != STUN_MESSAGE_RETURN_SUCCESS)
+            if (stun_msg_find_error(msg, &code) != STUN_MSG_RET_SUCCESS)
             {
                 /* missing ERROR-CODE: ignore message */
                 return STUN_BIND_INVALID;
@@ -92,9 +92,9 @@ StunBind stun_bind_process(StunMessage * msg,
             {
                 if (alternate_server && alternate_server_len)
                 {
-                    if (stun_message_find_addr(msg, STUN_ATT_ALTERNATE_SERVER,
+                    if (stun_msg_find_addr(msg, STUN_ATT_ALTERNATE_SERVER,
                                                (struct sockaddr_storage *) alternate_server,
-                                               alternate_server_len) != STUN_MESSAGE_RETURN_SUCCESS)
+                                               alternate_server_len) != STUN_MSG_RET_SUCCESS)
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
                         return STUN_BIND_ERROR;
@@ -102,7 +102,7 @@ StunBind stun_bind_process(StunMessage * msg,
                 }
                 else
                 {
-                    if (!stun_message_has_attribute(msg, STUN_ATT_ALTERNATE_SERVER))
+                    if (!stun_msg_has_attribute(msg, STUN_ATT_ALTERNATE_SERVER))
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
                         return STUN_BIND_ERROR;
@@ -120,18 +120,18 @@ StunBind stun_bind_process(StunMessage * msg,
             break;
     }
 
-    stun_debug("Received %u-bytes STUN message", stun_message_length(msg));
+    stun_debug("Received %u-bytes STUN message", stun_msg_len(msg));
 
     val = stun_msg_find_xor_addr(msg,
                                      STUN_ATT_XOR_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
                                      addrlen);
-    if (val != STUN_MESSAGE_RETURN_SUCCESS)
+    if (val != STUN_MSG_RET_SUCCESS)
     {
         stun_debug(" No XOR-MAPPED-ADDRESS: %d", val);
-        val = stun_message_find_addr(msg,
+        val = stun_msg_find_addr(msg,
                                      STUN_ATT_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
                                      addrlen);
-        if (val != STUN_MESSAGE_RETURN_SUCCESS)
+        if (val != STUN_MSG_RET_SUCCESS)
         {
             stun_debug(" No MAPPED-ADDRESS: %d", val);
             return STUN_BIND_ERROR;
@@ -147,7 +147,7 @@ StunBind stun_bind_process(StunMessage * msg,
 /** Binding keep-alive (Binding discovery indication!) */
 
 size_t
-stun_bind_keepalive(StunAgent * agent, StunMessage * msg,
+stun_bind_keepalive(stun_agent_t * agent, stun_msg_t * msg,
                           uint8_t * buf, size_t len)
 {
 
@@ -419,12 +419,12 @@ StunBind stun_bind_run(const struct sockaddr * srv, socklen_t srvlen, struct soc
 {
     StunTimer timer;
     StunTransport trans;
-    StunAgent agent;
-    StunMessage req;
+    stun_agent_t agent;
+    stun_msg_t req;
     uint8_t req_buf[STUN_MAX_MESSAGE_SIZE];
-    StunMessage msg;
+    stun_msg_t msg;
     uint8_t buf[STUN_MAX_MESSAGE_SIZE];
-    StunValidationStatus valid;
+    stun_valid_status_e valid;
     size_t len;
     StunTrans ret;
     int val;

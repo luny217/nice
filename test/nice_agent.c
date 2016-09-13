@@ -19,6 +19,7 @@
 #include <agent.h>
 #include "agent-priv.h"
 #include <gio/gnetworking.h>
+#include "uv.h"
 
 static GMainLoop * gloop;
 static char * stun_addr = "107.191.106.104";
@@ -40,39 +41,12 @@ static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t
 static void cb_component_state_changed(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id, uint32_t state, void * data);
 static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data);
 
-static void * example_thread(void * data);
+void* example_thread(void * data);
 
-int main(int argc, char * argv[])
-{
-    GThread * gexamplethread;
-	char write_file[] = "wtest.dat";
 
-    g_networking_init();
-
-    g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
-
-	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
-	{
-		printf("Open %s failed:%s\n", write_file, strerror(errno));
-		return -1;
-	}
-
-    gloop = g_main_loop_new(NULL, FALSE);
-
-    // Run the main loop and the example thread
-    exit_thread = FALSE;
-    gexamplethread = g_thread_new("example thread", &example_thread, NULL);
-    g_main_loop_run(gloop);
-    exit_thread = TRUE;
-
-    g_thread_join(gexamplethread);
-    g_main_loop_unref(gloop);
-
-    return EXIT_SUCCESS;
-}
 //#define G_LOG_DOMAIN    ((char*) 0)
-
-static void * example_thread(void * data)
+#if 0
+uv_thread_cb nice_thread(void * data)
 {
     n_agent_t * agent;
     n_cand_t * local, *remote;
@@ -93,7 +67,7 @@ static void * example_thread(void * data)
     g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
 
     // Create the nice agent
-    agent = nice_agent_new(g_main_loop_get_context(gloop));
+    agent = n_agent_new(g_main_loop_get_context(gloop));
     if (agent == NULL)
         g_error("Failed to create agent");
 
@@ -109,22 +83,22 @@ static void * example_thread(void * data)
 	agent->controlling_mode = controlling;
 
     // Connect to the signals
-    g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_candidate_gathering_done), NULL);
-    g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
-    g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_component_state_changed), NULL);
+    //g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_candidate_gathering_done), NULL);
+    //g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
+    //g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_component_state_changed), NULL);
 
     // Create a new stream with one component
-    stream_id = nice_agent_add_stream(agent, 1);
+    stream_id = n_agent_add_stream(agent, 1);
     if (stream_id == 0)
         g_error("Failed to add stream");
 
-	nice_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
+	n_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
 
     // Attach to the component to receive the data
     // Without this call, candidates cannot be gathered
-    nice_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
+    n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
 
-    //nice_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
+    //n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
 
     // Start gathering local candidates
     if (!n_agent_gather_cands(agent, stream_id))
@@ -185,7 +159,7 @@ static void * example_thread(void * data)
         goto end;
 
     // Get current selected candidate pair and print IP address used
-    if (nice_agent_get_selected_pair(agent, stream_id, 1, &local, &remote))
+    if (n_agent_get_selected_pair(agent, stream_id, 1, &local, &remote))
     {
         char ipaddr[INET6_ADDRSTRLEN];
 
@@ -218,7 +192,7 @@ static void * example_thread(void * data)
 			if (numread > 0)
 			{
 resend:				
-				numsend = nice_agent_send(agent, stream_id, 1, 500, snd_buf);
+				numsend = n_agent_send(agent, stream_id, 1, 500, snd_buf);
 				if (numsend < 0)
 				{
 					//nice_debug("send err!");
@@ -241,7 +215,7 @@ resend:
 			GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
 			if (s == G_IO_STATUS_NORMAL)
 			{
-				nice_agent_send(agent, stream_id, 1, strlen(line), line);
+				n_agent_send(agent, stream_id, 1, strlen(line), line);
 				n_free(line);
 				printf("> ");
 				fflush(stdout);
@@ -253,7 +227,7 @@ resend:
 			else
 			{
 				// Ctrl-D was pressed.
-				nice_agent_send(agent, stream_id, 1, 1, "\0");
+				n_agent_send(agent, stream_id, 1, 1, "\0");
 				break;
 			}
 		}
@@ -267,6 +241,204 @@ end:
 
     return NULL;
 }
+#else
+void* nice_thread(void * data)
+{
+	n_agent_t * agent;
+	n_cand_t * local, *remote;
+	GIOChannel * io_stdin;
+	uint32_t stream_id;
+	char * line = NULL;
+	int rval;
+	FILE  * file_fp;
+	char test_file[] = "test.dat";
+	char snd_buf[2048];
+	int ret = 0, numread, numsend;
+
+#ifdef G_OS_WIN32
+	io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
+#else
+	io_stdin = g_io_channel_unix_new(fileno(stdin));
+#endif
+	g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
+
+	// Create the nice agent
+	agent = n_agent_new(g_main_loop_get_context(gloop));
+	if (agent == NULL)
+		g_error("Failed to create agent");
+
+	// Set the STUN settings and controlling mode
+	if (stun_addr)
+	{
+		//g_object_set(agent, "stun-server", stun_addr, NULL);
+		//g_object_set(agent, "stun-server-port", stun_port, NULL);
+		agent->stun_server_ip = g_strdup(stun_addr);
+		agent->stun_server_port = stun_port;
+	}
+	//g_object_set(agent, "controlling-mode", controlling, NULL);
+	agent->controlling_mode = controlling;
+
+	// Connect to the signals
+	g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_candidate_gathering_done), NULL);
+	g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
+	g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_component_state_changed), NULL);
+
+	// Create a new stream with one component
+	stream_id = n_agent_add_stream(agent, 1);
+	if (stream_id == 0)
+		g_error("Failed to add stream");
+
+	n_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
+
+	// Attach to the component to receive the data
+	// Without this call, candidates cannot be gathered
+	n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
+
+	//n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
+
+	// Start gathering local candidates
+	if (!n_agent_gather_cands(agent, stream_id))
+		g_error("Failed to start candidate gathering");
+
+	g_debug("waiting for candidate-gathering-done signal...");
+
+	g_mutex_lock(&gather_mutex);
+	while (!exit_thread && !candidate_gathering_done)
+		g_cond_wait(&gather_cond, &gather_mutex);
+	g_mutex_unlock(&gather_mutex);
+	if (exit_thread)
+		goto end;
+
+	// Candidate gathering is done. Send our local candidates on stdout
+	printf("Copy this line to remote client:\n");
+	printf("\n  ");
+	print_local_data(agent, stream_id, 1);
+	printf("\n");
+
+	// Listen on stdin for the remote candidate list
+	printf("Enter remote data (single line, no wrapping):\n");
+	printf("> ");
+	fflush(stdout);
+	while (!exit_thread)
+	{
+		GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
+		if (s == G_IO_STATUS_NORMAL)
+		{
+			// Parse remote candidate list and set it on the agent
+			rval = parse_remote_data(agent, stream_id, 1, line);
+			if (rval == EXIT_SUCCESS)
+			{
+				n_free(line);
+				break;
+			}
+			else
+			{
+				fprintf(stderr, "ERROR: failed to parse remote data\n");
+				printf("Enter remote data (single line, no wrapping):\n");
+				printf("> ");
+				fflush(stdout);
+			}
+			n_free(line);
+		}
+		else if (s == G_IO_STATUS_AGAIN)
+		{
+			g_usleep(100000);
+		}
+	}
+
+	g_debug("waiting for state READY or FAILED signal...");
+	g_mutex_lock(&negotiate_mutex);
+	while (!exit_thread && !negotiation_done)
+		g_cond_wait(&negotiate_cond, &negotiate_mutex);
+	g_mutex_unlock(&negotiate_mutex);
+	if (exit_thread)
+		goto end;
+
+	// Get current selected candidate pair and print IP address used
+	if (n_agent_get_selected_pair(agent, stream_id, 1, &local, &remote))
+	{
+		char ipaddr[INET6_ADDRSTRLEN];
+
+		nice_address_to_string(&local->addr, ipaddr);
+		printf("\nNegotiation complete: ([%s]:%d,", ipaddr, nice_address_get_port(&local->addr));
+		nice_address_to_string(&remote->addr, ipaddr);
+		printf(" [%s]:%d)\n", ipaddr, nice_address_get_port(&remote->addr));
+	}
+
+	// Listen to stdin and send data written to it
+	printf("\nSend lines to remote (Ctrl-D to quit):\n");
+	printf("> ");
+	fflush(stdout);
+
+	if ((file_fp = fopen(test_file, "rb")) == NULL)
+	{
+		printf("Open %s failed:%s\n", test_file, strerror(errno));
+		goto end;
+	}
+
+	printf("> ");
+	fflush(stdout);
+	GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
+
+	while (!exit_thread)
+	{
+		if (agent->controlling_mode)
+		{
+			numread = fread(snd_buf, 500, 1, file_fp);
+			if (numread > 0)
+			{
+			resend:
+				numsend = n_agent_send(agent, stream_id, 1, 500, snd_buf);
+				if (numsend < 0)
+				{
+					//nice_debug("send err!");
+					g_usleep(500);
+					goto resend;
+				}
+				else
+				{
+					//nice_debug("send %d bytes", numsend);
+				}
+			}
+			else
+			{
+				g_usleep(100000);
+				goto end;
+			}
+		}
+		else
+		{
+			GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
+			if (s == G_IO_STATUS_NORMAL)
+			{
+				n_agent_send(agent, stream_id, 1, strlen(line), line);
+				n_free(line);
+				printf("> ");
+				fflush(stdout);
+			}
+			else if (s == G_IO_STATUS_AGAIN)
+			{
+				g_usleep(100000);
+			}
+			else
+			{
+				// Ctrl-D was pressed.
+				n_agent_send(agent, stream_id, 1, 1, "\0");
+				break;
+			}
+		}
+	}
+
+end:
+	fclose(file_fp);
+	g_io_channel_unref(io_stdin);
+	g_object_unref(agent);
+	g_main_loop_quit(gloop);
+
+	return NULL;
+}
+
+#endif
 
 static void cb_candidate_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data)
 {
@@ -349,7 +521,7 @@ static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
     cand = n_cand_new(ntype);
     cand->component_id = 1;
     cand->stream_id = stream_id;
-    cand->transport = CANDIDATE_TRANSPORT_UDP;
+    cand->transport = CAND_TRANS_UDP;
     strncpy(cand->foundation, tokens[0], CAND_MAX_FOUNDATION);
     cand->foundation[CAND_MAX_FOUNDATION - 1] = 0;
     cand->priority = atoi(tokens[1]);
@@ -378,7 +550,7 @@ static int print_local_data(n_agent_t * agent, uint32_t stream_id, uint32_t comp
     char ipaddr[INET6_ADDRSTRLEN];
 	n_slist_t * cand_lists = NULL, *item;
 
-    if (!nice_agent_get_local_credentials(agent, stream_id,  &local_ufrag, &local_password))
+    if (!n_agent_get_local_credentials(agent, stream_id,  &local_ufrag, &local_password))
         goto end;
 
     cand_lists = n_agent_get_local_cands(agent, stream_id, component_id);
@@ -459,7 +631,7 @@ static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t com
         goto end;
     }
 
-    if (!nice_agent_set_remote_credentials(agent, stream_id, ufrag, passwd))
+    if (!n_agent_set_remote_credentials(agent, stream_id, ufrag, passwd))
     {
         g_message("failed to set remote credentials");
         goto end;
@@ -482,3 +654,67 @@ end:
 
     return result;
 }
+
+#if 0
+int main(int argc, char * argv[])
+{
+	char write_file[] = "wtest.dat";
+
+	g_networking_init();
+
+	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
+
+	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
+	{
+		printf("Open %s failed:%s\n", write_file, strerror(errno));
+		return -1;
+	}
+
+	uv_loop_t  * loop = uv_default_loop();
+	uv_thread_t  tid;
+	int ret = -1;
+
+	ret = uv_thread_create(&tid, (uv_thread_cb)nice_thread, NULL);
+
+	/* Start the event loop.  Control continues in do_bind(). */
+	if (uv_run(loop, UV_RUN_DEFAULT))
+	{
+		abort();
+	}
+
+	uv_thread_join(&tid);
+
+	uv_loop_delete(loop);
+
+	return EXIT_SUCCESS;
+}
+#else
+int main(int argc, char * argv[])
+{
+	GThread * gexamplethread;
+	char write_file[] = "wtest.dat";
+
+	g_networking_init();
+
+	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
+
+	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
+	{
+		printf("Open %s failed:%s\n", write_file, strerror(errno));
+		return -1;
+	}
+
+	gloop = g_main_loop_new(NULL, FALSE);
+
+	// Run the main loop and the example thread
+	exit_thread = FALSE;
+	gexamplethread = g_thread_new("example thread", &nice_thread, NULL);
+	g_main_loop_run(gloop);
+	exit_thread = TRUE;
+
+	g_thread_join(gexamplethread);
+	g_main_loop_unref(gloop);
+
+	return EXIT_SUCCESS;
+}
+#endif

@@ -73,7 +73,7 @@ void * stun_setw(uint8_t * ptr, uint16_t value)
 }
 
 
-void stun_set_type(uint8_t * h, StunClass c, StunMethod m)
+void stun_set_type(uint8_t * h, StunClass c, stun_method_e m)
 {
     /*   assert (c < 4); */
     /*   assert (m < (1 << 12)); */
@@ -87,7 +87,7 @@ void stun_set_type(uint8_t * h, StunClass c, StunMethod m)
 }
 
 
-StunMessageReturn stun_xor_address(const StunMessage * msg,
+stun_msg_ret_e stun_xor_address(const stun_msg_t * msg,
                                    struct sockaddr_storage * addr, socklen_t addrlen,
                                    uint32_t magic_cookie)
 {
@@ -106,11 +106,11 @@ StunMessageReturn stun_xor_address(const StunMessage * msg,
         {
             struct sockaddr_in * ip4 = addr_ptr.in;
             if ((size_t) addrlen < sizeof(*ip4))
-                return STUN_MESSAGE_RETURN_INVALID;
+                return STUN_MSG_RET_INVALID;
 
             ip4->sin_port ^= htons(magic_cookie >> 16);
             ip4->sin_addr.s_addr ^= htonl(magic_cookie);
-            return STUN_MESSAGE_RETURN_SUCCESS;
+            return STUN_MSG_RET_SUCCESS;
         }
 
         case AF_INET6:
@@ -119,15 +119,15 @@ StunMessageReturn stun_xor_address(const StunMessage * msg,
             unsigned short i;
 
             if ((size_t) addrlen < sizeof(*ip6))
-                return STUN_MESSAGE_RETURN_INVALID;
+                return STUN_MSG_RET_INVALID;
 
             ip6->sin6_port ^= htons(magic_cookie >> 16);
             for (i = 0; i < 16; i++)
                 ip6->sin6_addr.s6_addr[i] ^= msg->buffer[4 + i];
-            return STUN_MESSAGE_RETURN_SUCCESS;
+            return STUN_MSG_RET_SUCCESS;
         }
 
         default:
-            return STUN_MESSAGE_RETURN_UNSUPPORTED_ADDRESS;
+            return STUN_MSG_RET_UNSUPPORTED_ADDRESS;
     }
 }

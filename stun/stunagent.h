@@ -7,7 +7,7 @@
  * SECTION:stunagent
  * @short_description: STUN agent for building and validating STUN messages
  * @include: stun/stunagent.h
- * @see_also: #StunMessage
+ * @see_also: #stun_msg_t
  * @stability: Stable
  *
  * The STUN Agent allows you to create and validate STUN messages easily.
@@ -30,43 +30,17 @@
 #include <sys/types.h>
 
 /**
- * StunAgent:
+ * stun_agent_t:
  *
  * An opaque structure representing the STUN agent.
  */
-typedef struct stun_agent_t StunAgent;
+typedef struct _stun_agent_st stun_agent_t;
 
 #include "stunmessage.h"
 #include "stundebug.h"
 
 /**
- * StunCompatibility:
- * @STUN_COMPATIBILITY_RFC3489: Use the STUN specifications compatible with
- * RFC 3489
- * @STUN_COMPATIBILITY_RFC5389: Use the STUN specifications compatible with
- * RFC 5389
- * @STUN_COMPATIBILITY_WLM2009: Use the STUN specifications compatible with
- * Windows Live Messenger 2009 (a mix between RFC3489 and RFC5389, as well as
- * a special usecase against a typo in their code)
- * @STUN_COMPATIBILITY_OC2007: Use the STUN specifications compatible with
- * Microsoft Office Communicator 2007 (basically RFC3489 with swapped
- * REALM and NONCE attribute hex IDs, attributes are not aligned)
- * @STUN_COMPATIBILITY_LAST: Dummy last compatibility mode
- *
- * Enum that specifies the STUN compatibility mode of the #StunAgent
- */
-typedef enum
-{
-    STUN_COMPATIBILITY_RFC3489,
-    STUN_COMPATIBILITY_RFC5389,
-    STUN_COMPATIBILITY_WLM2009,
-    STUN_COMPATIBILITY_OC2007,
-    STUN_COMPATIBILITY_LAST = STUN_COMPATIBILITY_OC2007
-} StunCompatibility;
-
-
-/**
- * StunValidationStatus:
+ * stun_valid_status_e:
  * @STUN_VALIDATION_SUCCESS: The message is validated
  * @STUN_VALIDATION_NOT_STUN: This is not a valid STUN message
  * @STUN_VALIDATION_INCOMPLETE_STUN: The message seems to be valid but incomplete
@@ -101,74 +75,71 @@ typedef enum
     STUN_VALIDATION_UNMATCHED_RESPONSE,
     STUN_VALIDATION_UNKNOWN_REQUEST_ATTRIBUTE,
     STUN_VALIDATION_UNKNOWN_ATTRIBUTE,
-} StunValidationStatus;
+} stun_valid_status_e; 
 
 /**
- * StunAgentUsageFlags:
- * @STUN_AGENT_USAGE_SHORT_TERM_CREDENTIALS: The agent should be using the short
+ * stun_flags_e:
+ * @STUN_AGENT_SHORT_TERM_CREDENTIALS: The agent should be using the short
  * term credentials mechanism for authenticating STUN messages
- * @STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS: The agent should be using the long
+ * @STUN_AGENT_LONG_TERM_CREDENTIALS: The agent should be using the long
  * term credentials mechanism for authenticating STUN messages
- * @STUN_AGENT_USAGE_USE_FINGERPRINT: The agent should add the FINGERPRINT
+ * @STUN_AGENT_USE_FINGERPRINT: The agent should add the FINGERPRINT
  * attribute to the STUN messages it creates.
- * @STUN_AGENT_USAGE_ADD_SOFTWARE: The agent should add the SOFTWARE attribute
+ * @STUN_AGENT_ADD_SOFTWARE: The agent should add the SOFTWARE attribute
  * to the STUN messages it creates. Calling nice_agent_set_software() will have
  * the same effect as enabling this Usage. STUN Indications do not have the
  * SOFTWARE attributes added to them though. The SOFTWARE attribute is only
  * added for the RFC5389 and WLM2009 compatibility modes.
- * @STUN_AGENT_USAGE_IGNORE_CREDENTIALS: The agent should ignore any credentials
+ * @STUN_AGENT_IGNORE_CREDENTIALS: The agent should ignore any credentials
  * in the STUN messages it receives (the MESSAGE-INTEGRITY attribute
  * will never be validated by stun_agent_validate())
- * @STUN_AGENT_USAGE_NO_INDICATION_AUTH: The agent should ignore credentials
+ * @STUN_AGENT_NO_INDICATION_AUTH: The agent should ignore credentials
  * in the STUN messages it receives if the #StunClass of the message is
  * #STUN_INDICATION (some implementation require #STUN_INDICATION messages to
  * be authenticated, while others never add a MESSAGE-INTEGRITY attribute to a
  * #STUN_INDICATION message)
- * @STUN_AGENT_USAGE_FORCE_VALIDATER: The agent should always try to validate
+ * @STUN_AGENT_FORCE_VALIDATER: The agent should always try to validate
  * the password of a STUN message, even if it already knows what the password
  * should be (a response to a previously created request). This means that the
  * #StunMessageIntegrityValidate callback will always be called when there is
  * a MESSAGE-INTEGRITY attribute.
- * @STUN_AGENT_USAGE_NO_ALIGNED_ATTRIBUTES: The agent should not assume STUN
+ * @STUN_AGENT_NO_ALIGNED_ATTRIBUTES: The agent should not assume STUN
  * attributes are aligned on 32-bit boundaries when parsing messages and also
  * do not add padding when creating messages.
  *
- * This enum defines a bitflag usages for a #StunAgent and they will define how
+ * This enum defines a bitflag usages for a #stun_agent_t and they will define how
  * the agent should behave, independently of the compatibility mode it uses.
  * <para> See also: stun_agent_init() </para>
  * <para> See also: stun_agent_validate() </para>
  */
 typedef enum
 {
-    STUN_AGENT_USAGE_SHORT_TERM_CREDENTIALS    = (1 << 0),
-    STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS     = (1 << 1),
-    STUN_AGENT_USAGE_USE_FINGERPRINT           = (1 << 2),
-    STUN_AGENT_USAGE_ADD_SOFTWARE              = (1 << 3),
-    STUN_AGENT_USAGE_IGNORE_CREDENTIALS        = (1 << 4),
-    STUN_AGENT_USAGE_NO_INDICATION_AUTH        = (1 << 5),
-    STUN_AGENT_USAGE_FORCE_VALIDATER           = (1 << 6),
-    STUN_AGENT_USAGE_NO_ALIGNED_ATTRIBUTES     = (1 << 7),
-} StunAgentUsageFlags;
-
+    STUN_AGENT_SHORT_TERM_CREDENTIALS    = (1 << 0),
+    STUN_AGENT_LONG_TERM_CREDENTIALS     = (1 << 1),
+    STUN_AGENT_USE_FINGERPRINT           = (1 << 2),
+    STUN_AGENT_ADD_SOFTWARE              = (1 << 3),
+    STUN_AGENT_IGNORE_CREDENTIALS        = (1 << 4),
+    STUN_AGENT_NO_INDICATION_AUTH        = (1 << 5),
+    STUN_AGENT_FORCE_VALIDATER           = (1 << 6),
+    STUN_AGENT_NO_ALIGNED_ATTRIBUTES     = (1 << 7),
+} stun_flags_e; 
 
 typedef struct
 {
-    StunTransactionId id;
-    StunMethod method;
+    stun_trans_id id;
+    stun_method_e method;
     uint8_t * key;
     size_t key_len;
     uint8_t long_term_key[16];
     bool long_term_valid;
     bool valid;
-} StunAgentSavedIds;
+} stun_save_ids_t;
 
-struct stun_agent_t
+struct _stun_agent_st
 {
-    StunCompatibility compatibility;
-    StunAgentSavedIds sent_ids[STUN_AGENT_MAX_SAVED_IDS];
+	stun_save_ids_t sent_ids[STUN_AGENT_MAX_SAVED_IDS];
     uint16_t * known_attributes;
-    StunAgentUsageFlags usage_flags;
-    const char * software_attribute;
+    stun_flags_e usage_flags;
 };
 
 /**
@@ -194,8 +165,8 @@ typedef struct
 
 /**
  * StunMessageIntegrityValidate:
- * @agent: The #StunAgent
- * @message: The #StunMessage being validated
+ * @agent: The #stun_agent_t
+ * @message: The #stun_msg_t being validated
  * @username: The username found in the @message
  * @username_len: The length of @username
  * @password: The password associated with that username. This argument is a
@@ -210,14 +181,14 @@ typedef struct
  * Returns: %TRUE if the authentication was successful,
  * %FALSE if the authentication failed
  */
-typedef bool (*StunMessageIntegrityValidate)(StunAgent * agent,
-        StunMessage * message, uint8_t * username, uint16_t username_len,
+typedef bool (*StunMessageIntegrityValidate)(stun_agent_t * agent,
+        stun_msg_t * message, uint8_t * username, uint16_t username_len,
         uint8_t ** password, size_t * password_len, void * user_data);
 
 /**
  * stun_agent_default_validater:
- * @agent: The #StunAgent
- * @message: The #StunMessage being validated
+ * @agent: The #stun_agent_t
+ * @message: The #stun_msg_t being validated
  * @username: The username found in the @message
  * @username_len: The length of @username
  * @password: The password associated with that username. This argument is a
@@ -237,13 +208,13 @@ typedef bool (*StunMessageIntegrityValidate)(StunAgent * agent,
  * Returns: %TRUE if the authentication was successful,
  * %FALSE if the authentication failed
  */
-bool stun_agent_default_validater(StunAgent * agent,
-                                  StunMessage * message, uint8_t * username, uint16_t username_len,
+bool stun_agent_default_validater(stun_agent_t * agent,
+                                  stun_msg_t * message, uint8_t * username, uint16_t username_len,
                                   uint8_t ** password, size_t * password_len, void * user_data);
 
 /**
  * stun_agent_init:
- * @agent: The #StunAgent to initialize
+ * @agent: The #stun_agent_t to initialize
  * @known_attributes: An array of #uint16_t specifying which attributes should
  * be known by the agent. Any STUN message received that contains a mandatory
  * attribute that is not in this array will yield a
@@ -251,7 +222,7 @@ bool stun_agent_default_validater(StunAgent * agent,
  * #STUN_VALIDATION_UNKNOWN_ATTRIBUTE error when calling stun_agent_validate()
  * @compatibility: The #StunCompatibility to use for this agent. This will affect
  * how the agent builds and validates the STUN messages
- * @usage_flags: A bitflag using #StunAgentUsageFlags values to define which
+ * @usage_flags: A bitflag using #stun_flags_e values to define which
  * STUN usages the agent should use.
  *
  * This function must be called to initialize an agent before it is being used.
@@ -261,41 +232,41 @@ bool stun_agent_default_validater(StunAgent * agent,
     The @known_attributes data must exist in memory as long as the @agent is used
     </para>
     <para>
-    If the #STUN_AGENT_USAGE_SHORT_TERM_CREDENTIALS and
-    #STUN_AGENT_USAGE_LONG_TERM_CREDENTIALS usage flags are not set, then the
+    If the #STUN_AGENT_SHORT_TERM_CREDENTIALS and
+    #STUN_AGENT_LONG_TERM_CREDENTIALS usage flags are not set, then the
     agent will default in using the short term credentials mechanism
     </para>
     <para>
-    The #STUN_AGENT_USAGE_USE_FINGERPRINT and #STUN_AGENT_USAGE_ADD_SOFTWARE
+    The #STUN_AGENT_USE_FINGERPRINT and #STUN_AGENT_ADD_SOFTWARE
     usage flags are only valid if the #STUN_COMPATIBILITY_RFC5389 or
     #STUN_COMPATIBILITY_WLM2009 @compatibility is used
     </para>
  </note>
  */
-void stun_agent_init(StunAgent * agent, StunAgentUsageFlags usage_flags);
+void stun_agent_init(stun_agent_t * agent, stun_flags_e usage_flags);
 
 /**
  * stun_agent_validate:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to build
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to build
  * @buffer: The data buffer of the STUN message
  * @buffer_len: The length of @buffer
  * @validater: A #StunMessageIntegrityValidate function callback that will
  * be called if the agent needs to validate a MESSAGE-INTEGRITY attribute. It
  * will only be called if the agent finds a message that needs authentication
  * and a USERNAME is present in the STUN message, but no password is known.
- * The validater will not be called if the #STUN_AGENT_USAGE_IGNORE_CREDENTIALS
+ * The validater will not be called if the #STUN_AGENT_IGNORE_CREDENTIALS
  * usage flag is set on the agent, and it will always be called if the
- * #STUN_AGENT_USAGE_FORCE_VALIDATER usage flag is set on the agent.
+ * #STUN_AGENT_FORCE_VALIDATER usage flag is set on the agent.
  * @validater_data: A user data to give to the @validater callback when it gets
  * called.
  *
  * This function is used to validate an inbound STUN message and transform its
- * data buffer into a #StunMessage. It will take care of various validation
+ * data buffer into a #stun_msg_t. It will take care of various validation
  * algorithms to make sure that the STUN message is valid and correctly
  * authenticated.
  * <para> See also: stun_agent_default_validater() </para>
- * Returns: A #StunValidationStatus
+ * Returns: A #stun_valid_status_e
  <note>
    <para>
    if the return value is different from #STUN_VALIDATION_NOT_STUN or
@@ -306,48 +277,48 @@ void stun_agent_init(StunAgent * agent, StunAgentUsageFlags usage_flags);
    stun_agent_build_unknown_attributes_error().
    If the return value is #STUN_VALIDATION_BAD_REQUEST,
    #STUN_VALIDATION_UNAUTHORIZED or #STUN_VALIDATION_UNAUTHORIZED_BAD_REQUEST
-   then the @key in the #StunMessage will not be set, so that error responses
+   then the @key in the #stun_msg_t will not be set, so that error responses
    will not have a MESSAGE-INTEGRITY attribute.
    </para>
  </note>
  */
-StunValidationStatus stun_agent_validate(StunAgent * agent, StunMessage * msg, const uint8_t * buffer, size_t buffer_len);
+stun_valid_status_e stun_agent_validate(stun_agent_t * agent, stun_msg_t * msg, const uint8_t * buffer, size_t buffer_len);
 
 /**
  * stun_agent_init_request:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use in the #StunMessage
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use in the #stun_msg_t
  * @buffer_len: The length of the buffer
- * @m: The #StunMethod of the request
+ * @m: The #stun_method_e of the request
  *
  * Creates a new STUN message of class #STUN_REQUEST and with the method @m
  * Returns: %TRUE if the message was initialized correctly, %FALSE otherwise
  */
-bool stun_agent_init_request(StunAgent * agent, StunMessage * msg,
-                             uint8_t * buffer, size_t buffer_len, StunMethod m);
+bool stun_agent_init_request(stun_agent_t * agent, stun_msg_t * msg,
+                             uint8_t * buffer, size_t buffer_len, stun_method_e m);
 
 /**
  * stun_agent_init_indication:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use in the #StunMessage
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use in the #stun_msg_t
  * @buffer_len: The length of the buffer
- * @m: The #StunMethod of the indication
+ * @m: The #stun_method_e of the indication
  *
  * Creates a new STUN message of class #STUN_INDICATION and with the method @m
  * Returns: %TRUE if the message was initialized correctly, %FALSE otherwise
  */
-bool stun_agent_init_indication(StunAgent * agent, StunMessage * msg,
-                                uint8_t * buffer, size_t buffer_len, StunMethod m);
+bool stun_agent_init_indication(stun_agent_t * agent, stun_msg_t * msg,
+                                uint8_t * buffer, size_t buffer_len, stun_method_e m);
 
 /**
  * stun_agent_init_response:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use in the #StunMessage
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use in the #stun_msg_t
  * @buffer_len: The length of the buffer
- * @request: The #StunMessage of class #STUN_REQUEST that this response is for
+ * @request: The #stun_msg_t of class #STUN_REQUEST that this response is for
  *
  * Creates a new STUN message of class #STUN_RESPONSE and with the same method
  * and transaction ID as the message @request. This will also copy the pointer
@@ -355,18 +326,18 @@ bool stun_agent_init_indication(StunAgent * agent, StunMessage * msg,
  * specify the key with stun_agent_finish_message()
  * Returns: %TRUE if the message was initialized correctly, %FALSE otherwise
  */
-bool stun_agent_init_response(StunAgent * agent, StunMessage * msg,
-                              uint8_t * buffer, size_t buffer_len, const StunMessage * request);
+bool stun_agent_init_response(stun_agent_t * agent, stun_msg_t * msg,
+                              uint8_t * buffer, size_t buffer_len, const stun_msg_t * request);
 
 /**
  * stun_agent_init_error:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use in the #StunMessage
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use in the #stun_msg_t
  * @buffer_len: The length of the buffer
- * @request: The #StunMessage of class #STUN_REQUEST that this error response
+ * @request: The #stun_msg_t of class #STUN_REQUEST that this error response
  * is for
- * @err: The #StunError to put in the ERROR-CODE attribute of the error response
+ * @err: The #stun_err_e to put in the ERROR-CODE attribute of the error response
  *
  * Creates a new STUN message of class #STUN_ERROR and with the same method
  * and transaction ID as the message @request. This will also copy the pointer
@@ -376,17 +347,17 @@ bool stun_agent_init_response(StunAgent * agent, StunMessage * msg,
  * string.
  * Returns: %TRUE if the message was initialized correctly, %FALSE otherwise
  */
-bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
-                           uint8_t * buffer, size_t buffer_len, const StunMessage * request,
-                           StunError err);
+bool stun_agent_init_error(stun_agent_t * agent, stun_msg_t * msg,
+                           uint8_t * buffer, size_t buffer_len, const stun_msg_t * request,
+                           stun_err_e err);
 
 /**
  * stun_agent_build_unknown_attributes_error:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use in the #StunMessage
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use in the #stun_msg_t
  * @buffer_len: The length of the buffer
- * @request: The #StunMessage of class #STUN_REQUEST that this response is for
+ * @request: The #stun_msg_t of class #STUN_REQUEST that this response is for
  *
  * Creates a new STUN message of class #STUN_ERROR and with the same method
  * and transaction ID as the message @request.  It will then add the ERROR-CODE
@@ -396,15 +367,15 @@ bool stun_agent_init_error(StunAgent * agent, StunMessage * msg,
  * by calling stun_agent_finish_message()
  * Returns: The size of the message built
  */
-size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
-        StunMessage * msg, uint8_t * buffer, size_t buffer_len,
-        const StunMessage * request);
+size_t stun_agent_build_unknown_attributes_error(stun_agent_t * agent,
+        stun_msg_t * msg, uint8_t * buffer, size_t buffer_len,
+        const stun_msg_t * request);
 
 
 /**
  * stun_agent_finish_message:
- * @agent: The #StunAgent
- * @msg: The #StunMessage to finish
+ * @agent: The #stun_agent_t
+ * @msg: The #stun_msg_t to finish
  * @key: The key to use for the MESSAGE-INTEGRITY attribute
  * @key_len: The length of the @key
  *
@@ -412,7 +383,7 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
  * add the MESSAGE-INTEGRITY and FINGERPRINT attributes if necessary. If the
  * STUN message has a #STUN_REQUEST class, it will save the transaction id of
  * the message in the agent for future matching of the response.
- * <para>See also: stun_agent_forget_transaction()</para>
+ * <para>See also: stun_agent_forget_trans()</para>
  * Returns: The final size of the message built or 0 if an error occured
  * <note>
      <para>
@@ -423,33 +394,33 @@ size_t stun_agent_build_unknown_attributes_error(StunAgent * agent,
      </para>
      <para>
        Everytime stun_agent_finish_message() is called for a #STUN_REQUEST
-       message, you must make sure to call stun_agent_forget_transaction() in
+       message, you must make sure to call stun_agent_forget_trans() in
        case the response times out and is never received. This is to avoid
-       filling up the #StunAgent's sent ids state preventing any further
+       filling up the #stun_agent_t's sent ids state preventing any further
        use of the stun_agent_finish_message()
      </para>
    </note>
  */
-size_t stun_agent_finish_message(StunAgent * agent, StunMessage * msg,
+size_t stun_agent_finish_message(stun_agent_t * agent, stun_msg_t * msg,
                                  const uint8_t * key, size_t key_len);
 
 /**
- * stun_agent_forget_transaction:
- * @agent: The #StunAgent
- * @id: The #StunTransactionId of the transaction to forget
+ * stun_agent_forget_trans:
+ * @agent: The #stun_agent_t
+ * @id: The #stun_trans_id of the transaction to forget
  *
- * This function is used to make the #StunAgent forget about a previously
+ * This function is used to make the #stun_agent_t forget about a previously
  * created transaction.
  * <para>
  * This function should be called when a STUN request was previously
  * created with stun_agent_finish_message() and for which no response was ever
- * received (timed out). The #StunAgent keeps a list of the sent transactions
+ * received (timed out). The #stun_agent_t keeps a list of the sent transactions
  * in order to validate the responses received. If the response is never received
- * this will allow the #StunAgent to forget about the timed out transaction and
+ * this will allow the #stun_agent_t to forget about the timed out transaction and
  * free its slot for future transactions.
  * </para>
  * Since: 0.0.6
  * Returns: %TRUE if the transaction was found, %FALSE otherwise
  */
-bool stun_agent_forget_transaction(StunAgent * agent, StunTransactionId id);
+bool stun_agent_forget_trans(stun_agent_t * agent, stun_trans_id id);
 #endif /* _STUN_AGENT_H */

@@ -101,9 +101,9 @@ typedef enum
 
 /**
  * turn_create:
- * @agent: The #StunAgent to use to build the request
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use for creating the #StunMessage
+ * @agent: The #stun_agent_t to use to build the request
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use for creating the #stun_msg_t
  * @buffer_len: The size of the @buffer
  * @previous_response: If this is the first request you are sending, set this
  * argument to NULL, if it's a subsequent request you are building, then set this
@@ -133,9 +133,9 @@ typedef enum
  * Create a new TURN Allocation request
  * Returns: The length of the message to send
  */
-size_t turn_create(StunAgent * agent, StunMessage * msg,
+size_t turn_create(stun_agent_t * agent, stun_msg_t * msg,
                               uint8_t * buffer, size_t buffer_len,
-                              StunMessage * previous_response,
+                              stun_msg_t * previous_response,
                               StunUsageTurnRequestPorts request_ports,
                               int32_t bandwidth, int32_t lifetime,
                               uint8_t * username, size_t username_len,
@@ -143,9 +143,9 @@ size_t turn_create(StunAgent * agent, StunMessage * msg,
 
 /**
  * turn_create_refresh:
- * @agent: The #StunAgent to use to build the request
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use for creating the #StunMessage
+ * @agent: The #stun_agent_t to use to build the request
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use for creating the #stun_msg_t
  * @buffer_len: The size of the @buffer
  * @previous_response: If this is the first request you are sending, set this
  * argument to NULL, if it's a subsequent request you are building, then set this
@@ -165,18 +165,17 @@ size_t turn_create(StunAgent * agent, StunMessage * msg,
  * Create a new TURN Refresh request
  * Returns: The length of the message to send
  */
-size_t turn_create_refresh(StunAgent * agent, StunMessage * msg,
+size_t turn_create_refresh(stun_agent_t * agent, stun_msg_t * msg,
                                       uint8_t * buffer, size_t buffer_len,
-                                      StunMessage * previous_response, int32_t lifetime,
+                                      stun_msg_t * previous_response, int32_t lifetime,
                                       uint8_t * username, size_t username_len,
-                                      uint8_t * password, size_t password_len,
-                                      StunUsageTurnCompatibility compatibility);
+                                      uint8_t * password, size_t password_len);
 
 /**
  * stun_usage_turn_create_permission:
- * @agent: The #StunAgent to use to build the request
- * @msg: The #StunMessage to build
- * @buffer: The buffer to use for creating the #StunMessage
+ * @agent: The #stun_agent_t to use to build the request
+ * @msg: The #stun_msg_t to build
+ * @buffer: The buffer to use for creating the #stun_msg_t
  * @buffer_len: The size of the @buffer
  * @username: The username to use in the request
  * @username_len: The length of @username
@@ -194,7 +193,7 @@ size_t turn_create_refresh(StunAgent * agent, StunMessage * msg,
  *
  * Returns: The length of the message to send
  */
-size_t stun_usage_turn_create_permission(StunAgent * agent, StunMessage * msg,
+size_t stun_usage_turn_create_permission(stun_agent_t * agent, stun_msg_t * msg,
         uint8_t * buffer, size_t buffer_len,
         uint8_t * username, size_t username_len,
         uint8_t * password, size_t password_len,
@@ -229,7 +228,7 @@ size_t stun_usage_turn_create_permission(StunAgent * agent, StunMessage * msg,
  * the message
  * Returns: A #StunUsageTurnReturn value
  */
-StunUsageTurnReturn stun_usage_turn_process(StunMessage * msg,
+StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
         struct sockaddr_storage * relay_addr, socklen_t * relay_addrlen,
         struct sockaddr_storage * addr, socklen_t * addrlen,
         struct sockaddr_storage * alternate_server, socklen_t * alternate_server_len,
@@ -249,7 +248,7 @@ StunUsageTurnReturn stun_usage_turn_process(StunMessage * msg,
  * means the Refresh was successful, but no relay address is given (kept the same
  * as for the original allocation)
  */
-StunUsageTurnReturn stun_usage_turn_refresh_process(StunMessage * msg,
+StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg,
         uint32_t * lifetime, StunUsageTurnCompatibility compatibility);
 
 #endif

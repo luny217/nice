@@ -44,7 +44,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>.\third\include\glib-2.0;.\socket;.;.\stun;.\random;.\agent;.\glib;$(IncludePath)</IncludePath>
+    <IncludePath>.\third\include\libuv;.\third\include\glib-2.0;.\socket;.;.\stun;.\random;.\agent;.\glib;$(IncludePath)</IncludePath>
     <LibraryPath>.\third\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -62,7 +62,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>iphlpapi.lib;ws2_32.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;gmodule-2.0.lib;gthread-2.0.lib;libffi.lib;libiconv.lib;libintl.lib;zlib.lib;Winmm.lib;Dnsapi.lib;pcred.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;ws2_32.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;gmodule-2.0.lib;gthread-2.0.lib;libffi.lib;libiconv.lib;libintl.lib;zlib.lib;Winmm.lib;Dnsapi.lib;pcred.lib;Shlwapi.lib;libuv.lib;Psapi.lib;Userenv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:library %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>

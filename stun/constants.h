@@ -65,58 +65,58 @@
  * Maximum size of a STUN message sent over IPv6 (in bytes).
  */
 /**
- * STUN_MESSAGE_ATTRIBUTES_POS:
+ * STUN_MSG_ATTRIBUTES_POS:
  *
  * Offset of the attributes of a STUN message (in bytes).
  */
 /**
- * STUN_MESSAGE_HEADER_LENGTH:
+ * STUN_MSG_HEADER_LENGTH:
  *
  * Total length of a STUN message header (in bytes).
  */
 /**
- * STUN_MESSAGE_LENGTH_LEN:
+ * STUN_MSG_LENGTH_LEN:
  *
  * Length of the length field of a STUN message (in bytes).
  */
 /**
- * STUN_MESSAGE_LENGTH_POS:
+ * STUN_MSG_LENGTH_POS:
  *
  * Offset of the length field of a STUN message (in bytes).
  */
 /**
- * STUN_MESSAGE_TRANS_ID_LEN:
+ * STUN_MSG_TRANS_ID_LEN:
  *
  * Length of the transaction ID field of a STUN message (in bytes).
  */
 /**
- * STUN_MESSAGE_TRANS_ID_POS:
+ * STUN_MSG_TRANS_ID_POS:
  *
  * Offset of the transaction ID field of a STUN message (in bytes).
  */
 /**
- * STUN_MESSAGE_TYPE_LEN:
+ * STUN_MSG_TYPE_LEN:
  *
  * Length of the type field of a STUN message (in bytes).
  */
 /**
- * STUN_MESSAGE_TYPE_POS:
+ * STUN_MSG_TYPE_POS:
  *
  * Offset of the type field of a STUN message (in bytes).
  */
 
-#define STUN_MESSAGE_TYPE_POS 0
-#define STUN_MESSAGE_TYPE_LEN 2
-#define STUN_MESSAGE_LENGTH_POS \
-  (STUN_MESSAGE_TYPE_POS + STUN_MESSAGE_TYPE_LEN)
-#define STUN_MESSAGE_LENGTH_LEN 2
-#define STUN_MESSAGE_TRANS_ID_POS \
-  (STUN_MESSAGE_LENGTH_POS + STUN_MESSAGE_LENGTH_LEN)
-#define STUN_MESSAGE_TRANS_ID_LEN 16
-#define STUN_MESSAGE_ATTRIBUTES_POS \
-  (STUN_MESSAGE_TRANS_ID_POS + STUN_MESSAGE_TRANS_ID_LEN)
+#define STUN_MSG_TYPE_POS 0
+#define STUN_MSG_TYPE_LEN 2
+#define STUN_MSG_LENGTH_POS \
+  (STUN_MSG_TYPE_POS + STUN_MSG_TYPE_LEN)
+#define STUN_MSG_LENGTH_LEN 2
+#define STUN_MSG_TRANS_ID_POS \
+  (STUN_MSG_LENGTH_POS + STUN_MSG_LENGTH_LEN)
+#define STUN_MSG_TRANS_ID_LEN 16
+#define STUN_MSG_ATTRIBUTES_POS \
+  (STUN_MSG_TRANS_ID_POS + STUN_MSG_TRANS_ID_LEN)
 
-#define STUN_MESSAGE_HEADER_LENGTH STUN_MESSAGE_ATTRIBUTES_POS
+#define STUN_MSG_HEADER_LENGTH STUN_MSG_ATTRIBUTES_POS
 
 #define STUN_ATT_TYPE_POS 0
 #define STUN_ATT_TYPE_LEN 2
