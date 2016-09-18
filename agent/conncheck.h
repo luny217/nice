@@ -9,7 +9,7 @@
 #include "agent.h"
 #include "stream.h"
 #include "stun/stunagent.h"
-#include "stun/usages/timer.h"
+#include "stun/usages/stun_timer.h"
 
 #define CAND_PAIR_MAX_FOUNDATION		CAND_MAX_FOUNDATION*2
 

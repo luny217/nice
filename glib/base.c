@@ -80,3 +80,21 @@ void time_val_add(n_timeval_t  * _time, int32_t microseconds)
 		}
 	}
 }
+
+void sleep_us(uint32_t microseconds)
+{
+#ifdef _WIN32
+	Sleep(microseconds / 1000);
+#else
+	struct timespec request, remaining;
+	request.tv_sec = microseconds / USEC_PER_SEC;
+	request.tv_nsec = 1000 * (microseconds % USEC_PER_SEC);
+	while (nanosleep(&request, &remaining) == -1 && errno == EINTR)
+		request = remaining;
+#endif
+}
+
+void sleep_ms(uint32_t microseconds)
+{
+	//sleep_us
+}

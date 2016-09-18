@@ -1970,7 +1970,7 @@ static void _reply_to_cocheck(n_agent_t * agent, n_stream_t * stream, n_comp_t *
     {
         char tmpbuf[INET6_ADDRSTRLEN];
         nice_address_to_string(toaddr, tmpbuf);
-        nice_debug("[%s]: STUN-CC RESP to '%s:%u', socket=%u, len=%u, cand=%p (c-id:%u), use-cand=%d.", G_STRFUNC,
+        nice_debug("[%s]: stun-cc resp to '%s:%u', socket=%u, len=%u, cand=%p (c-id:%u), use-cand=%d.", G_STRFUNC,
                    tmpbuf,
                    nice_address_get_port(toaddr),
                    sockptr->fileno ? g_socket_get_fd(sockptr->fileno) : -1,
@@ -2004,11 +2004,11 @@ static int _store_pending_chk(n_agent_t * agent, n_comp_t * component,
                                     uint16_t username_len, uint32_t priority, int use_candidate)
 {
     n_inchk_t * icheck;
-    nice_debug("[%s]: Storing pending check", G_STRFUNC);
+    nice_debug("[%s]: storing pending check", G_STRFUNC);
 
     if (component->incoming_checks && n_slist_length(component->incoming_checks) >= MAX_REMOTE_CANDIDATES)
     {
-        nice_debug("[%s]: WARN: unable to store information for early incoming check", G_STRFUNC);
+        nice_debug("[%s]: warn: unable to store information for early incoming check", G_STRFUNC);
         return -1;
     }
 
@@ -2089,14 +2089,14 @@ static void _check_for_role_conflict(n_agent_t * agent, int control)
     /* role conflict, change mode; wait for a new conn. check */
     if (control != agent->controlling_mode)
     {
-        nice_debug("[%s]: Role conflict, changing agent role to %d.", G_STRFUNC, control);
+        nice_debug("[%s]: role conflict, changing agent role to %d", G_STRFUNC, control);
         agent->controlling_mode = control;
         /* the pair priorities depend on the roles, so recalculation
          * is needed */
         _recalc_pair_priorities(agent);
     }
     else
-        nice_debug("[%s]: Role conflict, agent role already changed to %d.", G_STRFUNC, control);
+        nice_debug("[%s]: role conflict, agent role already changed to %d", G_STRFUNC, control);
 }
 
 /*
@@ -2152,7 +2152,7 @@ static n_cand_chk_pair_t * _process_resp_chk_peer_reflexive(n_agent_t * agent, n
         /* note: this is same as "adding to VALID LIST" in the spec
            text */
         p->state = NCHK_SUCCEEDED;
-        nice_debug("[%s]: conncheck %p SUCCEEDED.", G_STRFUNC, p);
+        nice_debug("[%s]: conncheck %p succeeded", G_STRFUNC, p);
         _cocheck_unfreeze_related(agent, stream, p);
     }
     else
@@ -2166,12 +2166,12 @@ static n_cand_chk_pair_t * _process_resp_chk_peer_reflexive(n_agent_t * agent, n
                     local_candidate,
                     remote_candidate);
         p->state = NCHK_FAILED;
-        nice_debug("[%s]: pair %p state FAILED", G_STRFUNC, p);
+        nice_debug("[%s]: pair %p state failed", G_STRFUNC, p);
 
         /* step: add a new discovered pair (see RFC 5245 7.1.3.2.2
                "Constructing a Valid Pair") */
         new_pair = _add_peer_reflexive_pair(agent, stream->id, component->id, cand, p);
-        nice_debug("[%s]: conncheck %p FAILED, %p DISCOVERED.", G_STRFUNC, p, new_pair);
+        nice_debug("[%s]: conncheck %p failed, %p discovered", G_STRFUNC, p, new_pair);
     }
 
     return new_pair;
@@ -2221,7 +2221,7 @@ static int _map_reply_to_cocheck_request(n_agent_t * agent, n_stream_t * stream,
 
                     n_cand_chk_pair_t * ok_pair = NULL;
 
-                    nice_debug("[%s]: conncheck %p MATCHED.", G_STRFUNC, p);
+                    nice_debug("[%s]: conncheck %p matched.", G_STRFUNC, p);
 					nice_print_candpair(agent, p);
                     p->stun_message.buffer = NULL;
                     p->stun_message.buffer_len = 0;
@@ -2236,8 +2236,7 @@ static int _map_reply_to_cocheck_request(n_agent_t * agent, n_stream_t * stream,
                         {
                             char tmpbuf[INET6_ADDRSTRLEN];
                             char tmpbuf2[INET6_ADDRSTRLEN];
-                            nice_debug("[%s]: conncheck %p FAILED"
-                                       " (mismatch of source address).", G_STRFUNC, p);
+                            nice_debug("[%s]: conncheck %p failed" " (mismatch of source address).", G_STRFUNC, p);
                             nice_address_to_string(&p->remote->addr, tmpbuf);
                             nice_address_to_string(from, tmpbuf2);
                             nice_debug("[%s]: '%s:%u' != '%s:%u'", G_STRFUNC,
@@ -2260,7 +2259,7 @@ static int _map_reply_to_cocheck_request(n_agent_t * agent, n_stream_t * stream,
                         /* note: this is same as "adding to VALID LIST" in the spec
                            text */
                         p->state = NCHK_SUCCEEDED;
-                        nice_debug("[%s]: Mapped address not found." " conncheck %p SUCCEEDED.", G_STRFUNC, p);
+                        nice_debug("[%s]: mapped address not found." " conncheck %p succeeded.", G_STRFUNC, p);
                         _cocheck_unfreeze_related(agent, stream, p);
                     }
                     else
@@ -2298,7 +2297,7 @@ static int _map_reply_to_cocheck_request(n_agent_t * agent, n_stream_t * stream,
                 else if (res == STUN_ICE_RET_ROLE_CONFLICT)
                 {
                     /* case: role conflict error, need to restart with new role */
-                    nice_debug("[%s]: conncheck %p ROLE CONFLICT, restarting", G_STRFUNC, p);
+                    nice_debug("[%s]: conncheck %p role conflict, restarting", G_STRFUNC, p);
                     /* note: our role might already have changed due to an
                      * incoming request, but if not, change role now;
                      * follows ICE 7.1.2.1 "Failure Cases" (ID-19) */
@@ -2313,7 +2312,7 @@ static int _map_reply_to_cocheck_request(n_agent_t * agent, n_stream_t * stream,
                 else
                 {
                     /* case: STUN error, the check STUN context was freed */
-                    nice_debug("[%s]: conncheck %p FAILED.", G_STRFUNC, p);
+                    nice_debug("[%s]: conncheck %p failed", G_STRFUNC, p);
                     p->stun_message.buffer = NULL;
                     p->stun_message.buffer_len = 0;
                     trans_found = TRUE;
@@ -2499,10 +2498,9 @@ static int _map_reply_to_relay_request(n_agent_t * agent, stun_msg_t * resp)
                                               &sockaddr.storage, &socklen,
                                               &alternate.storage, &alternatelen,
                                               &bandwidth, &lifetime, agent_to_turn_compatibility(agent));
-                nice_debug("[%s]: stun_turn_process/disc for %p res %d.",
-                           agent, d, (int)res);
+                nice_debug("[%s]: stun_turn_process/disc for %p res %d", G_STRFUNC, d, (int)res);
 
-                if (res == STUN_USAGE_TURN_RETURN_ALTERNATE_SERVER)
+                if (res == STUN_TURN_RET_ALTERNATE_SERVER)
                 {
                     /* handle alternate server */
                     n_addr_set_from_sock(&d->server, &alternate.addr);
@@ -2510,14 +2508,14 @@ static int _map_reply_to_relay_request(n_agent_t * agent, stun_msg_t * resp)
 
                     d->pending = FALSE;
                 }
-                else if (res == STUN_USAGE_TURN_RETURN_RELAY_SUCCESS ||
-                         res == STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS)
+                else if (res == STUN_TURN_RET_RELAY_SUCCESS ||
+                         res == STUN_TURN_RET_MAPPED_SUCCESS)
                 {
                     /* case: successful allocate, create a new local candidate */
                     n_addr_t niceaddr;
                     n_cand_t * relay_cand;
 
-                    if (res == STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS)
+                    if (res == STUN_TURN_RET_MAPPED_SUCCESS)
                     {
                         /* We also received our mapped address */
                         n_addr_set_from_sock(&niceaddr, &sockaddr.addr);                        
@@ -2536,7 +2534,7 @@ static int _map_reply_to_relay_request(n_agent_t * agent, stun_msg_t * resp)
                     d->done = TRUE;
                     trans_found = TRUE;
                 }
-                else if (res == STUN_USAGE_TURN_RETURN_ERROR)
+                else if (res == STUN_TURN_RET_ERROR)
                 {
                     int code = -1;
                     uint8_t * sent_realm = NULL;
@@ -2611,11 +2609,9 @@ static int _map_reply_to_relay_refresh(n_agent_t * agent, stun_msg_t * resp)
 
             if (memcmp(refresh_id, response_id, sizeof(stun_trans_id)) == 0)
             {
-                res = stun_usage_turn_refresh_process(resp,
-                                                      &lifetime, agent_to_turn_compatibility(cand->agent));
-                nice_debug("[%s]: stun_turn_refresh_process for %p res %d.",
-                           agent, cand, (int)res);
-                if (res == STUN_USAGE_TURN_RETURN_RELAY_SUCCESS)
+                res = stun_usage_turn_refresh_process(resp, &lifetime, agent_to_turn_compatibility(cand->agent));
+                nice_debug("[%s]: stun_turn_refresh_process for %p res %d", G_STRFUNC, cand, (int)res);
+                if (res == STUN_TURN_RET_RELAY_SUCCESS)
                 {
                     /* refresh should be sent 1 minute before it expires */
                     agent_timeout_add(cand->agent, &cand->timer_source,
@@ -2626,7 +2622,7 @@ static int _map_reply_to_relay_refresh(n_agent_t * agent, stun_msg_t * resp)
                     g_source_unref(cand->tick_source);
                     cand->tick_source = NULL;
                 }
-                else if (res == STUN_USAGE_TURN_RETURN_ERROR)
+                else if (res == STUN_TURN_RET_ERROR)
                 {
                     int code = -1;
                     uint8_t * sent_realm = NULL;
@@ -2634,28 +2630,20 @@ static int _map_reply_to_relay_refresh(n_agent_t * agent, stun_msg_t * resp)
                     uint16_t sent_realm_len = 0;
                     uint16_t recv_realm_len = 0;
 
-                    sent_realm = (uint8_t *) stun_msg_find(&cand->stun_message,
-                                 STUN_ATT_REALM, &sent_realm_len);
-                    recv_realm = (uint8_t *) stun_msg_find(resp,
-                                 STUN_ATT_REALM, &recv_realm_len);
+                    sent_realm = (uint8_t *) stun_msg_find(&cand->stun_message, STUN_ATT_REALM, &sent_realm_len);
+                    recv_realm = (uint8_t *) stun_msg_find(resp, STUN_ATT_REALM, &recv_realm_len);
 
                     /* check for unauthorized error response */
-                    if (cand->agent->compatibility == NICE_COMPATIBILITY_RFC5245 &&
-                            stun_msg_get_class(resp) == STUN_ERROR &&
-                            stun_msg_find_error(resp, &code) ==
-                            STUN_MSG_RET_SUCCESS &&
+                    if (stun_msg_get_class(resp) == STUN_ERROR &&
+                            stun_msg_find_error(resp, &code) == STUN_MSG_RET_SUCCESS &&
                             recv_realm != NULL && recv_realm_len > 0)
                     {
 
-                        if (code == 438 ||
-                                (code == 401 &&
-                                 !(recv_realm_len == sent_realm_len &&
-                                   sent_realm != NULL &&
+                        if (code == 438 || (code == 401 && !(recv_realm_len == sent_realm_len && sent_realm != NULL &&
                                    memcmp(sent_realm, recv_realm, sent_realm_len) == 0)))
                         {
                             cand->stun_resp_msg = *resp;
-                            memcpy(cand->stun_resp_buffer, resp->buffer,
-                                   stun_msg_len(resp));
+                            memcpy(cand->stun_resp_buffer, resp->buffer, stun_msg_len(resp));
                             cand->stun_resp_msg.buffer = cand->stun_resp_buffer;
                             cand->stun_resp_msg.buffer_len = sizeof(cand->stun_resp_buffer);
                             _turn_alloc_refresh_tick_unlocked(cand);
@@ -2692,7 +2680,7 @@ static int _map_reply_to_keepalive_cocheck(n_agent_t * agent, n_comp_t * compone
         stun_msg_id(&component->selected_pair.keepalive.stun_message,  conncheck_id);
         if (memcmp(conncheck_id, response_id, sizeof(stun_trans_id)) == 0)
         {
-            nice_debug("[%s]: Keepalive for selected pair received.", agent);
+            nice_debug("[%s]: keepalive for selected pair received", G_STRFUNC);
             if (component->selected_pair.keepalive.tick_source)
             {
                 g_source_destroy(component->selected_pair.keepalive.tick_source);

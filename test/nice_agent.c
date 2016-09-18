@@ -20,6 +20,8 @@
 #include "agent-priv.h"
 #include <gio/gnetworking.h>
 #include "uv.h"
+#include "event.h"
+#include "pthread.h"
 
 static GMainLoop * gloop;
 static char * stun_addr = "107.191.106.104";
@@ -29,6 +31,7 @@ static int exit_thread, candidate_gathering_done, negotiation_done;
 static GMutex gather_mutex, negotiate_mutex;
 static GCond gather_cond, negotiate_cond;
 FILE  * wfile_fp;
+pthread_t  loop_tid;
 
 static const char * candidate_type_name[] = {"host", "srflx", "prflx", "relay"};
 
@@ -36,16 +39,55 @@ static const char * state_name[] = {"disconnected", "gathering", "connecting", "
 
 static int print_local_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id);
 static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, char * line);
-static void cb_candidate_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data);
+static void cb_cand_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data);
 static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, char * lfoundation, char * rfoundation, void * data);
-static void cb_component_state_changed(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id, uint32_t state, void * data);
+static void cb_comp_state_changed(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id, uint32_t state, void * data);
 static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data);
 
-void* example_thread(void * data);
+//void* nice_thread(void * data);
 
+void nice_event_loop(void * data)
+{
+	int32_t  ret = 0, i = 0, events = 0;
+
+	n_agent_t  * agent = (n_agent_t  *)data;
+
+	agent->n_event = event_open();
+
+	if (agent->n_event == -1)
+	{
+		nice_debug("can't creat event fd");
+	}
+
+	while (1)
+	{
+		if ((ret = event_wait(agent->n_event, 0xFFFFFFFF, &events)) < 0)
+		{
+			g_usleep(10 * 1000);
+			continue;
+		}
+
+		if (events & N_EVENT_CAND_GATHERING_DONE)
+		{
+			cb_cand_gathering_done(agent, 1, NULL);
+		}
+
+#if 0
+		if (events & N_EVENT_NEW_SELECTED_PAIR)
+		{
+			cb_new_selected_pair(fd);
+		}
+
+		if (events & N_EVENT_COMP_STATE_CHANGED)
+		{
+			cb_component_state_changed(fd);
+		}
+#endif
+	}
+}
 
 //#define G_LOG_DOMAIN    ((char*) 0)
-#if 0
+#if 1
 uv_thread_cb nice_thread(void * data)
 {
     n_agent_t * agent;
@@ -82,15 +124,18 @@ uv_thread_cb nice_thread(void * data)
     //g_object_set(agent, "controlling-mode", controlling, NULL);
 	agent->controlling_mode = controlling;
 
+	//ret = uv_thread_create(&loop_tid, (uv_thread_cb)nice_event_loop, (void*)agent);
+	ret = pthread_create(&loop_tid, 0, (void *)nice_event_loop, (void*)agent);
+
     // Connect to the signals
-    //g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_candidate_gathering_done), NULL);
+    //g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_cand_gathering_done), NULL);
     //g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
-    //g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_component_state_changed), NULL);
+    //g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_comp_state_changed), NULL);
 
     // Create a new stream with one component
     stream_id = n_agent_add_stream(agent, 1);
     if (stream_id == 0)
-        g_error("Failed to add stream");
+		nice_debug("Failed to add stream");
 
 	n_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
 
@@ -98,13 +143,13 @@ uv_thread_cb nice_thread(void * data)
     // Without this call, candidates cannot be gathered
     n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
 
-    //n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
+    n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", RELAY_TYPE_TURN_UDP);
 
     // Start gathering local candidates
     if (!n_agent_gather_cands(agent, stream_id))
-        g_error("Failed to start candidate gathering");
+		nice_debug("failed to start candidate gathering");
 
-    g_debug("waiting for candidate-gathering-done signal...");
+    nice_debug("waiting for candidate-gathering-done signal...");
 
     g_mutex_lock(&gather_mutex);
     while (!exit_thread && !candidate_gathering_done)
@@ -114,14 +159,14 @@ uv_thread_cb nice_thread(void * data)
         goto end;
 
     // Candidate gathering is done. Send our local candidates on stdout
-    printf("Copy this line to remote client:\n");
-    printf("\n  ");
+	nice_debug("copy this line to remote client:\n");
+	nice_debug("\n  ");
     print_local_data(agent, stream_id, 1);
-    printf("\n");
+	nice_debug("\n");
 
     // Listen on stdin for the remote candidate list
-    printf("Enter remote data (single line, no wrapping):\n");
-    printf("> ");
+	nice_debug("enter remote data (single line, no wrapping):\n");
+	nice_debug("> ");
     fflush(stdout);
     while (!exit_thread)
     {
@@ -137,7 +182,7 @@ uv_thread_cb nice_thread(void * data)
             }
             else
             {
-                fprintf(stderr, "ERROR: failed to parse remote data\n");
+                fprintf(stderr, "error: failed to parse remote data\n");
                 printf("Enter remote data (single line, no wrapping):\n");
                 printf("> ");
                 fflush(stdout);
@@ -150,7 +195,7 @@ uv_thread_cb nice_thread(void * data)
         }
     }
 
-    g_debug("waiting for state READY or FAILED signal...");
+    nice_debug("waiting for state ready or failed signal...");
     g_mutex_lock(&negotiate_mutex);
     while (!exit_thread && !negotiation_done)
         g_cond_wait(&negotiate_cond, &negotiate_mutex);
@@ -164,14 +209,14 @@ uv_thread_cb nice_thread(void * data)
         char ipaddr[INET6_ADDRSTRLEN];
 
         nice_address_to_string(&local->addr, ipaddr);
-        printf("\nNegotiation complete: ([%s]:%d,", ipaddr, nice_address_get_port(&local->addr));
+		nice_debug("negotiation complete: ([%s]:%d,", ipaddr, nice_address_get_port(&local->addr));
         nice_address_to_string(&remote->addr, ipaddr);
-        printf(" [%s]:%d)\n", ipaddr, nice_address_get_port(&remote->addr));
+		nice_debug(" [%s]:%d)\n", ipaddr, nice_address_get_port(&remote->addr));
     }
 
     // Listen to stdin and send data written to it
-    printf("\nSend lines to remote (Ctrl-D to quit):\n");
-    printf("> ");
+	nice_debug("send lines to remote (Ctrl-D to quit):\n");
+	nice_debug("> ");
     fflush(stdout);
 
     if ((file_fp = fopen(test_file, "rb")) == NULL)
@@ -279,9 +324,9 @@ void* nice_thread(void * data)
 	agent->controlling_mode = controlling;
 
 	// Connect to the signals
-	g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_candidate_gathering_done), NULL);
+	g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_cand_gathering_done), NULL);
 	g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
-	g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_component_state_changed), NULL);
+	g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_comp_state_changed), NULL);
 
 	// Create a new stream with one component
 	stream_id = n_agent_add_stream(agent, 1);
@@ -300,7 +345,7 @@ void* nice_thread(void * data)
 	if (!n_agent_gather_cands(agent, stream_id))
 		g_error("Failed to start candidate gathering");
 
-	g_debug("waiting for candidate-gathering-done signal...");
+	nice_debug("waiting for candidate-gathering-done signal...");
 
 	g_mutex_lock(&gather_mutex);
 	while (!exit_thread && !candidate_gathering_done)
@@ -346,7 +391,7 @@ void* nice_thread(void * data)
 		}
 	}
 
-	g_debug("waiting for state READY or FAILED signal...");
+	nice_debug("waiting for state READY or FAILED signal...");
 	g_mutex_lock(&negotiate_mutex);
 	while (!exit_thread && !negotiation_done)
 		g_cond_wait(&negotiate_cond, &negotiate_mutex);
@@ -440,9 +485,9 @@ end:
 
 #endif
 
-static void cb_candidate_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data)
+static void cb_cand_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data)
 {
-    g_debug("SIGNAL candidate gathering done\n");
+    nice_debug("signal candidate gathering done\n");
 
     g_mutex_lock(&gather_mutex);
     candidate_gathering_done = TRUE;
@@ -450,9 +495,9 @@ static void cb_candidate_gathering_done(n_agent_t * agent, uint32_t stream_id, v
     g_mutex_unlock(&gather_mutex);
 }
 
-static void cb_component_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t state, void * data)
+static void cb_comp_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t state, void * data)
 {
-    g_debug("SIGNAL: state changed %d %d %s[%d]\n", stream_id, component_id, state_name[state], state);
+    nice_debug("SIGNAL: state changed %d %d %s[%d]\n", stream_id, comp_id, state_name[state], state);
 
     if (state == COMP_STATE_READY)
     {
@@ -468,10 +513,10 @@ static void cb_component_state_changed(n_agent_t * agent, uint32_t stream_id, ui
 }
 
 static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
-                                 uint32_t component_id, char * lfoundation,
+                                 uint32_t comp_id, char * lfoundation,
                                  char * rfoundation, void * data)
 {
-    g_debug("SIGNAL: selected pair %s %s", lfoundation, rfoundation);
+    nice_debug("signal: selected pair %s %s", lfoundation, rfoundation);
 }
 
 static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data)
@@ -691,8 +736,10 @@ int main(int argc, char * argv[])
 #else
 int main(int argc, char * argv[])
 {
-	GThread * gexamplethread;
+	//GThread * gexamplethread;
 	char write_file[] = "wtest.dat";
+	pthread_t tid;
+	int ret;
 
 	g_networking_init();
 
@@ -704,16 +751,21 @@ int main(int argc, char * argv[])
 		return -1;
 	}
 
+	ret = pthread_create(&tid, 0, (void *)nice_thread, NULL);
+
+
 	gloop = g_main_loop_new(NULL, FALSE);
 
 	// Run the main loop and the example thread
 	exit_thread = FALSE;
-	gexamplethread = g_thread_new("example thread", &nice_thread, NULL);
+	//gexamplethread = g_thread_new("example thread", &nice_thread, NULL);
 	g_main_loop_run(gloop);
 	exit_thread = TRUE;
 
-	g_thread_join(gexamplethread);
+	//g_thread_join(gexamplethread);
 	g_main_loop_unref(gloop);
+
+	pthread_join(tid, NULL);
 
 	return EXIT_SUCCESS;
 }

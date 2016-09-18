@@ -1,40 +1,4 @@
-/*
- * This file is part of the Nice GLib ICE library.
- *
- * (C) 2008-2009 Collabora Ltd.
- *  Contact: Youness Alaoui
- * (C) 2007-2009 Nokia Corporation. All rights reserved.
- *  Contact: R?mi Denis-Courmont
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is the Nice GLib ICE library.
- *
- * The Initial Developers of the Original Code are Collabora Ltd and Nokia
- * Corporation. All Rights Reserved.
- *
- * Contributors:
- *   Youness Alaoui, Collabora Ltd.
- *   R?mi Denis-Courmont, Nokia
- *
- * Alternatively, the contents of this file may be used under the terms of the
- * the GNU Lesser General Public License Version 2.1 (the "LGPL"), in which
- * case the provisions of LGPL are applicable instead of those above. If you
- * wish to allow use of your version of this file only under the terms of the
- * LGPL and not to allow others to use your version of this file under the
- * MPL, indicate your decision by deleting the provisions above and replace
- * them with the notice and other provisions required by the LGPL. If you do
- * not delete the provisions above, a recipient may use your version of this
- * file under either the MPL or the LGPL.
- */
+/* This file is part of the Nice GLib ICE library */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -221,16 +185,16 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
         StunUsageTurnCompatibility compatibility)
 {
     int val, code = -1;
-    StunUsageTurnReturn ret = STUN_USAGE_TURN_RETURN_RELAY_SUCCESS;
+    StunUsageTurnReturn ret = STUN_TURN_RET_RELAY_SUCCESS;
 
     if (stun_msg_get_method(msg) != STUN_ALLOCATE)
-        return STUN_USAGE_TURN_RETURN_INVALID;
+        return STUN_TURN_RET_INVALID;
 
     switch (stun_msg_get_class(msg))
     {
         case STUN_REQUEST:
         case STUN_INDICATION:
-            return STUN_USAGE_TURN_RETURN_INVALID;
+            return STUN_TURN_RET_INVALID;
 
         case STUN_RESPONSE:
             break;
@@ -239,7 +203,7 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
             if (stun_msg_find_error(msg, &code) != STUN_MSG_RET_SUCCESS)
             {
                 /* missing ERROR-CODE: ignore message */
-                return STUN_USAGE_TURN_RETURN_INVALID;
+                return STUN_TURN_RET_INVALID;
             }
 
             /* NOTE: currently we ignore unauthenticated messages if the context
@@ -256,7 +220,7 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
                             STUN_MSG_RET_SUCCESS)
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
-                        return STUN_USAGE_TURN_RETURN_ERROR;
+                        return STUN_TURN_RET_ERROR;
                     }
                 }
                 else
@@ -265,15 +229,15 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
                                                     STUN_ATT_ALTERNATE_SERVER))
                     {
                         stun_debug(" Unexpectedly missing ALTERNATE-SERVER attribute");
-                        return STUN_USAGE_TURN_RETURN_ERROR;
+                        return STUN_TURN_RET_ERROR;
                     }
                 }
 
                 stun_debug("Found alternate server");
-                return STUN_USAGE_TURN_RETURN_ALTERNATE_SERVER;
+                return STUN_TURN_RET_ALTERNATE_SERVER;
 
             }
-            return STUN_USAGE_TURN_RETURN_ERROR;
+            return STUN_TURN_RET_ERROR;
 
         default:
             /* Fall through. */
@@ -288,12 +252,12 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
         val = stun_msg_find_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, addr, addrlen);
 
         if (val == STUN_MSG_RET_SUCCESS)
-            ret = STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS;
+            ret = STUN_TURN_RET_MAPPED_SUCCESS;
         val = stun_msg_find_xor_addr(msg, STUN_ATT_RELAY_ADDRESS, relay_addr, relay_addrlen);
         if (val != STUN_MSG_RET_SUCCESS)
         {
             stun_debug(" No RELAYED-ADDRESS: %d", val);
-            return STUN_USAGE_TURN_RETURN_ERROR;
+            return STUN_TURN_RET_ERROR;
         }
     }
     else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_GOOGLE)
@@ -303,7 +267,7 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
         if (val != STUN_MSG_RET_SUCCESS)
         {
             stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_USAGE_TURN_RETURN_ERROR;
+            return STUN_TURN_RET_ERROR;
         }
     }
     else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_MSN)
@@ -312,14 +276,14 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
                                      STUN_ATT_MSN_MAPPED_ADDRESS, addr, addrlen);
 
         if (val == STUN_MSG_RET_SUCCESS)
-            ret = STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS;
+            ret = STUN_TURN_RET_MAPPED_SUCCESS;
 
         val = stun_msg_find_addr(msg,
                                      STUN_ATT_MAPPED_ADDRESS, relay_addr, relay_addrlen);
         if (val != STUN_MSG_RET_SUCCESS)
         {
             stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_USAGE_TURN_RETURN_ERROR;
+            return STUN_TURN_RET_ERROR;
         }
     }
     else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_OC2007)
@@ -339,14 +303,14 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
                                               htonl(magic_cookie));
 
         if (val == STUN_MSG_RET_SUCCESS)
-            ret = STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS;
+            ret = STUN_TURN_RET_MAPPED_SUCCESS;
 
         val = stun_msg_find_addr(msg,
                                      STUN_ATT_MAPPED_ADDRESS, relay_addr, relay_addrlen);
         if (val != STUN_MSG_RET_SUCCESS)
         {
             stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_USAGE_TURN_RETURN_ERROR;
+            return STUN_TURN_RET_ERROR;
         }
     }
 
@@ -364,25 +328,25 @@ StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg,
         uint32_t * lifetime, StunUsageTurnCompatibility compatibility)
 {
     int code = -1;
-    StunUsageTurnReturn ret = STUN_USAGE_TURN_RETURN_RELAY_SUCCESS;
+    StunUsageTurnReturn ret = STUN_TURN_RET_RELAY_SUCCESS;
 
     if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_DRAFT9 ||
             compatibility == STUN_USAGE_TURN_COMPATIBILITY_RFC5766)
     {
         if (stun_msg_get_method(msg) != STUN_REFRESH)
-            return STUN_USAGE_TURN_RETURN_INVALID;
+            return STUN_TURN_RET_INVALID;
     }
     else
     {
         if (stun_msg_get_method(msg) != STUN_ALLOCATE)
-            return STUN_USAGE_TURN_RETURN_INVALID;
+            return STUN_TURN_RET_INVALID;
     }
 
     switch (stun_msg_get_class(msg))
     {
         case STUN_REQUEST:
         case STUN_INDICATION:
-            return STUN_USAGE_TURN_RETURN_INVALID;
+            return STUN_TURN_RET_INVALID;
 
         case STUN_RESPONSE:
             break;
@@ -391,10 +355,10 @@ StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg,
             if (stun_msg_find_error(msg, &code) != STUN_MSG_RET_SUCCESS)
             {
                 /* missing ERROR-CODE: ignore message */
-                return STUN_USAGE_TURN_RETURN_INVALID;
+                return STUN_TURN_RET_INVALID;
             }
 
-            return STUN_USAGE_TURN_RETURN_ERROR;
+            return STUN_TURN_RET_ERROR;
 
         default:
             /* Fall through. */

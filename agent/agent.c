@@ -30,6 +30,7 @@
 #include "base.h"
 #include "nlist.h"
 #include "nqueue.h"
+#include "event.h"
 
 /* Maximum size of a UDP packet's payload, as the packet's length field is 16b
  * wide. */
@@ -208,8 +209,7 @@ static void agent_queue_signal(n_agent_t * agent, uint32_t signal_id, ...)
     va_start(var_args, signal_id);
     for (i = 0; i < sig->query.n_params; i++)
     {
-        G_VALUE_COLLECT_INIT(&sig->params[i + 1], sig->query.param_types[i],
-                             var_args, 0, &error);
+        G_VALUE_COLLECT_INIT(&sig->params[i + 1], sig->query.param_types[i], var_args, 0, &error);
         if (error)
             break;
     }
@@ -615,7 +615,6 @@ static void n_agent_init(n_agent_t * agent)
     agent->refresh_list = NULL;
     agent->media_after_tick = FALSE;
 
-    agent->compatibility = NICE_COMPATIBILITY_RFC5245;
     agent->reliable = TRUE;
     agent->use_ice_udp = TRUE;
     agent->use_ice_tcp = FALSE;
@@ -643,10 +642,6 @@ static void n_agent_get_property(GObject * object, uint32_t property_id, GValue 
     {
         case PROP_MAIN_CONTEXT:
             g_value_set_pointer(value, agent->main_context);
-            break;
-
-        case PROP_COMPATIBILITY:
-            g_value_set_uint(value, agent->compatibility);
             break;
 
         case PROP_STUN_SERVER:
@@ -1310,6 +1305,10 @@ void agent_sig_gathering_done(n_agent_t * agent)
         {
             stream->gathering = FALSE;
             agent_queue_signal(agent, signals[SIGNAL_CANDIDATE_GATHERING_DONE], stream->id);
+			if (agent->n_event)
+			{
+				event_post(agent->n_event, N_EVENT_CAND_GATHERING_DONE);
+			}
         }
     }
 }
@@ -2241,7 +2240,7 @@ typedef enum
     RECV_WOULD_BLOCK = -1,
     RECV_OOB = 0,
     RECV_SUCCESS = 1,
-} RecvStatus;
+} n_recv_status_t;
 
 /*
  * agent_recv_msg_unlocked:
@@ -2264,7 +2263,7 @@ typedef enum
  * (e.g. due to being a STUN control packet), %RECV_WOULD_BLOCK if no data is
  * available and the call would block, or %RECV_ERROR on error
  */
-static RecvStatus agent_recv_msg_unlocked(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp, n_socket_t * nicesock, n_input_msg_t * message)
+static n_recv_status_t agent_recv_msg_unlocked(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp, n_socket_t * nicesock, n_input_msg_t * message)
 {
     n_addr_t from;
     n_dlist_t * item;
@@ -2925,7 +2924,7 @@ int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * user_data)
 	{
 		local_bufs, G_N_ELEMENTS(local_bufs), NULL, 0
 	};
-	RecvStatus retval = 0;
+	n_recv_status_t retval = 0;
 
     agent_lock();
 
@@ -2969,7 +2968,7 @@ int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * user_data)
      *
      * has_io_callback cannot change throughout this function, as we operate
      * entirely with the agent lock held, and comp_set_io_callback() would
-     * need to take the agent lock to change the n_comp_t??s io_callback. */
+     * need to take the agent lock to change the n_comp_t's io_callback. */
     g_assert(!has_io_callback || component->recv_messages == NULL);    
         
     /* FIXME: Currently, the critical path for reliable packet delivery has two
@@ -3072,7 +3071,7 @@ int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp
     if (ctx == NULL)
         ctx = g_main_context_default();
 
-    /* Set the component??s I/O context. */
+    /* Set the component's I/O context. */
     comp_set_io_context(component, ctx);
     comp_set_io_callback(component, func, data);
     ret = TRUE;

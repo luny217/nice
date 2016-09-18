@@ -58,6 +58,17 @@ uint32_t n_input_msg_iter_get_n_valid_msgs(NiceInputMessageIter * iter);
 #define NICE_AGENT_TIMER_TR_MIN     15000   /* timer Tr, msecs (ICE ID-19) */
 #define _AGENT_MAX_CONNECTIVITY_CHECKS 100 /* see spec 5.7.3 (ID-19) */
 
+#define N_EVENT_COMP_STATE_CHANGED        (1<<31)
+#define N_EVENT_CAND_GATHERING_DONE         (1<<28)
+#define N_EVENT_NEW_SELECTED_PAIR       (1<<27)
+#define N_EVENT_CAND        (1<<26)
+#define N_EVENT_REMOTE_CAND       (1<<25)
+#define N_EVENT_INITIAL_BINDING_REQUEST_RECEIVED        (1<<24)
+#define N_EVENT_RELIABLE_TRANSPORT_WRITABLE         (1<<23)
+#define N_EVENT_STREAMS_REMOVED       (1<<22)
+#define N_EVENT_NEW_SELECTED_PAIR_FULL        (1<<21)
+#define N_EVENT_NEW_CAND_FULL       (1<<20)
+#define N_EVENT_NEW_REMOTE_CAND_FULL       (1<<19)
 
 /* An upper limit to size of STUN packets handled (based on Ethernet
  * MTU and estimated typical sizes of ICE STUN packet */
@@ -86,13 +97,13 @@ struct _agent_st
     GSource * keepalive_timer_source; /* source of keepalive timer */
 	n_slist_t * refresh_list;        /* list of n_cand_refresh_t items */
     uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
-    NiceCompatibility compatibility; /* property: Compatibility mode */
     int32_t media_after_tick;       /* Received media after keepalive tick */
     int32_t reliable;               /* property: reliable */
     int32_t keepalive_conncheck;    /* property: keepalive_conncheck */
     n_queue_t pending_signals;
     int use_ice_udp;
     int use_ice_tcp;
+	int32_t n_event;
     /* XXX: add pointer to internal data struct for ABI-safe extensions */
 };
 

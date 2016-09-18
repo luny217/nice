@@ -94,24 +94,3 @@ bool stun_msg_has_cookie(const stun_msg_t * msg)
     stun_msg_id(msg, id);
     return memcmp(id, &cookie, sizeof(cookie)) == 0;
 }
-
-
-stun_msg_ret_e stun_msg_append_software(stun_msg_t * msg,
-        const char * software)
-{
-    int len = 0;
-    const char * ptr = NULL;
-
-    if (software == NULL)
-        software = PACKAGE_STRING;
-
-    ptr = software;
-    while (*ptr && len < 128)
-    {
-        ptr = next_utf8_char(ptr);
-        len++;
-    }
-
-    return stun_msg_append_bytes(msg, STUN_ATT_SOFTWARE, software,
-                                     ptr - software);
-}

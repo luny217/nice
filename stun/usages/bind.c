@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
-#include "timer.h"
+#include "stun_timer.h"
 
 
 #ifndef SOL_IP

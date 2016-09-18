@@ -76,13 +76,13 @@ typedef enum
 
 /**
  * StunUsageTurnReturn:
- * @STUN_USAGE_TURN_RETURN_RELAY_SUCCESS: The response was successful and a relay
+ * @STUN_TURN_RET_RELAY_SUCCESS: The response was successful and a relay
  * address is provided
- * @STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS: The response was successful and a
+ * @STUN_TURN_RET_MAPPED_SUCCESS: The response was successful and a
  * relay address as well as a mapped address are provided
- * @STUN_USAGE_TURN_RETURN_ERROR: The response resulted in an error
- * @STUN_USAGE_TURN_RETURN_INVALID: The response is not a valid response
- * @STUN_USAGE_TURN_RETURN_ALTERNATE_SERVER: The server requests the message
+ * @STUN_TURN_RET_ERROR: The response resulted in an error
+ * @STUN_TURN_RET_INVALID: The response is not a valid response
+ * @STUN_TURN_RET_ALTERNATE_SERVER: The server requests the message
  * to be sent to an alternate server
  *
  * Return value of stun_usage_turn_process() and
@@ -91,11 +91,11 @@ typedef enum
  */
 typedef enum
 {
-    STUN_USAGE_TURN_RETURN_RELAY_SUCCESS,
-    STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS,
-    STUN_USAGE_TURN_RETURN_ERROR,
-    STUN_USAGE_TURN_RETURN_INVALID,
-    STUN_USAGE_TURN_RETURN_ALTERNATE_SERVER,
+    STUN_TURN_RET_RELAY_SUCCESS,
+    STUN_TURN_RET_MAPPED_SUCCESS,
+    STUN_TURN_RET_ERROR,
+    STUN_TURN_RET_INVALID,
+    STUN_TURN_RET_ALTERNATE_SERVER,
 } StunUsageTurnReturn;
 
 
@@ -211,13 +211,13 @@ size_t stun_usage_turn_create_permission(stun_agent_t * agent, stun_msg_t * msg,
  * @addr: A pointer to a #sockaddr structure to fill with the mapped address
  * that the STUN response contains.
  * This argument will only be filled if the return value
- * of the function is #STUN_USAGE_TURN_RETURN_MAPPED_SUCCESS
+ * of the function is #STUN_TURN_RET_MAPPED_SUCCESS
  * @addrlen: The length of @addr
  * @alternate_server: A pointer to a #sockaddr structure to fill with the
  * address of an alternate server to which we should send our new STUN
  * Allocate request, in case the currently used TURN server is requesting the use
  * of an alternate server. This argument will only be filled if the return value
- * of the function is #STUN_USAGE_TURN_RETURN_ALTERNATE_SERVER
+ * of the function is #STUN_TURN_RET_ALTERNATE_SERVER
  * @alternate_server_len: The length of @alternate_server
  * @bandwidth: A pointer to fill with the bandwidth the TURN server allocated us
  * @lifetime: A pointer to fill with the lifetime of the allocation
@@ -244,7 +244,7 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
  *
  * Process a TURN Refresh response and extract the necessary information from
  * the message
- * Returns: A #StunUsageTurnReturn value. A #STUN_USAGE_TURN_RETURN_RELAY_SUCCESS
+ * Returns: A #StunUsageTurnReturn value. A #STUN_TURN_RET_RELAY_SUCCESS
  * means the Refresh was successful, but no relay address is given (kept the same
  * as for the original allocation)
  */

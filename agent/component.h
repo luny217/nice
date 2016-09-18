@@ -12,7 +12,7 @@ typedef struct _comp_st n_comp_t;
 #include "agent-priv.h"
 #include "candidate.h"
 #include "stun/stunagent.h"
-#include "stun/usages/timer.h"
+#include "stun/usages/stun_timer.h"
 #include "pseudotcp.h"
 #include "stream.h"
 #include "socket.h"

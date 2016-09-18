@@ -65,9 +65,6 @@
     <ClCompile Include="socket\socket.c">
       <Filter>socket</Filter>
     </ClCompile>
-    <ClCompile Include="stun\usages\timer.c">
-      <Filter>stun\usages</Filter>
-    </ClCompile>
     <ClCompile Include="stun\usages\turn.c">
       <Filter>stun\usages</Filter>
     </ClCompile>
@@ -125,6 +122,15 @@
     <ClCompile Include="glib\nqueue.c">
       <Filter>glib</Filter>
     </ClCompile>
+    <ClCompile Include="glib\event.c">
+      <Filter>glib</Filter>
+    </ClCompile>
+    <ClCompile Include="glib\timer.c">
+      <Filter>glib</Filter>
+    </ClCompile>
+    <ClCompile Include="stun\usages\stun_timer.c">
+      <Filter>stun\usages</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="agent\address.h">
@@ -173,9 +179,6 @@
       <Filter>socket</Filter>
     </ClInclude>
     <ClInclude Include="stun\usages\ice.h">
-      <Filter>stun\usages</Filter>
-    </ClInclude>
-    <ClInclude Include="stun\usages\timer.h">
       <Filter>stun\usages</Filter>
     </ClInclude>
     <ClInclude Include="stun\usages\turn.h">
@@ -234,6 +237,15 @@
     </ClInclude>
     <ClInclude Include="glib\nqueue.h">
       <Filter>glib</Filter>
+    </ClInclude>
+    <ClInclude Include="glib\event.h">
+      <Filter>glib</Filter>
+    </ClInclude>
+    <ClInclude Include="glib\timer.h">
+      <Filter>glib</Filter>
+    </ClInclude>
+    <ClInclude Include="stun\usages\stun_timer.h">
+      <Filter>stun\usages</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

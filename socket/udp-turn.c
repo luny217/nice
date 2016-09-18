@@ -12,7 +12,7 @@
 #include "nqueue.h"
 #include "udp-turn.h"
 #include "stun/stunagent.h"
-#include "stun/usages/timer.h"
+#include "stun/usages/stun_timer.h"
 #include "agent-priv.h"
 
 #define STUN_END_TIMEOUT 8000
