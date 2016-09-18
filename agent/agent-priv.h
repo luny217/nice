@@ -95,6 +95,9 @@ struct _agent_st
     GSource * disc_timer_source; /* source of discovery timer */
     GSource * conncheck_timer_source; /* source of conncheck timer */
     GSource * keepalive_timer_source; /* source of keepalive timer */
+	int32_t disc_timer;
+	int32_t cocheck_timer;
+	int32_t keepalive_timer;
 	n_slist_t * refresh_list;        /* list of n_cand_refresh_t items */
     uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
     int32_t media_after_tick;       /* Received media after keepalive tick */

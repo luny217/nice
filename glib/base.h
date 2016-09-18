@@ -15,6 +15,10 @@
 
 #define USEC_PER_SEC 1000000
 
+#define ONE_MSEC_PER_USEC   1000
+#define ONE_SEC_PER_MSEC    1000
+#define ONE_SEC_PER_USEC    (ONE_MSEC_PER_USEC * ONE_SEC_PER_MSEC)
+
 typedef struct _TimeVal  n_timeval_t;
 struct _TimeVal
 {
@@ -26,5 +30,7 @@ void get_current_time(n_timeval_t * result);
 
 void time_val_add(n_timeval_t  * _time, int32_t microseconds);
 
+void sleep_us(uint32_t microseconds);
 
+void sleep_ms(uint32_t milliseconds);
 #endif

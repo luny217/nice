@@ -19,6 +19,7 @@
 #include "stun/usages/bind.h"
 #include "stun/usages/turn.h"
 #include "socket.h"
+#include "timer.h"
 
 static inline int _timer_expired(n_timeval_t * timer, n_timeval_t * now)
 {
@@ -792,7 +793,7 @@ static int _disc_tick_unlocked(void * pointer)
 
             if (candidate->stun_message.buffer == NULL)
             {
-                nice_debug("[%s]: STUN discovery was cancelled, marking discovery done.", G_STRFUNC);
+                nice_debug("[%s]: stun discovery was cancelled, marking discovery done.", G_STRFUNC);
 				//nice_print_cand(agent, candidate, candidate);
 				candidate->done = TRUE;
             }
@@ -820,7 +821,7 @@ static int _disc_tick_unlocked(void * pointer)
                         /* case: not ready complete, so schedule next timeout */
                         unsigned int timeout = stun_timer_remainder(&candidate->timer);
 
-						nice_debug("[%s]: STUN transaction retransmitted (timeout %dms)", G_STRFUNC, timeout);
+						nice_debug("[%s]: stun transaction retransmitted (timeout %d ms)", G_STRFUNC, timeout);
 
                         /* retransmit */
                         agent_socket_send(candidate->nicesock, &candidate->server,
@@ -831,7 +832,7 @@ static int _disc_tick_unlocked(void * pointer)
 						candidate->next_tick = now;
                         time_val_add(&candidate->next_tick, timeout * 1000);
 
-                        ++not_done; /* note: retry later */
+                        not_done++; /* note: retry later */
                         break;
                     }
                     case STUN_TIMER_RET_SUCCESS:
@@ -841,10 +842,10 @@ static int _disc_tick_unlocked(void * pointer)
 						candidate->next_tick = now;
                         time_val_add(&candidate->next_tick, timeout * 1000);
 
-						nice_debug("[%s]: STUN transaction success", G_STRFUNC);
+						nice_debug("[%s]: stun transaction success", G_STRFUNC);
 						//nice_print_cand(agent, candidate, candidate);
 
-                        ++not_done; /* note: retry later */
+                        not_done++; /* note: retry later */
                         break;
                     }
                     default:
@@ -854,7 +855,7 @@ static int _disc_tick_unlocked(void * pointer)
             }
             else
             {
-                ++not_done; /* note: discovery not expired yet */
+                not_done++; /* note: discovery not expired yet */
             }
         }
     }
@@ -879,12 +880,12 @@ static int _disc_tick(void * pointer)
     int ret;
 
     agent_lock();
-    if (g_source_is_destroyed(g_main_current_source()))
+    /*if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. " "Avoided race condition in _disc_tick");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
     ret = _disc_tick_unlocked(pointer);
     if (ret == FALSE)
@@ -895,6 +896,7 @@ static int _disc_tick(void * pointer)
             g_source_unref(agent->disc_timer_source);
             agent->disc_timer_source = NULL;
         }
+		timer_stop(agent->disc_timer);
     }
     agent_unlock_and_emit(agent);
 
@@ -919,7 +921,9 @@ void disc_schedule(n_agent_t * agent)
             int res = _disc_tick_unlocked(agent);
             if (res == TRUE)
             {
-                agent_timeout_add(agent, &agent->disc_timer_source, "Candidate discovery tick", agent->timer_ta, _disc_tick, agent);
+                //agent_timeout_add(agent, &agent->disc_timer_source, "Candidate discovery tick", agent->timer_ta, _disc_tick, agent);
+
+				agent->disc_timer = timer_startext(0, agent->timer_ta, (notifycallback)_disc_tick, (int32_t)agent, 0, "Candidate discovery tick");
             }
         }
     }

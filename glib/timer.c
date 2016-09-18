@@ -110,7 +110,7 @@ static PLINK_S _link_open(PLINK_S plink, PNODE_S pnode, int32_t count)
  * 输出参数: 无
  * 返回值  : 无
  *****************************************************************************/
-#define TIME_ADJ
+
 static void _timer_body(void *arg)
 {
     PTIMER_FD_S fd = &timer_fd;
@@ -118,7 +118,7 @@ static void _timer_body(void *arg)
     PNODE_S pnode = NULL;
 	n_timeval_t  tv_now, tv_last;
 	int32_t step = TIMER_MIN_MSEC;
-	int32_t interval = (TIMER_MIN_MSEC - TIMER_SUB_MSEC) * USEC_PER_SEC;
+	int32_t interval = (TIMER_MIN_MSEC - TIMER_SUB_MSEC) * ONE_MSEC_PER_USEC;
 
 
 	get_current_time(&tv_last);
@@ -132,11 +132,11 @@ static void _timer_body(void *arg)
         
 		get_current_time(&tv_now);
         tv_now.tv_usec = ((tv_now.tv_usec + 5000) / 10000) * 10000; /* 时间精度为10毫秒 */
-        step = ((tv_now.tv_sec - tv_last.tv_sec) * USEC_PER_SEC) +
-            ((tv_now.tv_usec - tv_last.tv_usec) / USEC_PER_SEC); /* 计算两次时间差,单位为毫秒 */
+        step = ((tv_now.tv_sec - tv_last.tv_sec) * ONE_SEC_PER_MSEC) +
+            ((tv_now.tv_usec - tv_last.tv_usec) / ONE_MSEC_PER_USEC); /* 计算两次时间差,单位为毫秒 */
 
         /* 考虑系统时间修改等因素,步进单位<0或>1s则判断非法 */
-        step = (((step > USEC_PER_SEC) | (step < 0)) ? TIMER_MIN_MSEC : step);
+        step = (((step > ONE_SEC_PER_MSEC) | (step < 0)) ? TIMER_MIN_MSEC : step);
         tv_last = tv_now;
 
         pnode = fd->link_used.head;

@@ -143,7 +143,7 @@ uv_thread_cb nice_thread(void * data)
     // Without this call, candidates cannot be gathered
     n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
 
-    n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", RELAY_TYPE_TURN_UDP);
+    //n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", RELAY_TYPE_TURN_UDP);
 
     // Start gathering local candidates
     if (!n_agent_gather_cands(agent, stream_id))

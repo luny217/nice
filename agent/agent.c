@@ -3122,8 +3122,7 @@ int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     /* step: stop connectivity checks (note: for the whole stream) */
     cocheck_prune_stream(agent, stream);
 
-    if (agent->reliable && !nice_socket_is_reliable(pair.local->sockptr) &&
-            pst_is_closed(component->tcp))
+    if (agent->reliable && !nice_socket_is_reliable(pair.local->sockptr) &&  pst_is_closed(component->tcp))
     {
         nice_debug("[%s]: not setting selected pair for s%d:%d because "
                    "pseudo tcp socket does not exist in reliable mode", G_STRFUNC,

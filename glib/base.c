@@ -94,7 +94,7 @@ void sleep_us(uint32_t microseconds)
 #endif
 }
 
-void sleep_ms(uint32_t microseconds)
+void sleep_ms(uint32_t milliseconds)
 {
-	//sleep_us
+	sleep_us(milliseconds * 1000);
 }
