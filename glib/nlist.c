@@ -1088,8 +1088,7 @@ n_dlist_t * n_dlist_sort_with_data(n_dlist_t * list, n_compare_data_func compare
 *
 * Returns: a pointer to the newly-allocated #n_slist_t  element.
 **/
-n_slist_t * 
-n_slist_alloc(void)
+n_slist_t * n_slist_alloc(void)
 {
 	return _n_slist_alloc0();
 }

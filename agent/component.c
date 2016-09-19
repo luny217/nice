@@ -811,6 +811,7 @@ void component_emit_io_callback(n_comp_t * component,  const uint8_t * buf, uint
         /* Thread owns the main context, so invoke the callback directly. */
         agent_unlock_and_emit(agent);
         io_callback(agent, stream_id, component_id, buf_len, (gchar *) buf, io_user_data);
+		nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
         agent_lock();
     }
     else

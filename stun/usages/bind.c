@@ -49,16 +49,14 @@
 
 /** Non-blocking mode STUN binding discovery */
 
-size_t stun_bind_create(stun_agent_t * agent, stun_msg_t * msg,
-                              uint8_t * buffer, size_t buffer_len)
+size_t stun_bind_create(stun_agent_t * agent, stun_msg_t * msg, uint8_t * buffer, size_t buffer_len)
 {
     stun_agent_init_request(agent, msg, buffer, buffer_len, STUN_BINDING);
 
     return stun_agent_finish_message(agent, msg, NULL, 0);
 }
 
-StunBind stun_bind_process(stun_msg_t * msg,
-        struct sockaddr * addr, socklen_t * addrlen,
+StunBind stun_bind_process(stun_msg_t * msg, struct sockaddr * addr, socklen_t * addrlen,
         struct sockaddr * alternate_server, socklen_t * alternate_server_len)
 {
     int code = -1;
@@ -122,15 +120,11 @@ StunBind stun_bind_process(stun_msg_t * msg,
 
     stun_debug("Received %u-bytes STUN message", stun_msg_len(msg));
 
-    val = stun_msg_find_xor_addr(msg,
-                                     STUN_ATT_XOR_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
-                                     addrlen);
+    val = stun_msg_find_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, (struct sockaddr_storage *)addr, addrlen);
     if (val != STUN_MSG_RET_SUCCESS)
     {
         stun_debug(" No XOR-MAPPED-ADDRESS: %d", val);
-        val = stun_msg_find_addr(msg,
-                                     STUN_ATT_MAPPED_ADDRESS, (struct sockaddr_storage *)addr,
-                                     addrlen);
+        val = stun_msg_find_addr(msg, STUN_ATT_MAPPED_ADDRESS, (struct sockaddr_storage *)addr, addrlen);
         if (val != STUN_MSG_RET_SUCCESS)
         {
             stun_debug(" No MAPPED-ADDRESS: %d", val);
@@ -146,17 +140,12 @@ StunBind stun_bind_process(stun_msg_t * msg,
 
 /** Binding keep-alive (Binding discovery indication!) */
 
-size_t
-stun_bind_keepalive(stun_agent_t * agent, stun_msg_t * msg,
-                          uint8_t * buf, size_t len)
+size_t stun_bind_keepalive(stun_agent_t * agent, stun_msg_t * msg, uint8_t * buf, size_t len)
 {
 
-    stun_agent_init_indication(agent, msg,
-                               buf, len, STUN_BINDING);
+    stun_agent_init_indication(agent, msg, buf, len, STUN_BINDING);
     return stun_agent_finish_message(agent, msg, NULL, 0);
 }
-
-
 
 typedef struct stun_trans_s
 {

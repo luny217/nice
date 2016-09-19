@@ -480,6 +480,7 @@ static int _cocheck_tick(void * pointer)
     int ret;
     n_agent_t * agent = pointer;
 
+	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
     if (g_source_is_destroyed(g_main_current_source()))
     {
@@ -498,6 +499,7 @@ static int _conn_keepalive_retrans_tick(void * pointer)
 {
     n_cand_pair_t * pair = (n_cand_pair_t *) pointer;
 
+	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     /* A race condition might happen where the mutex above waits for the lock
@@ -772,6 +774,7 @@ static int _conn_keepalive_tick(void * pointer)
     n_agent_t * agent = pointer;
     int ret;
 
+	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
     if (g_source_is_destroyed(g_main_current_source()))
     {
@@ -800,6 +803,7 @@ static int _turn_alloc_refresh_retrans_tick(void * pointer)
     n_cand_refresh_t * cand = (n_cand_refresh_t *) pointer;
     n_agent_t * agent = NULL;
 
+	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     /* A race condition might happen where the mutex above waits for the lock
@@ -908,7 +912,8 @@ static int _turn_allocate_refresh_tick(void * pointer)
 {
     n_cand_refresh_t * cand = (n_cand_refresh_t *) pointer;
 
-    agent_lock();
+	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	agent_lock();
     if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. " "Avoided race condition in _turn_allocate_refresh_tick");

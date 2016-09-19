@@ -22,6 +22,7 @@
 #include "uv.h"
 #include "event.h"
 #include "pthread.h"
+#include "timer.h"
 
 static GMainLoop * gloop;
 static char * stun_addr = "107.191.106.104";
@@ -750,6 +751,8 @@ int main(int argc, char * argv[])
 		printf("Open %s failed:%s\n", write_file, strerror(errno));
 		return -1;
 	}
+
+	ret = timer_open();
 
 	ret = pthread_create(&tid, 0, (void *)nice_thread, NULL);
 
