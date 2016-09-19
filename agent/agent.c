@@ -1310,7 +1310,9 @@ void agent_sig_gathering_done(n_agent_t * agent)
             //agent_queue_signal(agent, signals[SIGNAL_CANDIDATE_GATHERING_DONE], stream->id);
 			if (agent->n_event)
 			{
-				event_post(agent->n_event, N_EVENT_CAND_GATHERING_DONE);
+				uint32_t  * id = n_slice_new0(uint32_t);
+				nice_debug("[%s] agent_sig_gathering_done, event_post data[%p]", G_STRFUNC, id);
+				event_post(agent->n_event, N_EVENT_CAND_GATHERING_DONE, id);
 			}
         }
     }

@@ -50,8 +50,8 @@ static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t compone
 void nice_event_loop(void * data)
 {
 	int32_t  ret = 0, i = 0, events = 0;
-
 	n_agent_t  * agent = (n_agent_t  *)data;
+	void * n_data;
 
 	agent->n_event = event_open();
 
@@ -62,7 +62,7 @@ void nice_event_loop(void * data)
 
 	while (1)
 	{
-		if ((ret = event_wait(agent->n_event, 0xFFFFFFFF, &events)) < 0)
+		if ((ret = event_wait(agent->n_event, 0xFFFFFFFF, &events, &n_data)) < 0)
 		{
 			g_usleep(10 * 1000);
 			continue;
@@ -70,7 +70,8 @@ void nice_event_loop(void * data)
 
 		if (events & N_EVENT_CAND_GATHERING_DONE)
 		{
-			cb_cand_gathering_done(agent, 1, NULL);
+			uint32_t * id = (uint32_t *) n_data;
+			cb_cand_gathering_done(agent, *id, NULL);
 		}
 
 #if 0
