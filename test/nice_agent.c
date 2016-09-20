@@ -67,24 +67,45 @@ void nice_event_loop(void * data)
 			g_usleep(10 * 1000);
 			continue;
 		}
-
+		
 		if (events & N_EVENT_CAND_GATHERING_DONE)
 		{
 			uint32_t * id = (uint32_t *) n_data;
+
+			nice_debug("[CB_CAND_GATHERING_DONE] events(0x%x)  stream_id(%d)\n", events, *id);
+
 			cb_cand_gathering_done(agent, *id, NULL);
 		}
 
-#if 0
+
 		if (events & N_EVENT_NEW_SELECTED_PAIR)
 		{
-			cb_new_selected_pair(fd);
+			ev_new_pair_t * ev_new_pair = (ev_new_pair_t *)n_data;
+
+			cb_new_selected_pair(agent, ev_new_pair->stream_id, ev_new_pair->component_id, 
+												ev_new_pair->lfoundation, ev_new_pair->rfoundation, NULL);
 		}
 
 		if (events & N_EVENT_COMP_STATE_CHANGED)
 		{
-			cb_component_state_changed(fd);
+			ev_state_changed_t * ev_state_changed = (ev_state_changed_t *)n_data;
+			cb_comp_state_changed(agent, ev_state_changed->stream_id, ev_state_changed->comp_id, ev_state_changed->state, NULL);
+			nice_debug("\n[CB_COMP_STATE_CHANGED] events(0x%x)  state(%d)\n", events, ev_state_changed->state);
 		}
-#endif
+
+		if (events & N_EVENT_NEW_CAND)
+		{
+			ev_new_cand_t * ev_new_cand = (ev_new_cand_t *)n_data;
+			nice_debug("\n[CB_NEW_CAND] events(0x%x)  foundation(%s)\n", events, ev_new_cand->foundation);
+		}
+
+		if (events & N_EVENT_NEW_CAND_FULL)
+		{
+			n_cand_t * cand = (n_cand_t *)n_data;
+			nice_debug("\n[CB_NEW_CAND_FULL] events(0x%x)  foundation(%s)\n", events, cand->foundation);
+		}
+
+		n_free(n_data);
 	}
 }
 

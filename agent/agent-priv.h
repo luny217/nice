@@ -68,7 +68,9 @@ uint32_t n_input_msg_iter_get_n_valid_msgs(NiceInputMessageIter * iter);
 #define N_EVENT_STREAMS_REMOVED       (1<<22)
 #define N_EVENT_NEW_SELECTED_PAIR_FULL        (1<<21)
 #define N_EVENT_NEW_CAND_FULL       (1<<20)
-#define N_EVENT_NEW_REMOTE_CAND_FULL       (1<<19)
+#define N_EVENT_NEW_CAND       (1<<19)
+#define N_EVENT_NEW_REMOTE_CAND_FULL       (1<<18)
+#define N_EVENT_NEW_REMOTE_CAND      (1<<17)
 
 /* An upper limit to size of STUN packets handled (based on Ethernet
  * MTU and estimated typical sizes of ICE STUN packet */
@@ -159,5 +161,41 @@ static inline void nice_debug(const char * fmt, ...) { }
 int32_t nice_debug_is_enabled(void);
 void nice_debug(const char * fmt, ...) G_GNUC_PRINTF(1, 2);
 #endif
+
+typedef struct
+{
+	uint32_t stream_id;
+	uint32_t component_id;
+	char lfoundation[CAND_MAX_FOUNDATION];
+	char rfoundation[CAND_MAX_FOUNDATION];
+} ev_new_pair_t;
+
+typedef struct
+{
+	uint32_t stream_id;
+	uint32_t component_id;
+	n_cand_t * lcandidate;
+	n_cand_t * rcandidate;
+} ev_new_pair_full_t;
+
+typedef struct
+{
+	uint32_t stream_id;
+	uint32_t comp_id;
+	n_comp_state_e state;
+} ev_state_changed_t;
+
+typedef struct
+{
+	uint32_t stream_id;
+	uint32_t comp_id;
+} ev_trans_writable_t;
+
+typedef struct
+{
+	uint32_t stream_id;
+	uint32_t comp_id;
+	char foundation[CAND_MAX_FOUNDATION];
+} ev_new_cand_t;
 
 #endif /*_NICE_AGENT_PRIV_H */

@@ -17,8 +17,6 @@
 
 int32_t event_open(void);
 
-int32_t event_recv(int32_t handle, int32_t want, int32_t *events);
-
 int32_t event_wait(int32_t handle, int32_t want, int32_t *events, void ** n_data);
 
 int32_t event_post(int32_t handle, int32_t events, void * n_data);

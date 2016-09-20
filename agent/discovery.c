@@ -521,7 +521,7 @@ n_cand_t * disc_add_server_cand(n_agent_t * agent, uint32_t stream_id, uint32_t 
     result = _add_local_cand_pruned(agent, stream_id, comp, candidate);
     if (result)
     {
-        agent_sig_new_cand(agent, candidate);
+        //agent_sig_new_cand(agent, candidate);
     }
     else
     {
@@ -879,7 +879,7 @@ static int _disc_tick(void * pointer)
     n_agent_t * agent = pointer;
     int ret;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
     /*if (g_source_is_destroyed(g_main_current_source()))
     {
@@ -899,7 +899,7 @@ static int _disc_tick(void * pointer)
         }*/
 		timer_stop(agent->disc_timer);
     }
-	nice_debug("[%s]: agent_unlock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_unlock+++++++++++", G_STRFUNC);
     agent_unlock_and_emit(agent);
 
     return ret;

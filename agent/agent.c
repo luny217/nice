@@ -182,7 +182,7 @@ void agent_unlock_and_emit(n_agent_t * agent)
     queue = agent->pending_signals;
     n_queue_init(&agent->pending_signals);
 
-	nice_debug("[%s]: agent_unlock-------------------", G_STRFUNC);
+	//nice_debug("[%s]: agent_unlock-------------------", G_STRFUNC);
     agent_unlock();
 
     while ((sig = n_queue_pop_head(&queue)))
@@ -732,10 +732,19 @@ static void nice_agent_set_property(GObject * object, uint32_t property_id, cons
     
 }
 
-static void agent_signal_socket_writable(n_agent_t * agent, n_comp_t * component)
+static void agent_signal_socket_writable(n_agent_t * agent, n_comp_t * comp)
 {
-    g_cancellable_cancel(component->tcp_writable_cancellable);
-    agent_queue_signal(agent, signals[SIGNAL_RELIABLE_TRANSPORT_WRITABLE], component->stream->id, component->id);
+    g_cancellable_cancel(comp->tcp_writable_cancellable);
+	/*agent_queue_signal(agent, signals[SIGNAL_RELIABLE_TRANSPORT_WRITABLE], comp->stream->id, comp->id);*/
+	if (agent->n_event)
+	{
+		ev_trans_writable_t * ev_trans_writable = n_slice_new0(ev_trans_writable_t);
+		ev_trans_writable->comp_id = comp->id;
+		ev_trans_writable->stream_id = comp->stream->id;
+
+		nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_trans_writable->stream_id);
+		event_post(agent->n_event, N_EVENT_NEW_REMOTE_CAND, ev_trans_writable);
+	}
 }
 
 static void pst_create(n_agent_t * agent, n_stream_t * stream, n_comp_t * component)
@@ -1307,11 +1316,12 @@ void agent_sig_gathering_done(n_agent_t * agent)
         if (stream->gathering)
         {
             stream->gathering = FALSE;
-            //agent_queue_signal(agent, signals[SIGNAL_CANDIDATE_GATHERING_DONE], stream->id);
+            /*agent_queue_signal(agent, signals[SIGNAL_CANDIDATE_GATHERING_DONE], stream->id);*/
 			if (agent->n_event)
 			{
 				uint32_t  * id = n_slice_new0(uint32_t);
-				nice_debug("[%s] agent_sig_gathering_done, event_post data[%p]", G_STRFUNC, id);
+				*id = stream->id;
+				nice_debug("[%s] event_post stream->id [%d]", G_STRFUNC, *id);
 				event_post(agent->n_event, N_EVENT_CAND_GATHERING_DONE, id);
 			}
         }
@@ -1323,7 +1333,14 @@ void agent_sig_initial_binding_request_received(n_agent_t * agent, n_stream_t * 
     if (stream->initial_binding_request_received != TRUE)
     {
         stream->initial_binding_request_received = TRUE;
-        agent_queue_signal(agent, signals[SIGNAL_INITIAL_BINDING_REQUEST_RECEIVED], stream->id);
+        /*agent_queue_signal(agent, signals[SIGNAL_INITIAL_BINDING_REQUEST_RECEIVED], stream->id);*/
+		if (agent->n_event)
+		{
+			uint32_t  * id = n_slice_new0(uint32_t);
+			*id = stream->id;
+			nice_debug("[%s] event_post stream->id [%d]", G_STRFUNC, *id);
+			event_post(agent->n_event, N_EVENT_INITIAL_BINDING_REQUEST_RECEIVED, id);
+		}
     }
 }
 
@@ -1441,10 +1458,33 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
 		nice_print_cand(agent, lcandidate, rcandidate);
     }
 
-    agent_queue_signal(agent, signals[SIGNAL_NEW_SELECTED_PAIR_FULL],
-                       stream_id, component_id, lcandidate, rcandidate);
-    agent_queue_signal(agent, signals[SIGNAL_NEW_SELECTED_PAIR],
-                       stream_id, component_id, lcandidate->foundation, rcandidate->foundation);
+    /*agent_queue_signal(agent, signals[SIGNAL_NEW_SELECTED_PAIR_FULL],
+                       stream_id, component_id, lcandidate, rcandidate);*/
+	if (agent->n_event)
+	{
+		ev_new_pair_full_t * ev_new_pair_full = n_slice_new0(ev_new_pair_full_t);
+		ev_new_pair_full->component_id = component_id;
+		ev_new_pair_full->stream_id = stream_id;
+		ev_new_pair_full->lcandidate = lcandidate;
+		ev_new_pair_full->rcandidate = rcandidate;
+
+		nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_pair_full->stream_id);
+		event_post(agent->n_event, N_EVENT_NEW_SELECTED_PAIR_FULL, ev_new_pair_full);
+	}
+
+    /*agent_queue_signal(agent, signals[SIGNAL_NEW_SELECTED_PAIR],
+                       stream_id, component_id, lcandidate->foundation, rcandidate->foundation);*/
+	if (agent->n_event)
+	{
+		ev_new_pair_t * ev_new_pair = n_slice_new0(ev_new_pair_t);
+		ev_new_pair->component_id = component_id;
+		ev_new_pair->stream_id = stream_id;
+		strncpy(ev_new_pair->lfoundation, lcandidate->foundation, CAND_MAX_FOUNDATION);
+		strncpy(ev_new_pair->rfoundation, rcandidate->foundation, CAND_MAX_FOUNDATION);
+
+		nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_pair->stream_id);
+		event_post(agent->n_event, N_EVENT_NEW_SELECTED_PAIR, ev_new_pair);
+	}
 
     if (agent->reliable && nice_socket_is_reliable(lcandidate->sockptr))
     {
@@ -1455,15 +1495,54 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
 void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate)
 {
     agent_queue_signal(agent, signals[SIGNAL_NEW_CANDIDATE_FULL],  candidate);
+	/*if (agent->n_event)
+	{
+		n_cand_t * cand = n_slice_new0(n_cand_t);
+		memcpy(cand, candidate, sizeof(n_cand_t));
+		nice_debug("[%s] event_post stream_id [%x]\n", G_STRFUNC, N_EVENT_NEW_CAND_FULL);
+		event_post(agent->n_event, N_EVENT_NEW_CAND_FULL, cand);
+	}*/
     agent_queue_signal(agent, signals[SIGNAL_NEW_CANDIDATE],
                        candidate->stream_id, candidate->component_id, candidate->foundation);
+/*
+	if (agent->n_event)
+	{
+		ev_new_cand_t * ev_new_cand = n_slice_new0(ev_new_cand_t);
+		ev_new_cand->comp_id = candidate->component_id;
+		ev_new_cand->stream_id = candidate->stream_id;
+		strncpy(ev_new_cand->foundation, candidate->foundation, CAND_MAX_FOUNDATION);
+
+		nice_debug("[%s] event_post stream_id [%x]\n", G_STRFUNC, N_EVENT_NEW_CAND);
+		event_post(agent->n_event, N_EVENT_NEW_CAND, ev_new_cand);
+	}*/
+
 }
 
 void agent_sig_new_remote_cand(n_agent_t * agent, n_cand_t * candidate)
 {
-    agent_queue_signal(agent, signals[SIGNAL_NEW_REMOTE_CANDIDATE_FULL], candidate);
-    agent_queue_signal(agent, signals[SIGNAL_NEW_REMOTE_CANDIDATE],
-                       candidate->stream_id, candidate->component_id, candidate->foundation);
+    /*agent_queue_signal(agent, signals[SIGNAL_NEW_REMOTE_CANDIDATE_FULL], candidate);*/
+
+	if (agent->n_event)
+	{
+		n_cand_t * cand = n_slice_new0(n_cand_t);
+		memcpy(cand, candidate, sizeof(n_cand_t));
+		nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, cand->stream_id);
+		event_post(agent->n_event, N_EVENT_NEW_REMOTE_CAND_FULL, cand);
+	}
+
+    /*agent_queue_signal(agent, signals[SIGNAL_NEW_REMOTE_CANDIDATE],
+                       candidate->stream_id, candidate->component_id, candidate->foundation);*/
+
+	if (agent->n_event)
+	{
+		ev_new_cand_t * ev_new_cand = n_slice_new0(ev_new_cand_t);
+		ev_new_cand->comp_id = candidate->component_id;
+		ev_new_cand->stream_id = candidate->stream_id;
+		strncpy(ev_new_cand->foundation, candidate->foundation, CAND_MAX_FOUNDATION);
+
+		nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_cand->stream_id);
+		event_post(agent->n_event, N_EVENT_NEW_REMOTE_CAND, ev_new_cand);
+	}
 }
 
 const char * n_comp_state_to_str(n_comp_state_e state)
@@ -1507,7 +1586,18 @@ void agent_sig_comp_state_change(n_agent_t * agent, uint32_t stream_id, uint32_t
         if (agent->reliable)
             process_queued_tcp_packets(agent, stream, component);
 
-        agent_queue_signal(agent, signals[SIGNAL_COMP_STATE_CHANGED], stream_id, component_id, state);
+		/*agent_queue_signal(agent, signals[SIGNAL_COMP_STATE_CHANGED], stream_id, component_id, state);*/
+
+		if (agent->n_event)
+		{
+			ev_state_changed_t * ev_state_changed = n_slice_new0(ev_state_changed_t);
+			ev_state_changed->comp_id = component_id;
+			ev_state_changed->stream_id = stream_id;
+			ev_state_changed->state = state;
+
+			nice_debug("[%s] event_post state [%d]", G_STRFUNC, state);
+			event_post(agent->n_event, N_EVENT_COMP_STATE_CHANGED, ev_state_changed);
+		}
     }
 }
 
@@ -1830,14 +1920,14 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
         for (i = component->local_candidates; i; i = i->next)
         {
             n_cand_t * candidate = i->data;
-            agent_sig_new_cand(agent, candidate);
+            //agent_sig_new_cand(agent, candidate);
         }
     }
 
     /* note: no async discoveries pending, signal that we are ready */
     if (agent->disc_unsched_items == 0)
     {
-        nice_debug("[%s]: Candidate gathering FINISHED, no scheduled items.", G_STRFUNC);
+        nice_debug("[%s]: candidate gathering finished, no scheduled items.", G_STRFUNC);
         agent_gathering_done(agent);
     }
     else if (agent->disc_unsched_items)
@@ -1904,7 +1994,7 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
     g_return_if_fail(NICE_IS_AGENT(agent));
     g_return_if_fail(stream_id >= 1);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
     stream = agent_find_stream(agent, stream_id);
 

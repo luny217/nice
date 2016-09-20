@@ -20,7 +20,7 @@ n_stream_t * stream_new(uint32_t n_components, n_agent_t * agent)
     n_comp_t * component;
 
     g_atomic_int_inc(&n_streams_created);
-    nice_debug("[%s]: Created NiceStream (%u created, %u destroyed)", G_STRFUNC, n_streams_created, n_streams_destroyed);
+    nice_debug("[%s]: created nicestream (%u created, %u destroyed)\n", G_STRFUNC, n_streams_created, n_streams_destroyed);
 
     stream = n_slice_new0(n_stream_t);
     for (n = 0; n < n_components; n++)

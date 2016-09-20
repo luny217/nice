@@ -20,6 +20,7 @@
 #include <sys/time.h>
 #endif
 
+#include "nlist.h"
 #include "pthread.h"
 #include "base.h"
 #include "event.h"
@@ -31,7 +32,7 @@ typedef struct
 	pthread_cond_t cond;
 	pthread_mutex_t mutex;	
 	int32_t pst_tm_max[3];   /* post time cost stats (total usr sys)*/
-	void * n_data;
+	void * n_data[32];
 } EVENT_FD_S, *PEVENT_FD_S;
 #define EVENT_FD_S_LEN  sizeof(EVENT_FD_S)
 
@@ -50,7 +51,7 @@ int32_t event_open(void)
 	PEVENT_PARAM_S pevent_param = &event_param;
 	PEVENT_FD_S fd = NULL;
 
-	if (NULL == (fd = malloc(EVENT_FD_S_LEN)))
+	if (NULL == (fd = n_slice_new0(EVENT_FD_S)))
 	{
 		return -1;
 	}
@@ -61,57 +62,41 @@ int32_t event_open(void)
 		pevent_param->opened = TRUE;
 	}
 
-	fd->n_data = NULL;
-
 	return (int32_t)fd;
-}
-
-int32_t event_recv(int32_t handle, int32_t want, int32_t *events)
-{
-	PEVENT_FD_S fd = (PEVENT_FD_S)handle;
-
-	if (handle <= 0)
-	{
-		printf("handle is invalid\n");
-		return -1;
-	}
-
-	if (NULL == events)
-	{
-		printf("unsupported events is NULL\n");
-		return -1;
-	}
-
-	printf("enter handle(0x%x) want(0x%x)\n", handle, want);
-	pthread_mutex_lock(&fd->mutex);
-	*events = (fd->n_event & want), fd->n_event &= ~want;
-	pthread_mutex_unlock(&fd->mutex);
-	printf("leave handle(0x%x) events(0x%x) fd->event(0x%x)\n", handle, *events, fd->n_event);
-
-	return 0;
 }
 
 int32_t event_wait(int32_t handle, int32_t want, int32_t *events, void ** n_data)
 {
 	PEVENT_FD_S fd = (PEVENT_FD_S)handle;
+	int32_t  idx = 0, i, tmp_events;
 
 	if (NULL == events)
 	{
 		printf("unsupported events is NULL\n");
 		return -1;
 	}
-	printf("event_wait1 handle(0x%x) want(0x%x)\n", handle, want);
+	printf("\nevent_wait1 handle(0x%x) want(0x%x) mutex(%p)\n", handle, want, &fd->mutex);
 	pthread_mutex_lock(&fd->mutex);
 	while (0 == (fd->n_event & want))
 	{
-		printf("cond wait\n");
+		printf("\ncond wait\n");
 		pthread_cond_wait(&fd->cond, &fd->mutex);
+	}	
+	
+	tmp_events = fd->n_event;
+	for (i = 0; i < 32; i++)
+	{
+		if ((tmp_events >> i) & 1)
+		{
+			break;
+		}
+		idx++;
 	}
+	*n_data = fd->n_data[idx];
 	*events = (fd->n_event & want), fd->n_event &= ~want;
-	n_data = &fd->n_data;
 	pthread_mutex_unlock(&fd->mutex);
 
-	printf("event_wait2 handle(0x%x) events(0x%x)  data(%p)\n", handle, *events, *n_data);
+	printf("\nevent_wait2 events(0x%x) idx(%d) data(%p)\n", *events, idx, *n_data);
 
 	return 0;
 }
@@ -121,29 +106,38 @@ int32_t event_post(int32_t handle, int32_t events, void * n_data)
 	PEVENT_FD_S fd = (PEVENT_FD_S)handle;
 	int32_t pst_tm_cur[3] = { 0 };
 	n_timeval_t  func_start, func_stop;
-	int32_t usec_time = 0;
+	int32_t usec_time = 0, idx = 0, i, tmp_events ;
 
 	if (event_param.post_cost_threshold)
 	{
 		//runtime_get_msec(&pst_tm_cur[0], &pst_tm_cur[1], &pst_tm_cur[2]);
 	}
-	printf("event_post1 handle(0x%x) event(0x%x) events(0x%x) data(%p)\n", handle, fd->n_event, events, n_data);
+	printf("\nevent_post1 fd->event(0x%x) events(0x%x) mutex(%p)\n", fd->n_event, events, &fd->mutex);
 
 	get_current_time(&func_start);
 	pthread_mutex_lock(&fd->mutex);
 	get_current_time(&func_stop);
 
 	usec_time = ((func_stop.tv_sec - func_start.tv_sec) * 1000 * 1000) + (func_stop.tv_usec - func_start.tv_usec);
-	//printf("lock usec_time(%dUS)\n", usec_time);
+	printf("\nevent_post lock usec_time(%d us)\n", usec_time);
 	fd->n_event |= events;
-	fd->n_data = n_data;
+	tmp_events = events;
+	for (i = 0; i < 32; i++)
+	{
+		if ((tmp_events >> i) & 1)
+		{
+			break;
+		}
+		idx++;
+	}
+	fd->n_data[idx] = n_data;
 	pthread_cond_signal(&fd->cond);
 	pthread_mutex_unlock(&fd->mutex);
 
 	get_current_time(&func_start);
 	usec_time = ((func_start.tv_sec - func_stop.tv_sec) * 1000 * 1000) + (func_start.tv_usec - func_stop.tv_usec);
-	//printf("unlock usec_time(%dUS)\n", usec_time);
-	printf("event_post2 handle(0x%x) event(0x%x) events(0x%x) data(%p)\n", handle, fd->n_event, events, n_data);
+	printf("event_post unlock usec_time(%d us)\n", usec_time);
+	printf("event_post event(0x%x) events(0x%x) idx(%d) data(%p)\n", fd->n_event, events, idx, n_data);
 
 	/*if (event_param.post_cost_threshold)
 	{
