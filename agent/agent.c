@@ -618,6 +618,10 @@ static void n_agent_init(n_agent_t * agent)
     agent->refresh_list = NULL;
     agent->media_after_tick = FALSE;
 
+	agent->disc_timer = 0;
+	agent->cocheck_timer = 0;
+	agent->keepalive_timer = 0;
+
     agent->reliable = TRUE;
     agent->use_ice_udp = TRUE;
     agent->use_ice_tcp = FALSE;
@@ -1156,14 +1160,13 @@ static pst_wret_e pst_write_packet(pst_socket_t * psocket, const char * buffer, 
     return WR_FAIL;
 }
 
-
 static int notify_pst_clock(void * user_data)
 {
     n_comp_t * component = user_data;
     n_stream_t * stream;
     n_agent_t * agent;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     stream = component->stream;
@@ -1321,7 +1324,7 @@ void agent_sig_gathering_done(n_agent_t * agent)
 			{
 				uint32_t  * id = n_slice_new0(uint32_t);
 				*id = stream->id;
-				nice_debug("[%s] event_post stream->id [%d]", G_STRFUNC, *id);
+				nice_debug("[%s] event_post n_event_cand_gathering_done [%d]", G_STRFUNC, *id);
 				event_post(agent->n_event, N_EVENT_CAND_GATHERING_DONE, id);
 			}
         }
@@ -1494,17 +1497,17 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
 
 void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate)
 {
-    agent_queue_signal(agent, signals[SIGNAL_NEW_CANDIDATE_FULL],  candidate);
-	/*if (agent->n_event)
+    /*agent_queue_signal(agent, signals[SIGNAL_NEW_CANDIDATE_FULL],  candidate);*/
+	if (agent->n_event)
 	{
 		n_cand_t * cand = n_slice_new0(n_cand_t);
 		memcpy(cand, candidate, sizeof(n_cand_t));
-		nice_debug("[%s] event_post stream_id [%x]\n", G_STRFUNC, N_EVENT_NEW_CAND_FULL);
+		nice_debug("[%s] event_post N_EVENT_NEW_CAND_FULL [%x]\n", G_STRFUNC, N_EVENT_NEW_CAND_FULL);
 		event_post(agent->n_event, N_EVENT_NEW_CAND_FULL, cand);
-	}*/
-    agent_queue_signal(agent, signals[SIGNAL_NEW_CANDIDATE],
-                       candidate->stream_id, candidate->component_id, candidate->foundation);
-/*
+	}
+    /*agent_queue_signal(agent, signals[SIGNAL_NEW_CANDIDATE],
+                       candidate->stream_id, candidate->component_id, candidate->foundation);*/
+
 	if (agent->n_event)
 	{
 		ev_new_cand_t * ev_new_cand = n_slice_new0(ev_new_cand_t);
@@ -1512,9 +1515,9 @@ void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate)
 		ev_new_cand->stream_id = candidate->stream_id;
 		strncpy(ev_new_cand->foundation, candidate->foundation, CAND_MAX_FOUNDATION);
 
-		nice_debug("[%s] event_post stream_id [%x]\n", G_STRFUNC, N_EVENT_NEW_CAND);
+		nice_debug("[%s] event_post N_EVENT_NEW_CAND [%x]\n", G_STRFUNC, N_EVENT_NEW_CAND);
 		event_post(agent->n_event, N_EVENT_NEW_CAND, ev_new_cand);
-	}*/
+	}
 
 }
 
@@ -1975,12 +1978,21 @@ void agent_remove_local_candidate(n_agent_t * agent, n_cand_t * candidate)
 
 static void _remove_keepalive_timer(n_agent_t * agent)
 {
+/*
     if (agent->keepalive_timer_source != NULL)
     {
         g_source_destroy(agent->keepalive_timer_source);
         g_source_unref(agent->keepalive_timer_source);
         agent->keepalive_timer_source = NULL;
-    }
+    }*/
+
+	
+	if (agent->keepalive_timer != 0)
+	{
+		timer_stop(agent->keepalive_timer);
+		timer_destroy(agent->keepalive_timer);
+		agent->keepalive_timer = 0;
+	}
 }
 
 void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
@@ -2016,7 +2028,7 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
     if (!agent->streams_list)
         _remove_keepalive_timer(agent);
 
-    agent_queue_signal(agent, signals[SIGNAL_STREAMS_REMOVED], g_memdup(stream_ids, sizeof(stream_ids)));
+    /*agent_queue_signal(agent, signals[SIGNAL_STREAMS_REMOVED], g_memdup(stream_ids, sizeof(stream_ids)));*/
 
     agent_unlock_and_emit(agent);
 
@@ -2750,7 +2762,7 @@ static int32_t n_send_msgs_nonblock_internal(n_agent_t * agent, uint32_t stream_
 
     g_assert(n_messages == 1 || !allow_partial);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
@@ -2868,7 +2880,7 @@ n_slist_t * n_agent_get_local_cands(n_agent_t * agent, uint32_t stream_id, uint3
     g_return_val_if_fail(stream_id >= 1, NULL);
     g_return_val_if_fail(component_id >= 1, NULL);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     if (!agent_find_comp(agent, stream_id, component_id, NULL, &component))

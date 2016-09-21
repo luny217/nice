@@ -510,17 +510,19 @@ end:
 
 static void cb_cand_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data)
 {
-    nice_debug("signal candidate gathering done\n");
+	nice_debug("in signal candidate gathering done\n");
 
     g_mutex_lock(&gather_mutex);
     candidate_gathering_done = TRUE;
     g_cond_signal(&gather_cond);
     g_mutex_unlock(&gather_mutex);
+
+	nice_debug("leave signal candidate gathering done\n");
 }
 
 static void cb_comp_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t state, void * data)
 {
-    nice_debug("SIGNAL: state changed %d %d %s[%d]\n", stream_id, comp_id, state_name[state], state);
+    nice_debug("[cb_comp_state_changed]: state changed %d %d %s[%d]\n", stream_id, comp_id, state_name[state], state);
 
     if (state == COMP_STATE_READY)
     {
@@ -533,6 +535,7 @@ static void cb_comp_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_
     {
         g_main_loop_quit(gloop);
     }
+	nice_debug("signal: state changed %d %d %s[%d]\n", stream_id, comp_id, state_name[state], state);
 }
 
 static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id,

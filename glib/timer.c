@@ -163,7 +163,7 @@ int32_t timer_init(int32_t handle, int32_t  once, int32_t interval, notifycallba
 		n_timer->interval = n_timer->ticks = interval;
 		n_timer->data = data;
 		n_timer->func = func;
-		n_timer->enable = TRUE;
+		n_timer->enable = FALSE;
 		if (identify)
 		{
 			strcpy(n_timer->identify, identify);

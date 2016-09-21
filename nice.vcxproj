@@ -56,13 +56,13 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HAVE_CONFIG_H;_CRT_SECURE_NO_WARNINGS;PCRE_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HAVE_CONFIG_H;_CRT_SECURE_NO_WARNINGS;PCRE_STATIC;HAVE_STRUCT_TIMESPEC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>iphlpapi.lib;ws2_32.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;gmodule-2.0.lib;gthread-2.0.lib;libffi.lib;libiconv.lib;libintl.lib;zlib.lib;Winmm.lib;Dnsapi.lib;pcred.lib;Shlwapi.lib;libuv.lib;Psapi.lib;Userenv.lib;pthread.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;ws2_32.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;gmodule-2.0.lib;gthread-2.0.lib;libffi.lib;libiconv.lib;libintl.lib;zlib.lib;Winmm.lib;Dnsapi.lib;pcred.lib;Shlwapi.lib;libuv.lib;Psapi.lib;Userenv.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:library %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>

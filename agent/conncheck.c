@@ -17,6 +17,7 @@
 #include "stun/usages/ice.h"
 #include "stun/usages/bind.h"
 #include "stun/usages/turn.h"
+#include "timer.h"
 
 static void _update_chk_list_failed_comps(n_agent_t * agent, n_stream_t * stream);
 static void _update_chk_list_state_for_ready(n_agent_t * agent, n_stream_t * stream, n_comp_t * component);
@@ -446,7 +447,7 @@ static int _cocheck_tick_unlocked(n_agent_t * agent)
     /* step: stop timer if no work left */
     if (keep_timer_going != TRUE)
     {
-        nice_debug("[%s]: %s: stopping conncheck timer", G_STRFUNC, G_STRFUNC);
+        nice_debug("[%s]: stopping conncheck timer", G_STRFUNC);
         for (i = agent->streams_list; i; i = i->next)
         {
             n_stream_t * stream = i->data;
@@ -461,12 +462,19 @@ static int _cocheck_tick_unlocked(n_agent_t * agent)
         /* Stopping the timer so destroy the source.. this will allow
            the timer to be reset if we get a set_remote_candidates after this
            point */
-        if (agent->conncheck_timer_source != NULL)
+        /*if (agent->conncheck_timer_source != NULL)
         {
             g_source_destroy(agent->conncheck_timer_source);
             g_source_unref(agent->conncheck_timer_source);
             agent->conncheck_timer_source = NULL;
-        }
+        }*/
+
+		if (agent->cocheck_timer != 0)
+		{
+			timer_stop(agent->cocheck_timer);
+			timer_destroy(agent->cocheck_timer);
+			agent->cocheck_timer = 0;
+		}
 
         /* XXX: what to signal, is all processing now really done? */
         nice_debug("[%s]: changing conncheck state to COMPLETED.", G_STRFUNC);
@@ -480,14 +488,15 @@ static int _cocheck_tick(void * pointer)
     int ret;
     n_agent_t * agent = pointer;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
+/*
     if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. " "Avoided race condition in _cocheck_tick");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
     ret = _cocheck_tick_unlocked(agent);
     agent_unlock_and_emit(agent);
@@ -499,7 +508,7 @@ static int _conn_keepalive_retrans_tick(void * pointer)
 {
     n_cand_pair_t * pair = (n_cand_pair_t *) pointer;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     /* A race condition might happen where the mutex above waits for the lock
@@ -774,25 +783,33 @@ static int _conn_keepalive_tick(void * pointer)
     n_agent_t * agent = pointer;
     int ret;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
+/*
     if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. "
                    "Avoided race condition in _conn_keepalive_tick");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
     ret = _conn_keepalive_tick_unlocked(agent);
     if (ret == FALSE)
     {
-        if (agent->keepalive_timer_source)
+        /*if (agent->keepalive_timer_source)
         {
             g_source_destroy(agent->keepalive_timer_source);
             g_source_unref(agent->keepalive_timer_source);
             agent->keepalive_timer_source = NULL;
-        }
+        }*/
+
+		if (agent->keepalive_timer != 0)
+		{
+			timer_stop(agent->keepalive_timer);
+			timer_destroy(agent->keepalive_timer);
+			agent->keepalive_timer = 0;
+		}
     }
     agent_unlock_and_emit(agent);
     return ret;
@@ -803,7 +820,7 @@ static int _turn_alloc_refresh_retrans_tick(void * pointer)
     n_cand_refresh_t * cand = (n_cand_refresh_t *) pointer;
     n_agent_t * agent = NULL;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     /* A race condition might happen where the mutex above waits for the lock
@@ -912,7 +929,7 @@ static int _turn_allocate_refresh_tick(void * pointer)
 {
     n_cand_refresh_t * cand = (n_cand_refresh_t *) pointer;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
     if (g_source_is_destroyed(g_main_current_source()))
     {
@@ -945,17 +962,23 @@ int cocheck_schedule_next(n_agent_t * agent)
     nice_debug("[%s]: _cocheck_tick_unlocked returned %d", G_STRFUNC, res);
 
     /* step: schedule timer if not running yet */
-    if (res && agent->conncheck_timer_source == NULL)
+    if (res && agent->cocheck_timer == 0)
     {
-        agent_timeout_add(agent, &agent->conncheck_timer_source, "cocheck schedule", agent->timer_ta, _cocheck_tick, agent);
+        /*agent_timeout_add(agent, &agent->conncheck_timer_source, "cocheck schedule", agent->timer_ta, _cocheck_tick, agent);*/
+		agent->cocheck_timer = timer_create();
+		timer_init(agent->cocheck_timer, 0, agent->timer_ta, (notifycallback)_cocheck_tick, (void *)agent, "cocheck schedule");
+		timer_start(agent->cocheck_timer);
     }
 
     /* step: also start the keepalive timer */
-    if (agent->keepalive_timer_source == NULL)
+    if (agent->keepalive_timer == 0)
     {
-        agent_timeout_add(agent, &agent->keepalive_timer_source,
+        /*agent_timeout_add(agent, &agent->keepalive_timer_source,
                                        "Connectivity keepalive timeout", NICE_AGENT_TIMER_TR_DEFAULT,
-                                       _conn_keepalive_tick, agent);
+                                       _conn_keepalive_tick, agent);*/
+		agent->keepalive_timer = timer_create();
+		timer_init(agent->keepalive_timer, 0, NICE_AGENT_TIMER_TR_DEFAULT, (notifycallback)_conn_keepalive_tick, (void *)agent, "cocheck keepalive");
+		timer_start(agent->keepalive_timer);
     }
 
     nice_debug("[%s]: cocheck_schedule_next returning %d", G_STRFUNC, res);
@@ -1492,12 +1515,18 @@ static void cocheck_free_item(void * data)
 
 static void cocheck_stop(n_agent_t * agent)
 {
+/*
     if (agent->conncheck_timer_source == NULL)
         return;
 
     g_source_destroy(agent->conncheck_timer_source);
     g_source_unref(agent->conncheck_timer_source);
-    agent->conncheck_timer_source = NULL;
+    agent->conncheck_timer_source = NULL;*/
+	if (agent->cocheck_timer == 0)
+		return;
+	timer_stop(agent->cocheck_timer);
+	timer_destroy(agent->cocheck_timer);
+	agent->cocheck_timer = 0;
 }
 
 /*

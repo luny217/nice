@@ -68,19 +68,21 @@ int32_t event_open(void)
 int32_t event_wait(int32_t handle, int32_t want, int32_t *events, void ** n_data)
 {
 	PEVENT_FD_S fd = (PEVENT_FD_S)handle;
-	int32_t  idx = 0, i, tmp_events;
+	int32_t  idx = 0, i, tmp_events , ret;
 
 	if (NULL == events)
 	{
 		printf("unsupported events is NULL\n");
 		return -1;
 	}
-	printf("\nevent_wait1 handle(0x%x) want(0x%x) mutex(%p)\n", handle, want, &fd->mutex);
+	//if (count == 1) sleep_ms(1000000);
+	printf("\n[event_wait]: lock want(0x%x) mutex(%p)\n", want, &fd->mutex);
 	pthread_mutex_lock(&fd->mutex);
-	while (0 == (fd->n_event & want))
+	while (0 == (fd->n_event & want) )
 	{
-		printf("\ncond wait\n");
-		pthread_cond_wait(&fd->cond, &fd->mutex);
+		printf("\n[cond wait]\n");
+		ret = pthread_cond_wait(&fd->cond, &fd->mutex);
+		printf("[cond wait] ret = %d\n", ret);
 	}	
 	
 	tmp_events = fd->n_event;
@@ -96,7 +98,7 @@ int32_t event_wait(int32_t handle, int32_t want, int32_t *events, void ** n_data
 	*events = (fd->n_event & want), fd->n_event &= ~want;
 	pthread_mutex_unlock(&fd->mutex);
 
-	printf("\nevent_wait2 events(0x%x) idx(%d) data(%p)\n", *events, idx, *n_data);
+	printf("\n[event_wait]: unlock events(0x%x) idx(%d) data(%p)\n", *events, idx, *n_data);
 
 	return 0;
 }
@@ -108,18 +110,19 @@ int32_t event_post(int32_t handle, int32_t events, void * n_data)
 	n_timeval_t  func_start, func_stop;
 	int32_t usec_time = 0, idx = 0, i, tmp_events ;
 
+	
 	if (event_param.post_cost_threshold)
 	{
 		//runtime_get_msec(&pst_tm_cur[0], &pst_tm_cur[1], &pst_tm_cur[2]);
 	}
-	printf("\nevent_post1 fd->event(0x%x) events(0x%x) mutex(%p)\n", fd->n_event, events, &fd->mutex);
+	printf("\n[event_post]: prelock  fd->event(0x%x) events(0x%x) mutex(%p)\n", fd->n_event, events, &fd->mutex);
 
 	get_current_time(&func_start);
 	pthread_mutex_lock(&fd->mutex);
 	get_current_time(&func_stop);
 
 	usec_time = ((func_stop.tv_sec - func_start.tv_sec) * 1000 * 1000) + (func_stop.tv_usec - func_start.tv_usec);
-	printf("\nevent_post lock usec_time(%d us)\n", usec_time);
+	printf("\n[event_post]: locked usec_time(%d us)\n", usec_time);
 	fd->n_event |= events;
 	tmp_events = events;
 	for (i = 0; i < 32; i++)
@@ -136,8 +139,8 @@ int32_t event_post(int32_t handle, int32_t events, void * n_data)
 
 	get_current_time(&func_start);
 	usec_time = ((func_start.tv_sec - func_stop.tv_sec) * 1000 * 1000) + (func_start.tv_usec - func_stop.tv_usec);
-	printf("event_post unlock usec_time(%d us)\n", usec_time);
-	printf("event_post event(0x%x) events(0x%x) idx(%d) data(%p)\n", fd->n_event, events, idx, n_data);
+	printf("[event_post]: unlock usec_time(%d us)\n", usec_time);
+	printf("[event_post]: leave event(0x%x) events(0x%x) idx(%d) data(%p)\n", fd->n_event, events, idx, n_data);
 
 	/*if (event_param.post_cost_threshold)
 	{

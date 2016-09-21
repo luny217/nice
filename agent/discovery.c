@@ -898,6 +898,7 @@ static int _disc_tick(void * pointer)
             agent->disc_timer_source = NULL;
         }*/
 		timer_stop(agent->disc_timer);
+		agent->disc_timer = 0;
     }
 	//nice_debug("[%s]: agent_unlock+++++++++++", G_STRFUNC);
     agent_unlock_and_emit(agent);
@@ -917,7 +918,7 @@ void disc_schedule(n_agent_t * agent)
 
     if (agent->disc_unsched_items > 0)
     {
-        if (agent->disc_timer_source == NULL)
+        if (agent->disc_timer == 0)
         {
             /* step: run first iteration immediately */
             int res = _disc_tick_unlocked(agent);
@@ -926,6 +927,7 @@ void disc_schedule(n_agent_t * agent)
                 //agent_timeout_add(agent, &agent->disc_timer_source, "Candidate discovery tick", agent->timer_ta, _disc_tick, agent);
 				agent->disc_timer = timer_create();
 				timer_init(agent->disc_timer, 0, agent->timer_ta, (notifycallback)_disc_tick, (void *)agent,  "Candidate discovery tick");
+				timer_start(agent->disc_timer);
             }
         }
     }
