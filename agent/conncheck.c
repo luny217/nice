@@ -515,16 +515,20 @@ static int _conn_keepalive_retrans_tick(void * pointer)
      * and in the meantime another thread destroys the source.
      * In that case, we don't need to run our retransmission tick since it should
      * have been cancelled */
-    if (g_source_is_destroyed(g_main_current_source()))
+    /*if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. " "Avoided race condition in _conn_keepalive_retrans_tick");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
-    g_source_destroy(pair->keepalive.tick_source);
+   /*g_source_destroy(pair->keepalive.tick_source);
     g_source_unref(pair->keepalive.tick_source);
-    pair->keepalive.tick_source = NULL;
+    pair->keepalive.tick_source = NULL;*/
+
+	timer_stop(pair->keepalive.tick_clock);
+	timer_destroy(pair->keepalive.tick_clock);
+	pair->keepalive.tick_clock = 0;
 
     switch (stun_timer_refresh(&pair->keepalive.timer))
     {
@@ -566,24 +570,39 @@ static int _conn_keepalive_retrans_tick(void * pointer)
             break;
         }
         case STUN_TIMER_RET_RETRANSMIT:
-            /* Retransmit */
-            agent_socket_send(pair->local->sockptr, &pair->remote->addr,
-                              stun_msg_len(&pair->keepalive.stun_message),
-                              (char *)pair->keepalive.stun_buffer);
+		{
+			uint32_t interval = stun_timer_remainder(&pair->keepalive.timer);
+			/* Retransmit */
+			agent_socket_send(pair->local->sockptr, &pair->remote->addr,
+				stun_msg_len(&pair->keepalive.stun_message),
+				(char *)pair->keepalive.stun_buffer);
 
-            nice_debug("[%s]: Retransmitting keepalive conncheck", G_STRFUNC);
+			nice_debug("[%s]: Retransmitting keepalive conncheck", G_STRFUNC);
 			nice_print_cand(pair->keepalive.agent, pair->local, pair->remote);
-            agent_timeout_add(pair->keepalive.agent,
-                                           &pair->keepalive.tick_source,
-                                           "Pair keepalive", stun_timer_remainder(&pair->keepalive.timer),
-                                           _conn_keepalive_retrans_tick, pair);
-            break;
+			/*agent_timeout_add(pair->keepalive.agent,
+										   &pair->keepalive.tick_source,
+										   "Pair keepalive", stun_timer_remainder(&pair->keepalive.timer),
+										   _conn_keepalive_retrans_tick, pair);*/
+
+			pair->keepalive.tick_clock = timer_create();
+			timer_init(pair->keepalive.tick_clock, 0, interval, (notifycallback)_conn_keepalive_retrans_tick, (void *)pair, "pair keepalive");
+			timer_start(pair->keepalive.tick_clock);
+			break;
+		}
         case STUN_TIMER_RET_SUCCESS:
-            agent_timeout_add(pair->keepalive.agent,
-                                           &pair->keepalive.tick_source,
-                                           "Pair keepalive", stun_timer_remainder(&pair->keepalive.timer),
-                                           _conn_keepalive_retrans_tick, pair);
-            break;
+		{
+			uint32_t interval = stun_timer_remainder(&pair->keepalive.timer);
+			/*agent_timeout_add(pair->keepalive.agent,
+										   &pair->keepalive.tick_source,
+										   "Pair keepalive", stun_timer_remainder(&pair->keepalive.timer),
+										   _conn_keepalive_retrans_tick, pair);*/
+
+			pair->keepalive.tick_clock = timer_create();
+			timer_init(pair->keepalive.tick_clock, 0, interval, (notifycallback)_conn_keepalive_retrans_tick, (void *)pair, "pair keepalive");
+			timer_start(pair->keepalive.tick_clock);
+
+			break;
+		}
         default:
             /* Nothing to do. */
             break;
@@ -677,6 +696,7 @@ static int _conn_keepalive_tick_unlocked(n_agent_t * agent)
 
                         if (buf_len > 0)
                         {
+							uint32_t interval = stun_timer_remainder(&p->keepalive.timer);
                             stun_timer_start(&p->keepalive.timer, STUN_TIMER_TIMEOUT, STUN_TIMER_MAX_RETRANS);
 
                             agent->media_after_tick = FALSE;
@@ -688,10 +708,13 @@ static int _conn_keepalive_tick_unlocked(n_agent_t * agent)
                             p->keepalive.component_id = component->id;
                             p->keepalive.agent = agent;
 
-                            agent_timeout_add(p->keepalive.agent,
+                            /*agent_timeout_add(p->keepalive.agent,
                                                            &p->keepalive.tick_source, "Pair keepalive",
                                                            stun_timer_remainder(&p->keepalive.timer),
-                                                           _conn_keepalive_retrans_tick, p);
+                                                           _conn_keepalive_retrans_tick, p);*/
+							p->keepalive.tick_clock = timer_create();
+							timer_init(p->keepalive.tick_clock, 0, interval, (notifycallback)_conn_keepalive_retrans_tick, (void *)p, "pair keepalive");
+							timer_start(p->keepalive.tick_clock);
                         }
                         else
                         {
@@ -827,17 +850,21 @@ static int _turn_alloc_refresh_retrans_tick(void * pointer)
      * and in the meantime another thread destroys the source.
      * In that case, we don't need to run our retransmission tick since it should
      * have been cancelled */
-    if (g_source_is_destroyed(g_main_current_source()))
+    /*if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. "
                    "Avoided race condition in _turn_alloc_refresh_retrans_tick");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
-    g_source_destroy(cand->tick_source);
+    /*g_source_destroy(cand->tick_source);
     g_source_unref(cand->tick_source);
-    cand->tick_source = NULL;
+    cand->tick_source = NULL;*/
+
+	timer_stop(cand->tick_clock);
+	timer_destroy(cand->tick_clock);
+	cand->tick_clock = 0;
 
     agent = g_object_ref(cand->agent);
 
@@ -856,18 +883,34 @@ static int _turn_alloc_refresh_retrans_tick(void * pointer)
         }
         case STUN_TIMER_RET_RETRANSMIT:
             /* Retransmit */
-            agent_socket_send(cand->nicesock, &cand->server,
-                              stun_msg_len(&cand->stun_message), (char *)cand->stun_buffer);
+		{
+			uint32_t interval = stun_timer_remainder(&cand->timer);
+			agent_socket_send(cand->nicesock, &cand->server, stun_msg_len(&cand->stun_message), (char *)cand->stun_buffer);
 
-            agent_timeout_add(agent, &cand->tick_source,
-                                           "Candidate TURN refresh", stun_timer_remainder(&cand->timer),
-                                           _turn_alloc_refresh_retrans_tick, cand);
-            break;
+			/*agent_timeout_add(agent, &cand->tick_source,
+				"Candidate TURN refresh", stun_timer_remainder(&cand->timer),
+				_turn_alloc_refresh_retrans_tick, cand);*/
+
+			cand->tick_clock = timer_create();
+			timer_init(cand->tick_clock, 0, interval, (notifycallback)_turn_alloc_refresh_retrans_tick, (void *)cand, "candidate turn refresh");
+			timer_start(cand->tick_clock);
+
+			break;
+		}
         case STUN_TIMER_RET_SUCCESS:
-            agent_timeout_add(agent, &cand->tick_source,
-                                           "Candidate TURN refresh", stun_timer_remainder(&cand->timer),
-                                           _turn_alloc_refresh_retrans_tick, cand);
+		{
+			uint32_t interval = stun_timer_remainder(&cand->timer);
+
+			/*agent_timeout_add(agent, &cand->tick_source,
+				"Candidate TURN refresh", stun_timer_remainder(&cand->timer),
+		                                           _turn_alloc_refresh_retrans_tick, cand);*/
+
+			cand->tick_clock = timer_create();
+			timer_init(cand->tick_clock, 0, interval, (notifycallback)_turn_alloc_refresh_retrans_tick, (void *)cand, "candidate turn refresh");
+			timer_start(cand->tick_clock);
+
             break;
+		}
         default:
             /* Nothing to do. */
             break;
@@ -901,20 +944,30 @@ static void _turn_alloc_refresh_tick_unlocked(n_cand_refresh_t * cand)
 
     nice_debug("[%s]: sending allocate refresh %zd", G_STRFUNC, buffer_len);
 
-    if (cand->tick_source != NULL)
+    if (cand->tick_clock != 0)
     {
-        g_source_destroy(cand->tick_source);
+        /*g_source_destroy(cand->tick_source);
         g_source_unref(cand->tick_source);
-        cand->tick_source = NULL;
+        cand->tick_source = NULL;*/
+		timer_stop(cand->tick_clock);
+		timer_destroy(cand->tick_clock);
+		cand->tick_clock = 0;
     }
 
     if (buffer_len > 0)
     {
+		uint32_t interval = stun_timer_remainder(&cand->timer);
+
         stun_timer_start(&cand->timer, STUN_TIMER_RET_TIMEOUT, STUN_TIMER_MAX_RETRANS);
         /* send the refresh */
         agent_socket_send(cand->nicesock, &cand->server, buffer_len, (char *)cand->stun_buffer);
-        agent_timeout_add(cand->agent, &cand->tick_source, "candidate turn refresh", stun_timer_remainder(&cand->timer),
-                                       _turn_alloc_refresh_retrans_tick, cand);
+
+        /*agent_timeout_add(cand->agent, &cand->tick_source, "candidate turn refresh", stun_timer_remainder(&cand->timer),
+                                       _turn_alloc_refresh_retrans_tick, cand);*/
+
+		cand->tick_clock = timer_create();
+		timer_init(cand->tick_clock, 0, interval, (notifycallback)_turn_alloc_refresh_retrans_tick, (void *)cand, "candidate turn refresh");
+		timer_start(cand->tick_clock);
     }
 }
 
@@ -931,12 +984,12 @@ static int _turn_allocate_refresh_tick(void * pointer)
 
 	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
-    if (g_source_is_destroyed(g_main_current_source()))
+    /*if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. " "Avoided race condition in _turn_allocate_refresh_tick");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
     _turn_alloc_refresh_tick_unlocked(cand);
     agent_unlock_and_emit(cand->agent);
@@ -2471,10 +2524,14 @@ static n_cand_refresh_t * _add_new_turn_refresh(n_cand_disc_t * cdisco, n_cand_t
 
     /* step: also start the refresh timer */
     /* refresh should be sent 1 minute before it expires */
-    agent_timeout_add(agent, &cand->timer_source, "Candidate TURN refresh",
-                                   (lifetime - 60) * 1000, _turn_allocate_refresh_tick, cand);
+    /*agent_timeout_add(agent, &cand->timer_source, "Candidate TURN refresh",
+                                   (lifetime - 60) * 1000, _turn_allocate_refresh_tick, cand);*/
 
-    nice_debug("timer source is : %p", cand->timer_source);
+	cand->timer_clock = timer_create();
+	timer_init(cand->timer_clock, 0, (lifetime - 60) * 1000, (notifycallback)_turn_allocate_refresh_tick, (void *)cand, "candidate turn refresh");
+	timer_start(cand->timer_clock);
+
+    nice_debug("cand->timer_clock is : %d", cand->timer_clock);
 
     return cand;
 }
@@ -2648,13 +2705,21 @@ static int _map_reply_to_relay_refresh(n_agent_t * agent, stun_msg_t * resp)
                 if (res == STUN_TURN_RET_RELAY_SUCCESS)
                 {
                     /* refresh should be sent 1 minute before it expires */
-                    agent_timeout_add(cand->agent, &cand->timer_source,
+                    /*agent_timeout_add(cand->agent, &cand->timer_source,
                                                    "Candidate TURN refresh", (lifetime - 60) * 1000,
-                                                   _turn_allocate_refresh_tick, cand);
+                                                   _turn_allocate_refresh_tick, cand);*/
 
-                    g_source_destroy(cand->tick_source);
+					cand->timer_clock = timer_create();
+					timer_init(cand->timer_clock, 0, (lifetime - 60) * 1000, (notifycallback)_turn_allocate_refresh_tick, (void *)cand, "candidate turn refresh");
+					timer_start(cand->timer_clock);
+
+                    /*g_source_destroy(cand->tick_source);
                     g_source_unref(cand->tick_source);
-                    cand->tick_source = NULL;
+                    cand->tick_source = NULL;*/
+
+					timer_stop(cand->tick_clock);
+					timer_destroy(cand->tick_clock);
+					cand->tick_clock = 0;
                 }
                 else if (res == STUN_TURN_RET_ERROR)
                 {
@@ -2703,25 +2768,29 @@ static int _map_reply_to_relay_refresh(n_agent_t * agent, stun_msg_t * resp)
 }
 
 
-static int _map_reply_to_keepalive_cocheck(n_agent_t * agent, n_comp_t * component, stun_msg_t * resp)
+static int _map_reply_to_keepalive_cocheck(n_agent_t * agent, n_comp_t * comp, stun_msg_t * resp)
 {
     stun_trans_id conncheck_id;
     stun_trans_id response_id;
     stun_msg_id(resp, response_id);
 
-    if (component->selected_pair.keepalive.stun_message.buffer)
+    if (comp->selected_pair.keepalive.stun_message.buffer)
     {
-        stun_msg_id(&component->selected_pair.keepalive.stun_message,  conncheck_id);
+        stun_msg_id(&comp->selected_pair.keepalive.stun_message,  conncheck_id);
         if (memcmp(conncheck_id, response_id, sizeof(stun_trans_id)) == 0)
         {
             nice_debug("[%s]: keepalive for selected pair received", G_STRFUNC);
-            if (component->selected_pair.keepalive.tick_source)
+            if (comp->selected_pair.keepalive.tick_clock != 0)
             {
-                g_source_destroy(component->selected_pair.keepalive.tick_source);
-                g_source_unref(component->selected_pair.keepalive.tick_source);
-                component->selected_pair.keepalive.tick_source = NULL;
+                /*g_source_destroy(comp->selected_pair.keepalive.tick_source);
+                g_source_unref(comp->selected_pair.keepalive.tick_source);
+				comp->selected_pair.keepalive.tick_source = NULL;*/
+
+				timer_stop(comp->selected_pair.keepalive.tick_clock);
+				timer_destroy(comp->selected_pair.keepalive.tick_clock);
+				comp->selected_pair.keepalive.tick_clock = 0;
             }
-            component->selected_pair.keepalive.stun_message.buffer = NULL;
+			comp->selected_pair.keepalive.stun_message.buffer = NULL;
             return TRUE;
         }
     }

@@ -38,8 +38,8 @@ typedef struct
     n_stream_t * stream;
     n_comp_t * component;
     stun_agent_t stun_agent;
-    GSource * timer_source;
-    GSource * tick_source;
+	int32_t timer_clock;
+	int32_t tick_clock;
     StunTimer timer;
     uint8_t stun_buffer[STUN_MAX_MESSAGE_SIZE_IPV6];
     stun_msg_t stun_message;

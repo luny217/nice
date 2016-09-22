@@ -55,6 +55,10 @@ void disc_free(n_agent_t * agent)
         g_source_unref(agent->disc_timer_source);
         agent->disc_timer_source = NULL;
     }*/
+
+	timer_stop(agent->disc_timer);
+	timer_destroy(agent->disc_timer);
+	agent->disc_timer = 0;
 }
 
 /*
@@ -127,17 +131,24 @@ static void refresh_free_item(n_cand_refresh_t * cand)
     uint32_t password_len;
     size_t buffer_len = 0;
 
-    if (cand->timer_source != NULL)
+    if (cand->timer_clock != 0)
     {
-        g_source_destroy(cand->timer_source);
+        /*g_source_destroy(cand->timer_source);
         g_source_unref(cand->timer_source);
-        cand->timer_source = NULL;
+        cand->timer_source = NULL;*/
+
+		timer_stop(cand->timer_clock);
+		timer_destroy(cand->timer_clock);
+		cand->timer_clock = 0;
     }
-    if (cand->tick_source != NULL)
+    if (cand->tick_clock != 0)
     {
-        g_source_destroy(cand->tick_source);
+        /*g_source_destroy(cand->tick_source);
         g_source_unref(cand->tick_source);
-        cand->tick_source = NULL;
+        cand->tick_source = NULL;*/
+		timer_stop(cand->tick_clock);
+		timer_destroy(cand->tick_clock);
+		cand->tick_clock = 0;
     }
 
     username = (uint8_t *)cand->candidate->turn->username;

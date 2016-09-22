@@ -14,6 +14,7 @@
 #include "stun/stunagent.h"
 #include "stun/usages/stun_timer.h"
 #include "agent-priv.h"
+#include "timer.h"
 
 #define STUN_END_TIMEOUT 8000
 #define STUN_MAX_MS_REALM_LEN 128 // as defined in [MS-TURN]
@@ -34,6 +35,7 @@ typedef struct
     uint16_t channel;
     int renew;
     GSource * timeout_source;
+	int32_t timer;
 } ChannelBinding;
 
 typedef struct
@@ -65,6 +67,9 @@ typedef struct
     GHashTable * send_data_queues; /* stores a send data queue for per peer */
     GSource * permission_timeout_source;      /* timer used to invalidate
                                            permissions */
+	int32_t  tick_channel_bind;
+	int32_t  tick_create_permission;
+	int32_t  timer_permission;
 } UdpTurnPriv;
 
 
@@ -72,6 +77,7 @@ typedef struct
 {
     stun_trans_id id;
     GSource * source;
+	int32_t timer;
     UdpTurnPriv * priv;
 } SendRequest;
 
@@ -196,18 +202,26 @@ static void socket_close(n_socket_t * sock)
     n_dlist_foreach(priv->pending_bindings, (n_func) nice_address_free, NULL);
     n_dlist_free(priv->pending_bindings);
 
-    if (priv->tick_source_channel_bind != NULL)
+    if (priv->tick_channel_bind != 0)
     {
-        g_source_destroy(priv->tick_source_channel_bind);
+        /*g_source_destroy(priv->tick_source_channel_bind);
         g_source_unref(priv->tick_source_channel_bind);
-        priv->tick_source_channel_bind = NULL;
+        priv->tick_source_channel_bind = NULL;*/
+
+		timer_stop(priv->tick_channel_bind);
+		timer_destroy(priv->tick_channel_bind);
+		priv->tick_channel_bind = 0;
     }
 
-    if (priv->tick_source_create_permission != NULL)
+    if (priv->tick_create_permission != 0)
     {
-        g_source_destroy(priv->tick_source_create_permission);
+        /*g_source_destroy(priv->tick_source_create_permission);
         g_source_unref(priv->tick_source_create_permission);
-        priv->tick_source_create_permission = NULL;
+        priv->tick_source_create_permission = NULL;*/
+
+		timer_stop(priv->tick_create_permission);
+		timer_destroy(priv->tick_create_permission);
+		priv->tick_create_permission = 0;
     }
 
 
@@ -230,11 +244,15 @@ static void socket_close(n_socket_t * sock)
     n_dlist_free(priv->sent_permissions);
     g_hash_table_destroy(priv->send_data_queues);
 
-    if (priv->permission_timeout_source)
+    if (priv->timer_permission != 0)
     {
-        g_source_destroy(priv->permission_timeout_source);
+        /*g_source_destroy(priv->permission_timeout_source);
         g_source_unref(priv->permission_timeout_source);
-        priv->permission_timeout_source = NULL;
+        priv->permission_timeout_source = NULL;*/
+
+		timer_stop(priv->timer_permission);
+		timer_destroy(priv->timer_permission);
+		priv->timer_permission = 0;
     }
 
     if (priv->ctx)
@@ -340,7 +358,7 @@ static int32_t socket_recv_messages(n_socket_t * sock,  n_input_msg_t * recv_mes
         }
 
         if (allocated_buffer)
-            g_free(buffer);
+            n_free(buffer);
 
         if (error)
             break;
@@ -691,21 +709,26 @@ static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const
         if (stun_msg_append_bytes(&msg, STUN_ATT_DATA,
                                       compacted_buf, compacted_buf_len) != STUN_MSG_RET_SUCCESS)
         {
-            g_free(compacted_buf);
+            n_free(compacted_buf);
             goto error;
         }
 
-        g_free(compacted_buf);
+        n_free(compacted_buf);
 
         /* Finish the message. */
         msg_len = stun_agent_finish_message(&priv->agent, &msg, priv->password, priv->password_len);
         if (msg_len > 0 && stun_msg_get_class(&msg) == STUN_REQUEST)
         {
-            SendRequest * req = g_slice_new0(SendRequest);
+            SendRequest * req = n_slice_new0(SendRequest);
 
             req->priv = priv;
             stun_msg_id(&msg, req->id);
-            req->source = _timeout_add_with_context(priv, STUN_END_TIMEOUT, FALSE, priv_forget_send_request, req);
+            /*req->source = _timeout_add_with_context(priv, STUN_END_TIMEOUT, FALSE, priv_forget_send_request, req);*/
+
+			req->timer = timer_create();
+			timer_init(req->timer, 0, STUN_END_TIMEOUT, (notifycallback)priv_forget_send_request, (void *)req, "forget send request");
+			timer_start(req->timer);
+
             n_queue_push_tail(priv->send_requests, req);
         }
     }
@@ -933,7 +956,7 @@ static int _binding_expired_timeout(void * data)
             /* In case the binding timed out before it could be processed, add it to
                the pending list */
             _add_channel_binding(priv, &b->peer);
-            g_free(b);
+            n_free(b);
             break;
         }
     }
@@ -969,7 +992,11 @@ static int _binding_timeout(void * data)
         {
             b->renew = TRUE;
             /* Install timer to expire the permission */
-            b->timeout_source = _timeout_add_with_context(priv, STUN_EXPIRE_TIMEOUT, TRUE, _binding_expired_timeout, priv);
+            /*b->timeout_source = _timeout_add_with_context(priv, STUN_EXPIRE_TIMEOUT, TRUE, _binding_expired_timeout, priv);*/
+
+			b->timer = timer_create();
+			timer_init(b->timer, 0, STUN_EXPIRE_TIMEOUT, (notifycallback)_binding_expired_timeout, (void *)priv, "binding expired timeout");
+			timer_start(b->timer);
 
             /* Send renewal */
             if (!priv->current_binding_msg)
@@ -1015,7 +1042,7 @@ uint32_t n_udp_turn_socket_parse_recv_msg(n_socket_t * sock, n_socket_t ** from_
                                           message->from, buf_len, buf,
                                           message->from, buf, buf_len);
     len = memcpy_buffer_to_input_message(message, buf, len);
-    g_free(buf);
+    n_free(buf);
 
     return (len > 0) ? 1 : 0;
 }
@@ -1088,13 +1115,17 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
                     if (req)
                     {
-                        g_source_destroy(req->source);
+                        /*g_source_destroy(req->source);
                         g_source_unref(req->source);
-                        req->source = NULL;
+                        req->source = NULL;*/
+
+						timer_stop(req->timer);
+						timer_destroy(req->timer);
+						req->timer = 0;
 
                         n_queue_remove(priv->send_requests, req);
 
-                        g_slice_free(SendRequest, req);
+                        n_slice_free(SendRequest, req);
                     }
                 }
                 return 0;
@@ -1108,23 +1139,13 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                 {
                     stun_msg_id(&msg, response_id);
                     stun_msg_id(&priv->current_binding_msg->message, request_id);
-                    if (memcmp(request_id, response_id,
-                               sizeof(stun_trans_id)) == 0)
+                    if (memcmp(request_id, response_id, sizeof(stun_trans_id)) == 0)
                     {
-                        g_free(priv->current_binding_msg);
+                        n_free(priv->current_binding_msg);
                         priv->current_binding_msg = NULL;
 
-                        if (stun_msg_get_class(&msg) == STUN_RESPONSE &&
-                                (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_OC2007 ||
-                                 priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_MSN))
-                        {
-                            goto msn_google_lock;
-                        }
-                        else
-                        {
-                            g_free(priv->current_binding);
-                            priv->current_binding = NULL;
-                        }
+                        n_free(priv->current_binding);
+                        priv->current_binding = NULL;
                     }
                 }
 
@@ -1139,8 +1160,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                 {
                     stun_msg_id(&msg, response_id);
                     stun_msg_id(&priv->current_binding_msg->message, request_id);
-                    if (memcmp(request_id, response_id,
-                               sizeof(stun_trans_id)) == 0)
+                    if (memcmp(request_id, response_id, sizeof(stun_trans_id)) == 0)
                     {
 
                         if (priv->current_binding)
@@ -1161,8 +1181,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                             n_addr_t to;
 
                             /* look up binding associated with peer */
-                            stun_msg_find_xor_addr(
-                                &priv->current_binding_msg->message,
+                            stun_msg_find_xor_addr( &priv->current_binding_msg->message,
                                 STUN_ATT_XOR_PEER_ADDRESS, &sa.storage, &sa_len);
                             n_addr_set_from_sock(&to, &sa.addr);
 
@@ -1205,7 +1224,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                                                               sent_realm_len) == 0))))
                             {
 
-                                g_free(priv->current_binding_msg);
+                                n_free(priv->current_binding_msg);
                                 priv->current_binding_msg = NULL;
                                 if (binding)
                                     priv_send_channel_bind(priv, &msg, binding->channel,
@@ -1213,16 +1232,16 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
                             }
                             else
                             {
-                                g_free(priv->current_binding);
+                                n_free(priv->current_binding);
                                 priv->current_binding = NULL;
-                                g_free(priv->current_binding_msg);
+                                n_free(priv->current_binding_msg);
                                 priv->current_binding_msg = NULL;
                                 priv_process_pending_bindings(priv);
                             }
                         }
                         else if (stun_msg_get_class(&msg) == STUN_RESPONSE)
                         {
-                            g_free(priv->current_binding_msg);
+                            n_free(priv->current_binding_msg);
                             priv->current_binding_msg = NULL;
 
                             /* If it's a new channel binding, then add it to the list */
@@ -1315,7 +1334,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
                                 priv->pending_permissions = n_dlist_delete_link(
                                                                 priv->pending_permissions, i);
-                                g_free(current_create_perm_msg);
+                                n_free(current_create_perm_msg);
                                 current_create_perm_msg = NULL;
                                 /* resend CreatePermission */
                                 priv_send_create_permission(priv, &msg, &to);
@@ -1344,7 +1363,7 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
                         priv->pending_permissions = n_dlist_delete_link(
                                                         priv->pending_permissions, i);
-                        g_free(current_create_perm_msg);
+                        n_free(current_create_perm_msg);
                         current_create_perm_msg = NULL;
 
                         break;
@@ -1452,7 +1471,7 @@ msn_google_lock:
         for (; i; i = i->next)
         {
             ChannelBinding * b = i->data;
-            g_free(b);
+            n_free(b);
         }
         n_dlist_free(priv->channels);
         priv->channels = n_dlist_append(NULL, priv->current_binding);
@@ -1463,16 +1482,14 @@ msn_google_lock:
     return 0;
 }
 
-int
-nice_udp_turn_socket_set_peer(n_socket_t * sock, n_addr_t * peer)
+int nice_udp_turn_socket_set_peer(n_socket_t * sock, n_addr_t * peer)
 {
     UdpTurnPriv * priv = (UdpTurnPriv *) sock->priv;
 
     return _add_channel_binding(priv, peer);
 }
 
-static void
-priv_process_pending_bindings(UdpTurnPriv * priv)
+static void priv_process_pending_bindings(UdpTurnPriv * priv)
 {
     int ret = FALSE;
 
@@ -1626,12 +1643,19 @@ static int priv_retrans_tick(void * pointer)
 
     if (priv_retrans_tick_unlocked(priv) == FALSE)
     {
-        if (priv->tick_source_channel_bind != NULL)
+       /* if (priv->tick_source_channel_bind != NULL)
         {
             g_source_destroy(priv->tick_source_channel_bind);
             g_source_unref(priv->tick_source_channel_bind);
             priv->tick_source_channel_bind = NULL;
-        }
+        }*/
+
+		if (priv->tick_channel_bind != 0)
+		{
+			timer_stop(priv->tick_channel_bind);
+			timer_destroy(priv->tick_channel_bind);
+			priv->tick_channel_bind = 0;
+		}
     }
     agent_unlock();
 
@@ -1667,19 +1691,30 @@ static void priv_schedule_tick(UdpTurnPriv * priv)
     TURNMessage * current_create_perm_msg;
     uint32_t min_timeout = G_MAXUINT;
 
-    if (priv->tick_source_channel_bind != NULL)
+    /*if (priv->tick_source_channel_bind != NULL)
     {
         g_source_destroy(priv->tick_source_channel_bind);
         g_source_unref(priv->tick_source_channel_bind);
         priv->tick_source_channel_bind = NULL;
-    }
+    }*/
+
+	if (priv->tick_channel_bind != 0)
+	{
+		timer_stop(priv->tick_channel_bind);
+		timer_destroy(priv->tick_channel_bind);
+		priv->tick_channel_bind = 0;
+	}
 
     if (priv->current_binding_msg)
     {
         uint32_t timeout = stun_timer_remainder(&priv->current_binding_msg->timer);
         if (timeout > 0)
         {
-            priv->tick_source_channel_bind = _timeout_add_with_context(priv, timeout, FALSE, priv_retrans_tick, priv);
+            /*priv->tick_source_channel_bind = _timeout_add_with_context(priv, timeout, FALSE, priv_retrans_tick, priv);*/
+
+			priv->tick_channel_bind = timer_create();
+			timer_init(priv->tick_channel_bind, 0, timeout, (notifycallback)priv_retrans_tick, (void *)priv, "channel bind tick");
+			timer_start(priv->tick_channel_bind);
         }
         else
         {
@@ -1823,14 +1858,14 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16
                                  msg->buffer, sizeof(msg->buffer),
                                  STUN_CHANNELBIND))
     {
-        g_free(msg);
+        n_free(msg);
         return FALSE;
     }
 
     if (stun_msg_append32(&msg->message, STUN_ATT_CHANNEL_NUMBER,
                               channel_attr) != STUN_MSG_RET_SUCCESS)
     {
-        g_free(msg);
+        n_free(msg);
         return FALSE;
     }
 
@@ -1839,7 +1874,7 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16
                                      sizeof(sa))
             != STUN_MSG_RET_SUCCESS)
     {
-        g_free(msg);
+        n_free(msg);
         return FALSE;
     }
 
@@ -1849,7 +1884,7 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16
                                       priv->username, priv->username_len)
                 != STUN_MSG_RET_SUCCESS)
         {
-            g_free(msg);
+            n_free(msg);
             return FALSE;
         }
     }
@@ -1867,7 +1902,7 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16
                                           realm, len)
                     != STUN_MSG_RET_SUCCESS)
             {
-                g_free(msg);
+                n_free(msg);
                 return 0;
             }
         }
@@ -1878,7 +1913,7 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16
                                           nonce, len)
                     != STUN_MSG_RET_SUCCESS)
             {
-                g_free(msg);
+                n_free(msg);
                 return 0;
             }
         }
@@ -1893,7 +1928,7 @@ static int priv_send_channel_bind(UdpTurnPriv * priv,  stun_msg_t * resp, uint16
         return TRUE;
     }
 
-    g_free(msg);
+    n_free(msg);
     return FALSE;
 }
 
@@ -1954,7 +1989,7 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
                                      msg->buffer, sizeof(msg->buffer),
                                      STUN_OLD_SET_ACTIVE_DST))
         {
-            g_free(msg);
+            n_free(msg);
             return FALSE;
         }
 
@@ -1962,7 +1997,7 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
                                   TURN_MAGIC_COOKIE)
                 != STUN_MSG_RET_SUCCESS)
         {
-            g_free(msg);
+            n_free(msg);
             return FALSE;
         }
 
@@ -1972,7 +2007,7 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
                                           priv->username, priv->username_len)
                     != STUN_MSG_RET_SUCCESS)
             {
-                g_free(msg);
+                n_free(msg);
                 return FALSE;
             }
         }
@@ -1991,7 +2026,7 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
                                      &sa.addr, sizeof(sa))
                 != STUN_MSG_RET_SUCCESS)
         {
-            g_free(msg);
+            n_free(msg);
             return FALSE;
         }
 
@@ -2006,7 +2041,7 @@ _add_channel_binding(UdpTurnPriv * priv, const n_addr_t * peer)
             priv_send_turn_message(priv, msg);
             return TRUE;
         }
-        g_free(msg);
+        n_free(msg);
         return FALSE;
     }
     else if (priv->compatibility == NICE_TURN_SOCKET_COMPATIBILITY_GOOGLE)

@@ -28,11 +28,13 @@ int32_t timer_open();
 
 int32_t timer_create();
 
-int32_t timer_init(int32_t handle, int32_t  once, int32_t interval, notifycallback func, void * data, char identify[MAX_ID_LEN]);
+int32_t timer_init(int32_t handle, int32_t  once, uint32_t interval, notifycallback func, void * data, char identify[MAX_ID_LEN]);
 
 int32_t timer_start(int32_t handle);
 
 int32_t timer_stop(int32_t handle);
+
+int32_t timer_modify(int32_t handle, uint32_t interval);
 
 int32_t timer_destroy(int32_t handle);
 

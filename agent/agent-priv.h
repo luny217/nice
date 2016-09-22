@@ -94,9 +94,6 @@ struct _agent_st
     NiceRNG * rng;                  /* random number generator */
 	n_slist_t * discovery_list;        /* list of n_cand_disc_t items */
     uint32_t disc_unsched_items;  /* number of discovery items unscheduled */
-    GSource * disc_timer_source; /* source of discovery timer */
-    GSource * conncheck_timer_source; /* source of conncheck timer */
-    GSource * keepalive_timer_source; /* source of keepalive timer */
 	int32_t disc_timer;
 	int32_t cocheck_timer;
 	int32_t keepalive_timer;
@@ -126,7 +123,6 @@ void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate);
 void agent_sig_new_remote_cand(n_agent_t * agent, n_cand_t * candidate);
 void agent_sig_initial_binding_request_received(n_agent_t * agent, n_stream_t * stream);
 uint64_t agent_candidate_pair_priority(n_agent_t * agent, n_cand_t * local, n_cand_t * remote);
-void agent_timeout_add(n_agent_t * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data);
 StunUsageTurnCompatibility agent_to_turn_compatibility(n_agent_t * agent);
 void agent_remove_local_candidate(n_agent_t * agent, n_cand_t * candidate);
 void n_agent_init_stun_agent(n_agent_t * agent, stun_agent_t * stun_agent);

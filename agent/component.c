@@ -11,6 +11,7 @@ static volatile unsigned int n_components_destroyed = 0;
 #include "component.h"
 #include "discovery.h"
 #include "agent-priv.h"
+#include "timer.h"
 
 static void component_schedule_io_callback(n_comp_t * component);
 static void component_deschedule_io_callback(n_comp_t * component);
@@ -18,7 +19,7 @@ static void component_deschedule_io_callback(n_comp_t * component);
 void incoming_check_free(n_inchk_t * icheck)
 {
     n_free(icheck->username);
-    g_slice_free(n_inchk_t, icheck);
+    n_slice_free(n_inchk_t, icheck);
 }
 
 /* Must *not* take the agent lock, since its called from within
@@ -61,7 +62,7 @@ static void socket_source_free(SocketSource * source)
     socket_source_detach(source);
     nice_socket_free(source->socket);
 
-    g_slice_free(SocketSource, source);
+    n_slice_free(SocketSource, source);
 }
 
 n_comp_t * component_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
@@ -103,14 +104,14 @@ n_comp_t * component_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
     return component;
 }
 
-void component_clean_turn_servers(n_comp_t * cmp)
+void component_clean_turn_servers(n_comp_t * comp)
 {
 	n_slist_t * i;
 
-    n_dlist_free_full(cmp->turn_servers, (n_destroy_notify) turn_server_unref);
-    cmp->turn_servers = NULL;
+    n_dlist_free_full(comp->turn_servers, (n_destroy_notify) turn_server_unref);
+	comp->turn_servers = NULL;
 
-    for (i = cmp->local_candidates; i;)
+    for (i = comp->local_candidates; i;)
     {
         n_cand_t * candidate = i->data;
 		n_slist_t  * next = i->next;
@@ -130,51 +131,55 @@ void component_clean_turn_servers(n_comp_t * cmp)
          * especially important for TURN, because refresh requests to the
          * server need to keep happening.
          */
-        if (candidate == cmp->selected_pair.local)
+        if (candidate == comp->selected_pair.local)
         {
-            if (cmp->turn_candidate)
+            if (comp->turn_candidate)
             {
-                refresh_prune_candidate(cmp->agent, cmp->turn_candidate);
-                disc_prune_socket(cmp->agent, cmp->turn_candidate->sockptr);
-                cocheck_prune_socket(cmp->agent, cmp->stream, cmp,  cmp->turn_candidate->sockptr);
-                component_detach_socket(cmp, cmp->turn_candidate->sockptr);
-                n_cand_free(cmp->turn_candidate);
+                refresh_prune_candidate(comp->agent, comp->turn_candidate);
+                disc_prune_socket(comp->agent, comp->turn_candidate->sockptr);
+                cocheck_prune_socket(comp->agent, comp->stream, comp, comp->turn_candidate->sockptr);
+                component_detach_socket(comp, comp->turn_candidate->sockptr);
+                n_cand_free(comp->turn_candidate);
             }
             /* Bring the priority down to 0, so that it will be replaced
              * on the new run.
              */
-            cmp->selected_pair.priority = 0;
-            cmp->turn_candidate = candidate;
+			comp->selected_pair.priority = 0;
+			comp->turn_candidate = candidate;
         }
         else
         {
-            refresh_prune_candidate(cmp->agent, candidate);
-            disc_prune_socket(cmp->agent, candidate->sockptr);
-            cocheck_prune_socket(cmp->agent, cmp->stream, cmp, candidate->sockptr);
-            component_detach_socket(cmp, candidate->sockptr);
-            agent_remove_local_candidate(cmp->agent, candidate);
+            refresh_prune_candidate(comp->agent, candidate);
+            disc_prune_socket(comp->agent, candidate->sockptr);
+            cocheck_prune_socket(comp->agent, comp->stream, comp, candidate->sockptr);
+            component_detach_socket(comp, candidate->sockptr);
+            agent_remove_local_candidate(comp->agent, candidate);
             n_cand_free(candidate);
         }
-        cmp->local_candidates = n_slist_delete_link(cmp->local_candidates, i);
+		comp->local_candidates = n_slist_delete_link(comp->local_candidates, i);
         i = next;
     }
 }
 
-static void comp_clear_selected_pair(n_comp_t * component)
+static void comp_clear_selected_pair(n_comp_t * comp)
 {
-    if (component->selected_pair.keepalive.tick_source != NULL)
+    if (comp->selected_pair.keepalive.tick_clock != 0)
     {
-        g_source_destroy(component->selected_pair.keepalive.tick_source);
+        /*g_source_destroy(component->selected_pair.keepalive.tick_source);
         g_source_unref(component->selected_pair.keepalive.tick_source);
-        component->selected_pair.keepalive.tick_source = NULL;
+        component->selected_pair.keepalive.tick_source = NULL;*/
+
+		timer_stop(comp->selected_pair.keepalive.tick_clock);
+		timer_destroy(comp->selected_pair.keepalive.tick_clock);
+		comp->selected_pair.keepalive.tick_clock = 0;
     }
 
-    memset(&component->selected_pair, 0, sizeof(n_cand_pair_t));
+    memset(&comp->selected_pair, 0, sizeof(n_cand_pair_t));
 }
 
 /* Must be called with the agent lock held as it touches internal n_comp_t
  * state. */
-void component_close(n_comp_t * cmp)
+void component_close(n_comp_t * comp)
 {
     IOCallbackData * data;
     n_outvector_t * vec;
@@ -189,55 +194,59 @@ void component_close(n_comp_t * cmp)
      * starting it, even if it?s later truncated, call pst_close().
      * A long-term fix is needed in the form of making component_close() (and all
      * its callers) async, so we can properly block on closure. */
-    if (cmp->tcp)
+    if (comp->tcp)
     {
-        pst_close(cmp->tcp, TRUE);
+        pst_close(comp->tcp, TRUE);
     }
 
-    if (cmp->restart_candidate)
-        n_cand_free(cmp->restart_candidate), cmp->restart_candidate = NULL;
+    if (comp->restart_candidate)
+        n_cand_free(comp->restart_candidate), comp->restart_candidate = NULL;
 
-    if (cmp->turn_candidate)
-        n_cand_free(cmp->turn_candidate),  cmp->turn_candidate = NULL;
+    if (comp->turn_candidate)
+        n_cand_free(comp->turn_candidate), comp->turn_candidate = NULL;
 
-    while (cmp->local_candidates)
+    while (comp->local_candidates)
     {
-        agent_remove_local_candidate(cmp->agent, cmp->local_candidates->data);
-        n_cand_free(cmp->local_candidates->data);
-        cmp->local_candidates = n_slist_delete_link(cmp->local_candidates, cmp->local_candidates);
+        agent_remove_local_candidate(comp->agent, comp->local_candidates->data);
+        n_cand_free(comp->local_candidates->data);
+		comp->local_candidates = n_slist_delete_link(comp->local_candidates, comp->local_candidates);
     }
 
-    n_slist_free_full(cmp->remote_candidates, (n_destroy_notify) n_cand_free);
-    cmp->remote_candidates = NULL;
-    component_free_socket_sources(cmp);
-    n_slist_free_full(cmp->incoming_checks, (n_destroy_notify) incoming_check_free);
-    cmp->incoming_checks = NULL;
+    n_slist_free_full(comp->remote_candidates, (n_destroy_notify) n_cand_free);
+	comp->remote_candidates = NULL;
+    component_free_socket_sources(comp);
+    n_slist_free_full(comp->incoming_checks, (n_destroy_notify) incoming_check_free);
+	comp->incoming_checks = NULL;
 
-    component_clean_turn_servers(cmp);
+    component_clean_turn_servers(comp);
 
-    if (cmp->tcp_clock)
+    if (comp->tcp_clock)
     {
-        g_source_destroy(cmp->tcp_clock);
+		/*g_source_destroy(cmp->tcp_clock);
         g_source_unref(cmp->tcp_clock);
-        cmp->tcp_clock = NULL;
+        cmp->tcp_clock = NULL;*/
+
+		timer_stop(comp->tcp_clock);
+		timer_destroy(comp->tcp_clock);
+		comp->tcp_clock = 0;
     }
-    if (cmp->tcp_writable_cancellable)
+    if (comp->tcp_writable_cancellable)
     {
-        g_cancellable_cancel(cmp->tcp_writable_cancellable);
-        g_clear_object(&cmp->tcp_writable_cancellable);
+        g_cancellable_cancel(comp->tcp_writable_cancellable);
+        g_clear_object(&comp->tcp_writable_cancellable);
     }
 
-    while ((data = n_queue_pop_head(&cmp->pending_io_messages)) != NULL)
+    while ((data = n_queue_pop_head(&comp->pending_io_messages)) != NULL)
         io_callback_data_free(data);
 
-    component_deschedule_io_callback(cmp);
+    component_deschedule_io_callback(comp);
 
-    g_cancellable_cancel(cmp->stop_cancellable);
+    g_cancellable_cancel(comp->stop_cancellable);
 
-    while ((vec = n_queue_pop_head(&cmp->queued_tcp_packets)) != NULL)
+    while ((vec = n_queue_pop_head(&comp->queued_tcp_packets)) != NULL)
     {
         n_free((void *) vec->buffer);
-        g_slice_free(n_outvector_t, vec);
+        n_slice_free(n_outvector_t, vec);
     }
 }
 

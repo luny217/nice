@@ -31,6 +31,7 @@
 #include "nlist.h"
 #include "nqueue.h"
 #include "event.h"
+#include "timer.h"
 
 /* Maximum size of a UDP packet's payload, as the packet's length field is 16b
  * wide. */
@@ -193,6 +194,7 @@ void agent_unlock_and_emit(n_agent_t * agent)
     }
 }
 
+#if 0
 static void agent_queue_signal(n_agent_t * agent, uint32_t signal_id, ...)
 {
     QueuedSignal * sig;
@@ -228,6 +230,7 @@ static void agent_queue_signal(n_agent_t * agent, uint32_t signal_id, ...)
 
     n_queue_push_tail(&agent->pending_signals, sig);
 }
+#endif
 
 StunUsageTurnCompatibility agent_to_turn_compatibility(n_agent_t * agent)
 {
@@ -277,9 +280,9 @@ static void nice_agent_class_init(NiceAgentClass * klass)
 {
     GObjectClass * gobject_class = G_OBJECT_CLASS(klass);
 
-    gobject_class->get_property = n_agent_get_property;
-    gobject_class->set_property = nice_agent_set_property;
-    gobject_class->dispose = n_agent_dispose;
+    //gobject_class->get_property = n_agent_get_property;
+    //gobject_class->set_property = nice_agent_set_property;
+    //gobject_class->dispose = n_agent_dispose;
 
     /* install properties */
     /**
@@ -294,299 +297,6 @@ static void nice_agent_class_init(NiceAgentClass * klass)
                                         "The GMainContext to use for timeouts",
                                         "The GMainContext to use for timeouts",
                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
-  
-    /* install signals */
-
-    /**
-     * n_agent_t::component-state-changed
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     * @component_id: The ID of the component
-     * @state: The #n_comp_state_e of the component
-     *
-     * This signal is fired whenever a component's state changes
-     */
-    signals[SIGNAL_COMP_STATE_CHANGED] =
-        g_signal_new(
-            "component-state-changed",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            3,
-            G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::candidate-gathering-done:
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     *
-     * This signal is fired whenever a stream has finished gathering its
-     * candidates after a call to n_agent_gather_cands()
-     */
-    signals[SIGNAL_CANDIDATE_GATHERING_DONE] =
-        g_signal_new(
-            "candidate-gathering-done",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            1,
-            G_TYPE_UINT, G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::new-selected-pair
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     * @component_id: The ID of the component
-     * @lfoundation: The local foundation of the selected candidate pair
-     * @rfoundation: The remote foundation of the selected candidate pair
-     *
-     * This signal is fired once a candidate pair is selected for data
-     * transfer for a stream's component This is emitted along with
-     * #n_agent_t::new-selected-pair-full which has the whole candidate,
-     * the Foundation of a Candidate is not a unique identifier.
-     *
-     * See also: #n_agent_t::new-selected-pair-full
-     * Deprecated: 0.1.8: Use #n_agent_t::new-selected-pair-full
-     */
-    signals[SIGNAL_NEW_SELECTED_PAIR] =
-        g_signal_new(
-            "new-selected-pair",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            4,
-            G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::new-candidate
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     * @component_id: The ID of the component
-     * @foundation: The foundation of the new candidate
-     *
-     * This signal is fired when the agent discovers a new local candidate.
-     * When this signal is emitted, a matching #n_agent_t::new-candidate-full is
-     * also emitted with the candidate.
-     *
-     * See also: #n_agent_t::candidate-gathering-done,
-     * #n_agent_t::new-candidate-full
-     * Deprecated: 0.1.8: Use #n_agent_t::new-candidate-full
-     */
-    signals[SIGNAL_NEW_CANDIDATE] =
-        g_signal_new(
-            "new-candidate",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            3,
-            G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::new-remote-candidate
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     * @component_id: The ID of the component
-     * @foundation: The foundation of the new candidate
-     *
-     * This signal is fired when the agent discovers a new remote
-     * candidate.  This can happen with peer reflexive candidates.  When
-     * this signal is emitted, a matching
-     * #n_agent_t::new-remote-candidate-full is also emitted with the
-     * candidate.
-     *
-     * See also: #n_agent_t::new-remote-candidate-full
-     * Deprecated: 0.1.8: Use #n_agent_t::new-remote-candidate-full
-     */
-    signals[SIGNAL_NEW_REMOTE_CANDIDATE] =
-        g_signal_new(
-            "new-remote-candidate",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            3,
-            G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::initial-binding-request-received
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     *
-     * This signal is fired when we received our first binding request from
-     * the peer.
-     */
-    signals[SIGNAL_INITIAL_BINDING_REQUEST_RECEIVED] =
-        g_signal_new(
-            "initial-binding-request-received",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            1,
-            G_TYPE_UINT,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::reliable-transport-writable
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     * @component_id: The ID of the component
-     *
-     * This signal is fired on the reliable #n_agent_t when the underlying reliable
-     * transport becomes writable.
-     * This signal is only emitted when the n_agent_send() function returns less
-     * bytes than requested to send (or -1) and once when the connection
-     * is established.
-     *
-     * Since: 0.0.11
-     */
-    signals[SIGNAL_RELIABLE_TRANSPORT_WRITABLE] =
-        g_signal_new(
-            "reliable-transport-writable",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            2,
-            G_TYPE_UINT, G_TYPE_UINT,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::streams-removed
-     * @agent: The #n_agent_t object
-     * @stream_ids: (array zero-terminated=1) (element-type uint): An array of
-     * unsigned integer stream IDs, ending with a 0 ID
-     *
-     * This signal is fired whenever one or more streams are removed from the
-     * @agent.
-     *
-     * Since: 0.1.5
-     */
-    signals[SIGNAL_STREAMS_REMOVED] =
-        g_signal_new(
-            "streams-removed",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            g_cclosure_marshal_VOID__POINTER,
-            G_TYPE_NONE,
-            1,
-            NICE_TYPE_AGENT_STREAM_IDS,
-            G_TYPE_INVALID);
-
-
-    /**
-     * n_agent_t::new-selected-pair-full
-     * @agent: The #n_agent_t object
-     * @stream_id: The ID of the stream
-     * @component_id: The ID of the component
-     * @lcandidate: The local #n_cand_t of the selected candidate pair
-     * @rcandidate: The remote #n_cand_t of the selected candidate pair
-     *
-     * This signal is fired once a candidate pair is selected for data
-     * transfer for a stream's component. This is emitted along with
-     * #n_agent_t::new-selected-pair.
-     *
-     * See also: #n_agent_t::new-selected-pair
-     * Since: 0.1.8
-     */
-    signals[SIGNAL_NEW_SELECTED_PAIR_FULL] =
-        g_signal_new(
-            "new-selected-pair-full",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            4, G_TYPE_UINT, G_TYPE_UINT, NICE_TYPE_CANDIDATE, NICE_TYPE_CANDIDATE,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::new-candidate-full
-     * @agent: The #n_agent_t object
-     * @candidate: The new #n_cand_t
-     *
-     * This signal is fired when the agent discovers a new local candidate.
-     * When this signal is emitted, a matching #n_agent_t::new-candidate is
-     * also emitted with the candidate's foundation.
-     *
-     * See also: #n_agent_t::candidate-gathering-done,
-     * #n_agent_t::new-candidate
-     * Since: 0.1.8
-     */
-    signals[SIGNAL_NEW_CANDIDATE_FULL] =
-        g_signal_new(
-            "new-candidate-full",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            1,
-            NICE_TYPE_CANDIDATE,
-            G_TYPE_INVALID);
-
-    /**
-     * n_agent_t::new-remote-candidate-full
-     * @agent: The #n_agent_t object
-     * @candidate: The new #n_cand_t
-     *
-     * This signal is fired when the agent discovers a new remote candidate.
-     * This can happen with peer reflexive candidates.
-     * When this signal is emitted, a matching #n_agent_t::new-remote-candidate is
-     * also emitted with the candidate's foundation.
-     *
-     * See also: #n_agent_t::new-remote-candidate
-     * Since: 0.1.8
-     */
-    signals[SIGNAL_NEW_REMOTE_CANDIDATE_FULL] =
-        g_signal_new(
-            "new-remote-candidate-full",
-            G_OBJECT_CLASS_TYPE(klass),
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            1,
-            NICE_TYPE_CANDIDATE,
-            G_TYPE_INVALID);
 
     /* Init debug options depending on env variables */
     nice_debug_init();
@@ -612,9 +322,6 @@ static void n_agent_init(n_agent_t * agent)
 
     agent->discovery_list = NULL;
     agent->disc_unsched_items = 0;
-    agent->disc_timer_source = NULL;
-    agent->conncheck_timer_source = NULL;
-    agent->keepalive_timer_source = NULL;
     agent->refresh_list = NULL;
     agent->media_after_tick = FALSE;
 
@@ -782,11 +489,14 @@ static void _pseudo_tcp_error(n_agent_t * agent, n_stream_t * stream, n_comp_t *
         pst_close(comp->tcp, TRUE);
     }
 
-    if (comp->tcp_clock)
+    if (comp->tcp_clock != 0)
     {
-        g_source_destroy(comp->tcp_clock);
+        /*g_source_destroy(comp->tcp_clock);
         g_source_unref(comp->tcp_clock);
-		comp->tcp_clock = NULL;
+		comp->tcp_clock = NULL;*/
+		timer_stop(comp->tcp_clock);
+		timer_destroy(comp->tcp_clock);
+		comp->tcp_clock = 0;
     }
 }
 
@@ -1172,52 +882,59 @@ static int notify_pst_clock(void * user_data)
     stream = component->stream;
     agent = component->agent;
 
+/*
     if (g_source_is_destroyed(g_main_current_source()))
     {
         nice_debug("Source was destroyed. " "Avoided race condition in notify_pst_clock");
         agent_unlock();
         return FALSE;
-    }
+    }*/
 
     pst_notify_clock(component->tcp);
     adjust_tcp_clock(agent, stream, component);
 
     agent_unlock_and_emit(agent);
 
-    return G_SOURCE_CONTINUE;
+    return TRUE;
 }
 
-static void adjust_tcp_clock(n_agent_t * agent, n_stream_t * stream, n_comp_t * component)
+static void adjust_tcp_clock(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp)
 {
-    if (!pst_is_closed(component->tcp))
+    if (!pst_is_closed(comp->tcp))
     {
-        guint64 timeout = component->last_clock_timeout;
+        uint64_t timeout = comp->last_clock_timeout;
 
-        if (pst_get_next_clock(component->tcp, &timeout))
+        if (pst_get_next_clock(comp->tcp, &timeout))
         {
-            if (timeout != component->last_clock_timeout)
+            if (timeout != comp->last_clock_timeout)
             {
-                component->last_clock_timeout = timeout;
-                if (component->tcp_clock)
+				comp->last_clock_timeout = timeout;
+                if (comp->tcp_clock)
                 {
-                    g_source_set_ready_time(component->tcp_clock, timeout * 1000);
+                    //g_source_set_ready_time(comp->tcp_clock, timeout * 1000);
+					timer_modify(comp->tcp_clock, (uint32_t)(timeout * 1000));
                 }
-                if (!component->tcp_clock)
+
+                if (comp->tcp_clock == 0)
                 {
                     int32_t interval = (int32_t)timeout - (uint32_t)(g_get_monotonic_time() / 1000);
 
                     /* Prevent integer overflows */
                     if (interval < 0 || interval > INT_MAX)
                         interval = INT_MAX;
-                    agent_timeout_add(agent, &component->tcp_clock, "Pseudo-TCP clock", interval, notify_pst_clock, component);
+                    /*agent_timeout_add(agent, &comp->tcp_clock, "Pseudo-TCP clock", interval, notify_pst_clock, comp);*/
+
+					comp->tcp_clock = timer_create();
+					timer_init(comp->tcp_clock, 0, interval, (notifycallback)notify_pst_clock, (void *)comp, "pseudo-tcp clock");
+					timer_start(comp->tcp_clock);
                 }
             }
         }
         else
         {
-            nice_debug("[%s]: component %d pseudo-TCP socket should be "
-                       "destroyed. Calling _pseudo_tcp_error().", G_STRFUNC, component->id);
-            _pseudo_tcp_error(agent, stream, component);
+            nice_debug("[%s]: comp %d pseudo-TCP socket should be "
+                       "destroyed. Calling _pseudo_tcp_error().", G_STRFUNC, comp->id);
+            _pseudo_tcp_error(agent, stream, comp);
         }
     }
 }
@@ -1305,7 +1022,7 @@ void agent_gathering_done(n_agent_t * agent)
         }
     }
 
-    if (agent->disc_timer_source == NULL)
+    if (agent->disc_timer == 0)
         agent_sig_gathering_done(agent);
 }
 
@@ -3342,39 +3059,6 @@ done:
 
     return g_socket;
 }
-
-/* Create a new timer GSource with the given @name, @interval, callback
- * @function and @data, and assign it to @out, destroying and freeing any
- * existing #GSource in @out first.
- *
- * This guarantees that a timer won't be overwritten without being destroyed.
- */
-void agent_timeout_add(n_agent_t * agent, GSource ** out, const char * name, uint32_t interval, GSourceFunc function, void * data)
-{
-    GSource * source;
-
-    g_return_if_fail(function != NULL);
-    g_return_if_fail(out != NULL);
-
-    /* Destroy any existing source. */
-    if (*out != NULL)
-    {
-        g_source_destroy(*out);
-        g_source_unref(*out);
-        *out = NULL;
-    }
-
-    /* Create the new source. */
-    source = g_timeout_source_new(interval);
-
-    g_source_set_name(source, name);
-    g_source_set_callback(source, function, data, NULL);
-    g_source_attach(source, agent->main_context);
-
-    /* Return it! */
-    *out = source;
-}
-
 
 int32_t n_agent_set_selected_rcand(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t * candidate)
 {

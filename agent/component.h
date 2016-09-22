@@ -33,7 +33,8 @@ typedef struct _inchk_st n_inchk_t;
 struct _cand_pair_alive_st
 {
     n_agent_t * agent;
-    GSource * tick_source;
+    //GSource * tick_source;
+	int32_t  tick_clock;
     uint32_t stream_id;
     uint32_t component_id;
     StunTimer timer;
@@ -156,12 +157,10 @@ struct _comp_st
     GSource * stop_cancellable_source; /* owned */
 
     pst_socket_t * tcp;
-    GSource * tcp_clock;
+	int32_t tcp_clock;
     uint64_t last_clock_timeout;
     int tcp_readable;
     GCancellable * tcp_writable_cancellable;
-
-    //GIOStream * iostream;
 
     uint32_t min_port;
     uint32_t max_port;

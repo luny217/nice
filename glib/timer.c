@@ -152,7 +152,7 @@ int32_t timer_create()
 	return -1;
 }
 
-int32_t timer_init(int32_t handle, int32_t  once, int32_t interval, notifycallback func, void * data, char identify[MAX_ID_LEN])
+int32_t timer_init(int32_t handle, int32_t  once, uint32_t interval, notifycallback func, void * data, char identify[MAX_ID_LEN])
 {
 	n_timer_fd_t * fd = &timer_fd;
 	n_timer_t * n_timer = (n_timer_t *)handle;
@@ -206,6 +206,20 @@ int32_t timer_stop(int32_t handle)
 		n_timer->enable = FALSE;
 		n_timer->ticks = n_timer->interval;
 		printf("[%s] timer is stop \n", n_timer->identify);
+		return 0;
+	}
+	return -1;
+}
+
+int32_t timer_modify(int32_t handle, uint32_t interval)
+{
+	n_timer_fd_t * fd = &timer_fd;
+	n_timer_t * n_timer = (n_timer_t *)handle;
+
+	if (n_timer != NULL && n_timer->enable == TRUE)
+	{
+		printf("[%s] timer is modify from  %d to %d\n", n_timer->identify, n_timer->interval, interval);
+		n_timer->ticks = n_timer->interval = interval;		
 		return 0;
 	}
 	return -1;
