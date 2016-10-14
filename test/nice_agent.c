@@ -19,7 +19,7 @@
 #include <agent.h>
 #include "agent-priv.h"
 #include <gio/gnetworking.h>
-#include "uv.h"
+//#include "uv.h"
 #include "event.h"
 #include "pthread.h"
 #include "timer.h"
@@ -29,8 +29,10 @@ static char * stun_addr = "107.191.106.104";
 static uint32_t stun_port = 3478;
 static int controlling = 1;
 static int exit_thread, candidate_gathering_done, negotiation_done;
-static GMutex gather_mutex, negotiate_mutex;
-static GCond gather_cond, negotiate_cond;
+//static GMutex gather_mutex, negotiate_mutex;
+static  pthread_mutex_t gather_mutex, negotiate_mutex;
+//static GCond gather_cond, negotiate_cond;
+static pthread_cond_t gather_cond, negotiate_cond;
 FILE  * wfile_fp;
 pthread_t  loop_tid;
 
@@ -64,7 +66,7 @@ void nice_event_loop(void * data)
 	{
 		if ((ret = event_wait(agent->n_event, 0xFFFFFFFF, &events, &n_data)) < 0)
 		{
-			g_usleep(10 * 1000);
+			sleep_us(10 * 1000);
 			continue;
 		}
 		
@@ -110,8 +112,8 @@ void nice_event_loop(void * data)
 }
 
 //#define G_LOG_DOMAIN    ((char*) 0)
-#if 1
-uv_thread_cb nice_thread(void * data)
+
+void nice_thread(void * data)
 {
     n_agent_t * agent;
     n_cand_t * local, *remote;
@@ -124,17 +126,14 @@ uv_thread_cb nice_thread(void * data)
 	char snd_buf[2048];
 	int ret = 0, numread, numsend;
 
-#ifdef G_OS_WIN32
     io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
-#else
-    io_stdin = g_io_channel_unix_new(fileno(stdin));
-#endif
+
     g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
 
     // Create the nice agent
-    agent = n_agent_new(g_main_loop_get_context(gloop));
+    agent = n_agent_new();
     if (agent == NULL)
-        g_error("Failed to create agent");
+		nice_debug("Failed to create agent");
 
     // Set the STUN settings and controlling mode
     if (stun_addr)
@@ -146,6 +145,8 @@ uv_thread_cb nice_thread(void * data)
     }
     //g_object_set(agent, "controlling-mode", controlling, NULL);
 	agent->controlling_mode = controlling;
+
+	nice_debug("++++++++controlling_mode = %d\n", agent->controlling_mode);
 
 	//ret = uv_thread_create(&loop_tid, (uv_thread_cb)nice_event_loop, (void*)agent);
 	ret = pthread_create(&loop_tid, 0, (void *)nice_event_loop, (void*)agent);
@@ -174,10 +175,10 @@ uv_thread_cb nice_thread(void * data)
 
     nice_debug("waiting for candidate-gathering-done signal...");
 
-    g_mutex_lock(&gather_mutex);
+    pthread_mutex_lock(&gather_mutex);
     while (!exit_thread && !candidate_gathering_done)
-        g_cond_wait(&gather_cond, &gather_mutex);
-    g_mutex_unlock(&gather_mutex);
+		pthread_cond_wait(&gather_cond, &gather_mutex);
+	pthread_mutex_unlock(&gather_mutex);
     if (exit_thread)
         goto end;
 
@@ -214,15 +215,15 @@ uv_thread_cb nice_thread(void * data)
         }
         else if (s == G_IO_STATUS_AGAIN)
         {
-            g_usleep(100000);
+			sleep_us(100000);
         }
     }
 
     nice_debug("waiting for state ready or failed signal...");
-    g_mutex_lock(&negotiate_mutex);
+	pthread_mutex_lock(&negotiate_mutex);
     while (!exit_thread && !negotiation_done)
-        g_cond_wait(&negotiate_cond, &negotiate_mutex);
-    g_mutex_unlock(&negotiate_mutex);
+		pthread_cond_wait(&negotiate_cond, &negotiate_mutex);
+	pthread_mutex_unlock(&negotiate_mutex);
     if (exit_thread)
         goto end;
 
@@ -256,15 +257,15 @@ uv_thread_cb nice_thread(void * data)
     {	
 		if (agent->controlling_mode)
 		{
-			numread = fread(snd_buf, 500, 1, file_fp);
+			numread = fread(snd_buf, 2048, 1, file_fp);
 			if (numread > 0)
 			{
 resend:				
-				numsend = n_agent_send(agent, stream_id, 1, 500, snd_buf);
+				numsend = n_agent_send(agent, stream_id, 1, 2048, snd_buf);
 				if (numsend < 0)
 				{
 					//nice_debug("send err!");
-					g_usleep(500);
+					sleep_us(500);
 					goto resend;
 				}
 				else
@@ -274,7 +275,8 @@ resend:
 			}
 			else
 			{
-				g_usleep(100000);
+				sleep_ms(10000);
+				n_agent_send(agent, stream_id, 1, 1, "\0");
 				goto end;
 			}
 		}
@@ -290,7 +292,7 @@ resend:
 			}
 			else if (s == G_IO_STATUS_AGAIN)
 			{
-				g_usleep(100000);
+				sleep_us(100000);
 			}
 			else
 			{
@@ -302,220 +304,23 @@ resend:
     }
 
 end:
+	getchar();
 	fclose(file_fp);
     g_io_channel_unref(io_stdin);
-    g_object_unref(agent);
+   //g_object_unref(agent);
     g_main_loop_quit(gloop);
 
-    return NULL;
+    return ;
 }
-#else
-void* nice_thread(void * data)
-{
-	n_agent_t * agent;
-	n_cand_t * local, *remote;
-	GIOChannel * io_stdin;
-	uint32_t stream_id;
-	char * line = NULL;
-	int rval;
-	FILE  * file_fp;
-	char test_file[] = "test.dat";
-	char snd_buf[2048];
-	int ret = 0, numread, numsend;
-
-#ifdef G_OS_WIN32
-	io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
-#else
-	io_stdin = g_io_channel_unix_new(fileno(stdin));
-#endif
-	g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
-
-	// Create the nice agent
-	agent = n_agent_new(g_main_loop_get_context(gloop));
-	if (agent == NULL)
-		g_error("Failed to create agent");
-
-	// Set the STUN settings and controlling mode
-	if (stun_addr)
-	{
-		//g_object_set(agent, "stun-server", stun_addr, NULL);
-		//g_object_set(agent, "stun-server-port", stun_port, NULL);
-		agent->stun_server_ip = g_strdup(stun_addr);
-		agent->stun_server_port = stun_port;
-	}
-	//g_object_set(agent, "controlling-mode", controlling, NULL);
-	agent->controlling_mode = controlling;
-
-	// Connect to the signals
-	g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_cand_gathering_done), NULL);
-	g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
-	g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_comp_state_changed), NULL);
-
-	// Create a new stream with one component
-	stream_id = n_agent_add_stream(agent, 1);
-	if (stream_id == 0)
-		g_error("Failed to add stream");
-
-	n_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
-
-	// Attach to the component to receive the data
-	// Without this call, candidates cannot be gathered
-	n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
-
-	//n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", NICE_RELAY_TYPE_TURN_UDP);
-
-	// Start gathering local candidates
-	if (!n_agent_gather_cands(agent, stream_id))
-		g_error("Failed to start candidate gathering");
-
-	nice_debug("waiting for candidate-gathering-done signal...");
-
-	g_mutex_lock(&gather_mutex);
-	while (!exit_thread && !candidate_gathering_done)
-		g_cond_wait(&gather_cond, &gather_mutex);
-	g_mutex_unlock(&gather_mutex);
-	if (exit_thread)
-		goto end;
-
-	// Candidate gathering is done. Send our local candidates on stdout
-	printf("Copy this line to remote client:\n");
-	printf("\n  ");
-	print_local_data(agent, stream_id, 1);
-	printf("\n");
-
-	// Listen on stdin for the remote candidate list
-	printf("Enter remote data (single line, no wrapping):\n");
-	printf("> ");
-	fflush(stdout);
-	while (!exit_thread)
-	{
-		GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
-		if (s == G_IO_STATUS_NORMAL)
-		{
-			// Parse remote candidate list and set it on the agent
-			rval = parse_remote_data(agent, stream_id, 1, line);
-			if (rval == EXIT_SUCCESS)
-			{
-				n_free(line);
-				break;
-			}
-			else
-			{
-				fprintf(stderr, "ERROR: failed to parse remote data\n");
-				printf("Enter remote data (single line, no wrapping):\n");
-				printf("> ");
-				fflush(stdout);
-			}
-			n_free(line);
-		}
-		else if (s == G_IO_STATUS_AGAIN)
-		{
-			g_usleep(100000);
-		}
-	}
-
-	nice_debug("waiting for state READY or FAILED signal...");
-	g_mutex_lock(&negotiate_mutex);
-	while (!exit_thread && !negotiation_done)
-		g_cond_wait(&negotiate_cond, &negotiate_mutex);
-	g_mutex_unlock(&negotiate_mutex);
-	if (exit_thread)
-		goto end;
-
-	// Get current selected candidate pair and print IP address used
-	if (n_agent_get_selected_pair(agent, stream_id, 1, &local, &remote))
-	{
-		char ipaddr[INET6_ADDRSTRLEN];
-
-		nice_address_to_string(&local->addr, ipaddr);
-		printf("\nNegotiation complete: ([%s]:%d,", ipaddr, nice_address_get_port(&local->addr));
-		nice_address_to_string(&remote->addr, ipaddr);
-		printf(" [%s]:%d)\n", ipaddr, nice_address_get_port(&remote->addr));
-	}
-
-	// Listen to stdin and send data written to it
-	printf("\nSend lines to remote (Ctrl-D to quit):\n");
-	printf("> ");
-	fflush(stdout);
-
-	if ((file_fp = fopen(test_file, "rb")) == NULL)
-	{
-		printf("Open %s failed:%s\n", test_file, strerror(errno));
-		goto end;
-	}
-
-	printf("> ");
-	fflush(stdout);
-	GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
-
-	while (!exit_thread)
-	{
-		if (agent->controlling_mode)
-		{
-			numread = fread(snd_buf, 500, 1, file_fp);
-			if (numread > 0)
-			{
-			resend:
-				numsend = n_agent_send(agent, stream_id, 1, 500, snd_buf);
-				if (numsend < 0)
-				{
-					//nice_debug("send err!");
-					g_usleep(500);
-					goto resend;
-				}
-				else
-				{
-					//nice_debug("send %d bytes", numsend);
-				}
-			}
-			else
-			{
-				g_usleep(100000);
-				goto end;
-			}
-		}
-		else
-		{
-			GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
-			if (s == G_IO_STATUS_NORMAL)
-			{
-				n_agent_send(agent, stream_id, 1, strlen(line), line);
-				n_free(line);
-				printf("> ");
-				fflush(stdout);
-			}
-			else if (s == G_IO_STATUS_AGAIN)
-			{
-				g_usleep(100000);
-			}
-			else
-			{
-				// Ctrl-D was pressed.
-				n_agent_send(agent, stream_id, 1, 1, "\0");
-				break;
-			}
-		}
-	}
-
-end:
-	fclose(file_fp);
-	g_io_channel_unref(io_stdin);
-	g_object_unref(agent);
-	g_main_loop_quit(gloop);
-
-	return NULL;
-}
-
-#endif
 
 static void cb_cand_gathering_done(n_agent_t * agent, uint32_t stream_id, void * data)
 {
 	nice_debug("in signal candidate gathering done\n");
 
-    g_mutex_lock(&gather_mutex);
+	pthread_mutex_lock(&gather_mutex);
     candidate_gathering_done = TRUE;
-    g_cond_signal(&gather_cond);
-    g_mutex_unlock(&gather_mutex);
+	pthread_cond_signal(&gather_cond);
+	pthread_mutex_unlock(&gather_mutex);
 
 	nice_debug("leave signal candidate gathering done\n");
 }
@@ -526,10 +331,10 @@ static void cb_comp_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_
 
     if (state == COMP_STATE_READY)
     {
-        g_mutex_lock(&negotiate_mutex);
+		pthread_mutex_lock(&negotiate_mutex);
         negotiation_done = TRUE;
-        g_cond_signal(&negotiate_cond);
-        g_mutex_unlock(&negotiate_mutex);
+		pthread_cond_signal(&negotiate_cond);
+		pthread_mutex_unlock(&negotiate_mutex);
     }
     else if (state == COMP_STATE_FAILED)
     {
@@ -558,6 +363,11 @@ static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t compone
 	}
 	else
 	{
+		if ((len == 1 && buf[0] == '\0'))
+		{
+			fclose(wfile_fp);
+			return;
+		}
 		numwrite = fwrite(buf, len, 1, wfile_fp);
 		if (numwrite != 1)
 		{
@@ -573,7 +383,7 @@ static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
     char ** tokens = NULL;
     uint32_t i;
 
-    tokens = g_strsplit(scand, ",", 5);
+    tokens = n_strsplit(scand, ",", 5);
     for (i = 0; tokens[i]; i++);
     if (i != 5)
         goto end;
@@ -599,7 +409,7 @@ static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
 
     if (!nice_address_set_from_string(&cand->addr, tokens[2]))
     {
-        g_message("failed to parse addr: %s", tokens[2]);
+		nice_debug("failed to parse addr: %s", tokens[2]);
         n_cand_free(cand);
         cand = NULL;
         goto end;
@@ -608,7 +418,7 @@ static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
     nice_address_set_port(&cand->addr, atoi(tokens[3]));
 
 end:
-    g_strfreev(tokens);
+    n_strfreev(tokens);
 
     return cand;
 }
@@ -668,7 +478,7 @@ static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t com
     int result = EXIT_FAILURE;
     int i;
 
-    line_argv = g_strsplit_set(line, " \t\n", 0);
+    line_argv = n_strsplit_set(line, " \t\n", 0);
     for (i = 0; line_argv && line_argv[i]; i++)
     {
         if (strlen(line_argv[i]) == 0)
@@ -690,7 +500,7 @@ static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t com
 
             if (c == NULL)
             {
-                g_message("failed to parse candidate: %s", line_argv[i]);
+                nice_debug("failed to parse candidate: %s", line_argv[i]);
                 goto end;
             }
             remote_candidates = n_slist_prepend(remote_candidates, c);
@@ -698,20 +508,20 @@ static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t com
     }
     if (ufrag == NULL || passwd == NULL || remote_candidates == NULL)
     {
-        g_message("line must have at least ufrag, password, and one candidate");
+        nice_debug("line must have at least ufrag, password, and one candidate");
         goto end;
     }
 
     if (!n_agent_set_remote_credentials(agent, stream_id, ufrag, passwd))
     {
-        g_message("failed to set remote credentials");
+        nice_debug("failed to set remote credentials");
         goto end;
     }
 
     // Note: this will trigger the start of negotiation.
     if (n_agent_set_remote_cands(agent, stream_id, component_id, remote_candidates) < 1)
     {
-        g_message("failed to set remote candidates");
+        nice_debug("failed to set remote candidates");
         goto end;
     }
 
@@ -719,7 +529,7 @@ static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t com
 
 end:
     if (line_argv != NULL)
-        g_strfreev(line_argv);
+        n_strfreev(line_argv);
     if (remote_candidates != NULL)
         n_slist_free_full(remote_candidates, (n_destroy_notify)&n_cand_free);
 
@@ -768,8 +578,9 @@ int main(int argc, char * argv[])
 	int ret;
 
 	g_networking_init();
+	clock_win32_init();
 
-	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
+	//g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
 
 	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
 	{
@@ -781,16 +592,19 @@ int main(int argc, char * argv[])
 
 	ret = pthread_create(&tid, 0, (void *)nice_thread, NULL);
 
+	pthread_mutex_init(&gather_mutex, NULL);
+	pthread_mutex_init(&negotiate_mutex,NULL);
+
+	pthread_cond_init(&gather_cond, NULL);
+	pthread_cond_init(&negotiate_cond, NULL);
 
 	gloop = g_main_loop_new(NULL, FALSE);
 
 	// Run the main loop and the example thread
 	exit_thread = FALSE;
-	//gexamplethread = g_thread_new("example thread", &nice_thread, NULL);
 	g_main_loop_run(gloop);
 	exit_thread = TRUE;
 
-	//g_thread_join(gexamplethread);
 	g_main_loop_unref(gloop);
 
 	pthread_join(tid, NULL);

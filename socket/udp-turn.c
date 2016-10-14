@@ -150,8 +150,8 @@ n_socket_t * n_udp_turn_new(GMainContext * ctx, n_addr_t * addr,
     priv->channels = NULL;
     priv->current_binding = NULL;
     priv->base_socket = base_socket;
-    if (ctx)
-        priv->ctx = g_main_context_ref(ctx);
+    /*if (ctx)
+        priv->ctx = g_main_context_ref(ctx);*/
 
 	priv->username = (uint8_t *)g_strdup(username);
 	priv->username_len = (uint32_t)strlen(username);

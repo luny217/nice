@@ -502,7 +502,7 @@ static int pseudo_tcp_state_has_sent_fin(PseudoTcpState state);
 static int pseudo_tcp_state_has_received_fin(PseudoTcpState state);
 
 // The following logging is for detailed (packet-level) pseudotcp analysis only.
-static PseudoTcpDebugLevel debug_level = PSEUDO_TCP_DEBUG_NONE;
+static PseudoTcpDebugLevel debug_level = PSEUDO_TCP_DEBUG_VERBOSE;
 
 #define DEBUG(level, fmt, ...)                                          \
   if (debug_level >= level)                                             \
@@ -1365,8 +1365,7 @@ static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags,
           priv->conv, (unsigned)flags, seq, seq + len, priv->rcv_nxt, priv->rcv_wnd,
           now % 10000, priv->ts_recent % 10000, len);
 
-    wres = priv->callbacks.WritePacket(self, (char *) buffer.u8, len + HEADER_SIZE,
-                                       priv->callbacks.user_data);
+    wres = priv->callbacks.WritePacket(self, (char *) buffer.u8, len + HEADER_SIZE, priv->callbacks.user_data);
     /* Note: When len is 0, this is an ACK packet.  We don't read the
        return value for those, and thus we won't retry.  So go ahead and treat
        the packet as a success (basically simulate as if it were dropped),

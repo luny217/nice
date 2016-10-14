@@ -2588,7 +2588,7 @@ static int _map_reply_to_relay_request(n_agent_t * agent, stun_msg_t * resp)
                                               &relayaddr.storage, &relayaddrlen,
                                               &sockaddr.storage, &socklen,
                                               &alternate.storage, &alternatelen,
-                                              &bandwidth, &lifetime, agent_to_turn_compatibility(agent));
+                                              &bandwidth, &lifetime);
                 nice_debug("[%s]: stun_turn_process/disc for %p res %d", G_STRFUNC, d, (int)res);
 
                 if (res == STUN_TURN_RET_ALTERNATE_SERVER)
@@ -2700,7 +2700,7 @@ static int _map_reply_to_relay_refresh(n_agent_t * agent, stun_msg_t * resp)
 
             if (memcmp(refresh_id, response_id, sizeof(stun_trans_id)) == 0)
             {
-                res = stun_usage_turn_refresh_process(resp, &lifetime, agent_to_turn_compatibility(cand->agent));
+                res = stun_usage_turn_refresh_process(resp, &lifetime);
                 nice_debug("[%s]: stun_turn_refresh_process for %p res %d", G_STRFUNC, cand, (int)res);
                 if (res == STUN_TURN_RET_RELAY_SUCCESS)
                 {

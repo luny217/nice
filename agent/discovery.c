@@ -568,7 +568,7 @@ n_cand_t * disc_add_relay_cand(n_agent_t * agent, uint32_t stream_id, uint32_t c
     candidate->priority =  n_cand_ice_priority(candidate);
 
     /* step: link to the base candidate+socket */
-    relay_socket = n_udp_turn_new(agent->main_context, address, base_socket, &turn->server, turn->username, turn->password);
+    relay_socket = n_udp_turn_new(NULL, address, base_socket, &turn->server, turn->username, turn->password);
     if (!relay_socket)
         goto errors;
 

@@ -32,6 +32,7 @@
 #include "nqueue.h"
 #include "event.h"
 #include "timer.h"
+#include "pthread.h"
 
 /* Maximum size of a UDP packet's payload, as the packet's length field is 16b
  * wide. */
@@ -121,7 +122,7 @@ enum
 
 static uint32_t signals[N_SIGNALS];
 
-static GMutex agent_mutex;    /* Mutex used for thread-safe lib */
+static pthread_mutex_t agent_mutex;    /* Mutex used for thread-safe lib */
 
 static void pst_opened(pst_socket_t * sock, void * user_data);
 static void pst_readable(pst_socket_t * sock, void * user_data);
@@ -136,13 +137,13 @@ static void nice_agent_set_property(GObject * object, uint32_t property_id, cons
 void agent_lock(void)
 {
 	//nice_debug("[%s]: g_mutex_lock+++++++++++", G_STRFUNC);
-    g_mutex_lock(&agent_mutex);
+    pthread_mutex_lock(&agent_mutex);
 }
 
 void agent_unlock(void)
 {
 	//nice_debug("[%s]: g_mutex_unlock-------------------", G_STRFUNC);
-    g_mutex_unlock(&agent_mutex);
+    pthread_mutex_unlock(&agent_mutex);
 }
 
 static GType _nice_agent_stream_ids_get_type(void);
@@ -151,13 +152,15 @@ G_DEFINE_POINTER_TYPE(_NiceAgentStreamIds, _nice_agent_stream_ids);
 
 #define NICE_TYPE_AGENT_STREAM_IDS _nice_agent_stream_ids_get_type ()
 
+/*
 typedef struct
 {
     uint32_t signal_id;
     GSignalQuery query;
     GValue * params;
-} QueuedSignal;
+} QueuedSignal;*/
 
+/*
 static void free_queued_signal(QueuedSignal * sig)
 {
     uint32_t i;
@@ -173,68 +176,26 @@ static void free_queued_signal(QueuedSignal * sig)
 
     n_slice_free1(sizeof(GValue) * (sig->query.n_params + 1), sig->params);
     n_slice_free(QueuedSignal, sig);
-}
+}*/
 
 void agent_unlock_and_emit(n_agent_t * agent)
 {
-    n_queue_t queue = G_QUEUE_INIT;
+	/* n_queue_t queue = G_QUEUE_INIT;
     QueuedSignal * sig;
 
     queue = agent->pending_signals;
-    n_queue_init(&agent->pending_signals);
+    n_queue_init(&agent->pending_signals);*/
 
 	//nice_debug("[%s]: agent_unlock-------------------", G_STRFUNC);
     agent_unlock();
 
-    while ((sig = n_queue_pop_head(&queue)))
+
+    /*while ((sig = n_queue_pop_head(&queue)))
     {
         g_signal_emitv(sig->params, sig->signal_id, 0, NULL);
 
         free_queued_signal(sig);
-    }
-}
-
-#if 0
-static void agent_queue_signal(n_agent_t * agent, uint32_t signal_id, ...)
-{
-    QueuedSignal * sig;
-    uint32_t i;
-    char * error = NULL;
-    va_list var_args;
-
-    sig = n_slice_new(QueuedSignal);
-    g_signal_query(signal_id, &sig->query);
-
-    sig->signal_id = signal_id;
-    sig->params = n_slice_alloc0(sizeof(GValue) * (sig->query.n_params + 1));
-
-    g_value_init(&sig->params[0], G_TYPE_OBJECT);
-    g_value_set_object(&sig->params[0], agent);
-
-    va_start(var_args, signal_id);
-    for (i = 0; i < sig->query.n_params; i++)
-    {
-        G_VALUE_COLLECT_INIT(&sig->params[i + 1], sig->query.param_types[i], var_args, 0, &error);
-        if (error)
-            break;
-    }
-    va_end(var_args);
-
-    if (error)
-    {
-        free_queued_signal(sig);
-        g_critical("Error collecting values for signal: %s", error);
-        n_free(error);
-        return;
-    }
-
-    n_queue_push_tail(&agent->pending_signals, sig);
-}
-#endif
-
-StunUsageTurnCompatibility agent_to_turn_compatibility(n_agent_t * agent)
-{
-    return STUN_USAGE_TURN_COMPATIBILITY_RFC5766;
+    }*/
 }
 
 n_stream_t * agent_find_stream(n_agent_t * agent, uint32_t stream_id)
@@ -291,12 +252,12 @@ static void nice_agent_class_init(NiceAgentClass * klass)
      * A GLib main context is needed for all timeouts used by libnice.
      * This is a property being set by the n_agent_new() call.
      */
-    g_object_class_install_property(gobject_class, PROP_MAIN_CONTEXT,
+   /* g_object_class_install_property(gobject_class, PROP_MAIN_CONTEXT,
                                     g_param_spec_pointer(
                                         "main-context",
                                         "The GMainContext to use for timeouts",
                                         "The GMainContext to use for timeouts",
-                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));*/
 
     /* Init debug options depending on env variables */
     nice_debug_init();
@@ -309,7 +270,7 @@ static void _generate_tie_breaker(n_agent_t * agent)
 
 static void n_agent_init(n_agent_t * agent)
 {
-	agent->main_context = NULL;
+	//agent->main_context = NULL;
     agent->next_candidate_id = 1;
     agent->next_stream_id = 1;
 
@@ -337,6 +298,7 @@ static void n_agent_init(n_agent_t * agent)
     agent->rng = nice_rng_new();
     _generate_tie_breaker(agent);
 
+	pthread_mutex_init(&agent_mutex,NULL);
     n_queue_init(&agent->pending_signals);
 }
 
@@ -344,77 +306,6 @@ n_agent_t * n_agent_new()
 {
     n_agent_t * agent = g_object_new(NICE_TYPE_AGENT, NULL);
     return agent;
-}
-
-static void n_agent_get_property(GObject * object, uint32_t property_id, GValue * value, GParamSpec * pspec)
-{
-    n_agent_t * agent = NICE_AGENT(object);
-
-    agent_lock();
-
-    switch (property_id)
-    {
-        case PROP_MAIN_CONTEXT:
-            g_value_set_pointer(value, agent->main_context);
-            break;
-
-        case PROP_STUN_SERVER:
-            g_value_set_string(value, agent->stun_server_ip);
-            break;
-
-        case PROP_STUN_SERVER_PORT:
-            g_value_set_uint(value, agent->stun_server_port);
-            break;
-
-        case PROP_CONTROLLING_MODE:
-            g_value_set_boolean(value, agent->controlling_mode);
-            break;
-
-        case PROP_FULL_MODE:
-            g_value_set_boolean(value, agent->full_mode);
-            break;
-
-        case PROP_STUN_PACING_TIMER:
-            g_value_set_uint(value, agent->timer_ta);
-            break;
-
-        case PROP_MAX_CONNECTIVITY_CHECKS:
-            g_value_set_uint(value, agent->max_conn_checks);
-            /* XXX: should we prune the list of already existing checks? */
-            break;
-
-        case PROP_RELIABLE:
-            g_value_set_boolean(value, agent->reliable);
-            break;
-
-        case PROP_ICE_UDP:
-            g_value_set_boolean(value, agent->use_ice_udp);
-            break;
-
-        case PROP_ICE_TCP:
-            g_value_set_boolean(value, agent->use_ice_tcp);
-            break;
-
-        case PROP_BYTESTREAM_TCP:
-            if (agent->reliable)
-            {                
-				g_value_set_boolean(value, FALSE);
-            }
-            else
-            {
-                g_value_set_boolean(value, FALSE);
-            }
-            break;
-
-        case PROP_KEEPALIVE_CONNCHECK:
-			g_value_set_boolean(value, agent->keepalive_conncheck);
-            break;
-
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-    }
-
-    agent_unlock_and_emit(agent);
 }
 
 void n_agent_init_stun_agent(n_agent_t * agent, stun_agent_t * stun_agent)
@@ -437,10 +328,8 @@ static void n_agent_reset_all_stun_agents(n_agent_t * agent, int32_t only_softwa
         }
     }
 }
-
 static void nice_agent_set_property(GObject * object, uint32_t property_id, const GValue * value, GParamSpec * pspec)
 {
-    
 }
 
 static void agent_signal_socket_writable(n_agent_t * agent, n_comp_t * comp)
@@ -679,7 +568,7 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
     uint32_t stream_id = stream->id;
     uint32_t component_id = component->id;
 
-    g_object_ref(agent);
+//    g_object_ref(agent);
 
     nice_debug("[%s]: s%d:%d pseudo Tcp socket readable", G_STRFUNC, stream->id, component->id);
 
@@ -802,7 +691,8 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
         adjust_tcp_clock(agent, stream, component);
 
 out:
-    g_object_unref(agent);
+   // g_object_unref(agent);
+	return;
 }
 
 static void pst_writable(pst_socket_t * sock, void * user_data)
@@ -912,12 +802,12 @@ static void adjust_tcp_clock(n_agent_t * agent, n_stream_t * stream, n_comp_t * 
                 if (comp->tcp_clock)
                 {
                     //g_source_set_ready_time(comp->tcp_clock, timeout * 1000);
-					timer_modify(comp->tcp_clock, (uint32_t)(timeout * 1000));
+					timer_set_mono(comp->tcp_clock, timeout * 1000);
                 }
 
                 if (comp->tcp_clock == 0)
                 {
-                    int32_t interval = (int32_t)timeout - (uint32_t)(g_get_monotonic_time() / 1000);
+                    int32_t interval = (int32_t)timeout - (uint32_t)(get_monotonic_time() / 1000);
 
                     /* Prevent integer overflows */
                     if (interval < 0 || interval > INT_MAX)
@@ -1383,8 +1273,8 @@ uint32_t n_agent_add_stream(n_agent_t * agent, uint32_t n_components)
     uint32_t ret = 0;
     uint32_t i;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), 0);
-    g_return_val_if_fail(n_components >= 1, 0);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), 0);
+    //g_return_val_if_fail(n_components >= 1, 0);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -1427,7 +1317,7 @@ int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t compo
     int32_t ret = TRUE;
     TurnServer * turn;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
     g_return_val_if_fail(component_id >= 1, FALSE);
     g_return_val_if_fail(server_ip, FALSE);
@@ -1720,7 +1610,7 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
 
     n_stream_t * stream;
 
-    g_return_if_fail(NICE_IS_AGENT(agent));
+    //g_return_if_fail(NICE_IS_AGENT(agent));
     g_return_if_fail(stream_id >= 1);
 
 	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
@@ -1762,7 +1652,7 @@ void n_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t comp
     n_stream_t * stream;
     n_comp_t * component;
 
-    g_return_if_fail(NICE_IS_AGENT(agent));
+    //g_return_if_fail(NICE_IS_AGENT(agent));
     g_return_if_fail(stream_id >= 1);
     g_return_if_fail(component_id >= 1);
 
@@ -1789,7 +1679,7 @@ int32_t n_agent_add_local_addr(n_agent_t * agent, n_addr_t * addr)
 {
     n_addr_t * dupaddr;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(addr != NULL, FALSE);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
@@ -1923,7 +1813,7 @@ int32_t n_agent_set_remote_credentials(n_agent_t * agent, uint32_t stream_id, co
     n_stream_t * stream;
     int32_t ret = FALSE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
@@ -1951,7 +1841,7 @@ int32_t n_agent_set_local_credentials(n_agent_t * agent, uint32_t stream_id, con
     n_stream_t * stream;
     int32_t ret = FALSE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
@@ -1979,10 +1869,10 @@ int32_t n_agent_get_local_credentials(n_agent_t * agent, uint32_t stream_id, cha
     n_stream_t * stream;
     int32_t ret = TRUE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     g_return_val_if_fail(stream_id >= 1, FALSE);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     stream = agent_find_stream(agent, stream_id);
@@ -2042,13 +1932,13 @@ int32_t n_agent_set_remote_cands(n_agent_t * agent, uint32_t stream_id, uint32_t
     n_stream_t * stream;
     n_comp_t * component;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), 0);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), 0);
     g_return_val_if_fail(stream_id >= 1, 0);
     g_return_val_if_fail(component_id >= 1, 0);
 
     nice_debug("[%s]: set_remote_candidates %d %d", G_STRFUNC, stream_id, component_id);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
@@ -2558,7 +2448,7 @@ done:
 int32_t n_agent_send_msgs_nonblocking(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,
         const n_output_msg_t * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
 {
-    g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
     g_return_val_if_fail(stream_id >= 1, -1);
     g_return_val_if_fail(component_id >= 1, -1);
     g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
@@ -2577,12 +2467,12 @@ int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t component_i
     n_output_msg_t local_message = { &local_buf, 1 };
     int32_t n_sent_bytes;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
-    g_return_val_if_fail(stream_id >= 1, -1);
-    g_return_val_if_fail(component_id >= 1, -1);
-    g_return_val_if_fail(buf != NULL, -1);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
+    //g_return_val_if_fail(stream_id >= 1, -1);
+    //g_return_val_if_fail(component_id >= 1, -1);
+    //g_return_val_if_fail(buf != NULL, -1);
 
-    n_sent_bytes = n_send_msgs_nonblock_internal(agent, stream_id, component_id, &local_message, 1, TRUE, NULL);
+    n_sent_bytes = n_send_msgs_nonblock_internal(agent, stream_id, component_id, &local_message, 1, FALSE, NULL);
 
     return n_sent_bytes;
 }
@@ -2593,7 +2483,7 @@ n_slist_t * n_agent_get_local_cands(n_agent_t * agent, uint32_t stream_id, uint3
 	n_slist_t * ret = NULL;
 	n_slist_t * item = NULL;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
     g_return_val_if_fail(stream_id >= 1, NULL);
     g_return_val_if_fail(component_id >= 1, NULL);
 
@@ -2619,7 +2509,7 @@ n_slist_t * n_agent_get_remote_cands(n_agent_t * agent, uint32_t stream_id, uint
     n_comp_t * component;
     n_slist_t * ret = NULL, *item = NULL;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
     g_return_val_if_fail(stream_id >= 1, NULL);
     g_return_val_if_fail(component_id >= 1, NULL);
 
@@ -2690,14 +2580,14 @@ done:
 static void n_agent_dispose(GObject * object)
 {
 	n_slist_t * i;
-    QueuedSignal * sig;
+    //QueuedSignal * sig;
     n_agent_t * agent = NICE_AGENT(object);
 
     /* step: free resources for the binding discovery timers */
     disc_free(agent);
-    g_assert(agent->discovery_list == NULL);
+    //g_assert(agent->discovery_list == NULL);
     refresh_free(agent);
-    g_assert(agent->refresh_list == NULL);
+    //g_assert(agent->refresh_list == NULL);
 
     /* step: free resources for the connectivity check timers */
     cocheck_free(agent);
@@ -2725,10 +2615,10 @@ static void n_agent_dispose(GObject * object)
     n_slist_free(agent->streams_list);
     agent->streams_list = NULL;
 
-    while ((sig = n_queue_pop_head(&agent->pending_signals)))
+    /*while ((sig = n_queue_pop_head(&agent->pending_signals)))
     {
         free_queued_signal(sig);
-    }
+    }*/
 
 	n_free(agent->stun_server_ip);
     agent->stun_server_ip = NULL;
@@ -2736,9 +2626,9 @@ static void n_agent_dispose(GObject * object)
     nice_rng_free(agent->rng);
     agent->rng = NULL;
 
-    if (agent->main_context != NULL)
+   /* if (agent->main_context != NULL)
         g_main_context_unref(agent->main_context);
-    agent->main_context = NULL;
+    agent->main_context = NULL;*/
 
     if (G_OBJECT_CLASS(nice_agent_parent_class)->dispose)
         G_OBJECT_CLASS(nice_agent_parent_class)->dispose(object);
@@ -2765,23 +2655,25 @@ int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * user_data)
 	};
 	n_recv_status_t retval = 0;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
+/*
     if (g_source_is_destroyed(g_main_current_source()))
     {
-        /* Silently return FALSE. */
+        / * Silently return FALSE. * /
         nice_debug("[%s]: source %p destroyed", G_STRFUNC, g_main_current_source());
 
         agent_unlock();
         return G_SOURCE_REMOVE;
     }
+*/
 
     component = socket_source->component;
     agent = component->agent;
     stream = component->stream;
 
-    g_object_ref(agent);
+    //g_object_ref(agent);
 
     /* Remove disconnected sockets when we get a HUP */
     if (condition & G_IO_HUP)
@@ -2877,7 +2769,7 @@ done:
         agent_unlock();
     }
 
-    g_object_unref(agent);
+   // g_object_unref(agent);
 
     return !remove_source;
 
@@ -2893,11 +2785,11 @@ int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp
     n_stream_t * stream = NULL;
     int32_t ret = FALSE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
-    g_return_val_if_fail(component_id >= 1, FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(component_id >= 1, FALSE);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     /* attach candidates */
@@ -2905,7 +2797,7 @@ int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp
     /* step: check that params specify an existing pair */
     if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
     {
-        g_warning("Could not find component %u in stream %u", component_id, stream_id);
+        nice_debug("Could not find component %u in stream %u", component_id, stream_id);
         goto done;
     }
 
@@ -2941,11 +2833,11 @@ int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     n_cand_pair_t pair;
     int32_t ret = FALSE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
-    g_return_val_if_fail(component_id >= 1, FALSE);
-    g_return_val_if_fail(lfoundation, FALSE);
-    g_return_val_if_fail(rfoundation, FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(component_id >= 1, FALSE);
+    //g_return_val_if_fail(lfoundation, FALSE);
+    //g_return_val_if_fail(rfoundation, FALSE);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -2992,13 +2884,13 @@ int32_t n_agent_get_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     n_stream_t * stream;
     int32_t ret = FALSE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
-    g_return_val_if_fail(component_id >= 1, FALSE);
-    g_return_val_if_fail(local != NULL, FALSE);
-    g_return_val_if_fail(remote != NULL, FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(component_id >= 1, FALSE);
+    //g_return_val_if_fail(local != NULL, FALSE);
+    //g_return_val_if_fail(remote != NULL, FALSE);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     /* step: check that params specify an existing pair */
@@ -3018,48 +2910,6 @@ done:
     return ret;
 }
 
-GSocket * n_agent_get_selected_socket(n_agent_t * agent, uint32_t stream_id, uint32_t component_id)
-{
-    n_comp_t * component;
-    n_stream_t * stream;
-    n_socket_t * nice_socket;
-    GSocket * g_socket = NULL;
-
-    g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
-    g_return_val_if_fail(stream_id >= 1, NULL);
-    g_return_val_if_fail(component_id >= 1, NULL);
-
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-	agent_lock();
-
-    /* Reliable streams are pseudotcp or MUST use RFC 4571 framing */
-    if (agent->reliable)
-        goto done;
-
-    /* step: check that params specify an existing pair */
-    if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
-        goto done;
-
-    if (!component->selected_pair.local || !component->selected_pair.remote)
-        goto done;
-
-    if (component->selected_pair.local->type == CAND_TYPE_RELAYED)
-        goto done;
-
-    /* ICE-TCP requires RFC4571 framing, even if unreliable */
-    if (component->selected_pair.local->transport != CAND_TRANS_UDP)
-        goto done;
-
-    nice_socket = (n_socket_t *)component->selected_pair.local->sockptr;
-    if (nice_socket->fileno)
-        g_socket = g_object_ref(nice_socket->fileno);
-
-done:
-    agent_unlock_and_emit(agent);
-
-    return g_socket;
-}
-
 int32_t n_agent_set_selected_rcand(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t * candidate)
 {
     n_comp_t * component;
@@ -3069,12 +2919,12 @@ int32_t n_agent_set_selected_rcand(n_agent_t * agent, uint32_t stream_id, uint32
     n_cand_t * local = NULL, *remote = NULL;
     guint64 priority;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id != 0, FALSE);
-    g_return_val_if_fail(component_id != 0, FALSE);
-    g_return_val_if_fail(candidate != NULL, FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(stream_id != 0, FALSE);
+    //g_return_val_if_fail(component_id != 0, FALSE);
+    //g_return_val_if_fail(candidate != NULL, FALSE);
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     /* step: check if the component exists*/
@@ -3136,8 +2986,8 @@ void n_agent_set_stream_tos(n_agent_t * agent, uint32_t stream_id, int32_t tos)
     n_slist_t * i, *j;
     n_stream_t * stream;
 
-    g_return_if_fail(NICE_IS_AGENT(agent));
-    g_return_if_fail(stream_id >= 1);
+    //g_return_if_fail(NICE_IS_AGENT(agent));
+    //g_return_if_fail(stream_id >= 1);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -3169,9 +3019,9 @@ int32_t n_agent_set_stream_name(n_agent_t * agent, uint32_t stream_id, const cha
 	n_slist_t * i;
     int32_t ret = FALSE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
-    g_return_val_if_fail(name, FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(name, FALSE);
 
     if (strcmp(name, "audio") &&
             strcmp(name, "video") &&
@@ -3220,8 +3070,8 @@ const char * n_agent_get_stream_name(n_agent_t * agent, uint32_t stream_id)
     n_stream_t * stream;
     char * name = NULL;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
-    g_return_val_if_fail(stream_id >= 1, NULL);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
+    //g_return_val_if_fail(stream_id >= 1, NULL);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -3242,9 +3092,9 @@ int32_t n_agent_forget_relays(n_agent_t * agent, uint32_t stream_id, uint32_t co
     n_comp_t * component;
     int32_t ret = TRUE;
 
-    g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
-    g_return_val_if_fail(component_id >= 1, FALSE);
+    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(component_id >= 1, FALSE);
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -3287,7 +3137,7 @@ n_comp_state_e n_agent_get_comp_state(n_agent_t * agent, uint32_t stream_id, uin
     n_comp_state_e state = COMP_STATE_FAILED;
     n_comp_t * component;
 
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
 
     if (agent_find_comp(agent, stream_id, component_id, NULL, &component))

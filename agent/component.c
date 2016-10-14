@@ -69,7 +69,7 @@ n_comp_t * component_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
 {
     n_comp_t * component;
 
-    g_atomic_int_inc(&n_components_created);
+    atomic_int_inc(&n_components_created);
     nice_debug("[%s]: created component (%u created, %u destroyed)", G_STRFUNC, n_components_created, n_components_destroyed);
 
     component = n_slice_new0(n_comp_t);
@@ -255,9 +255,9 @@ void component_close(n_comp_t * comp)
 void component_free(n_comp_t * cmp)
 {
     /* n_comp_t should have been closed already. */
-    g_warn_if_fail(cmp->local_candidates == NULL);
-    g_warn_if_fail(cmp->remote_candidates == NULL);
-    g_warn_if_fail(cmp->incoming_checks == NULL);
+    //g_warn_if_fail(cmp->local_candidates == NULL);
+    //g_warn_if_fail(cmp->remote_candidates == NULL);
+    //g_warn_if_fail(cmp->incoming_checks == NULL);
 
     g_clear_object(&cmp->tcp);
     g_clear_object(&cmp->stop_cancellable);
@@ -278,11 +278,10 @@ void component_free(n_comp_t * cmp)
 
     g_main_context_unref(cmp->own_ctx);
 
-    g_slice_free(n_comp_t, cmp);
+    n_slice_free(n_comp_t, cmp);
 
-    g_atomic_int_inc(&n_components_destroyed);
-    nice_debug("Destroyed NiceComponent (%u created, %u destroyed)",
-               n_components_created, n_components_destroyed);
+    atomic_int_inc(&n_components_destroyed);
+    nice_debug("Destroyed NiceComponent (%u created, %u destroyed)", n_components_created, n_components_destroyed);
 }
 
 /*
@@ -371,8 +370,8 @@ component_restart(n_comp_t * cmp)
  */
 void comp_update_selected_pair(n_comp_t * comp, const n_cand_pair_t * pair)
 {
-    g_assert(comp);
-    g_assert(pair);
+    //g_assert(comp);
+    //g_assert(pair);
     nice_debug("[%s]: setting SELECTED PAIR for component %u: %s:%s (prio:%"
                G_GUINT64_FORMAT ")", G_STRFUNC, comp->id, pair->local->foundation,
                pair->remote->foundation, pair->priority);
@@ -432,7 +431,7 @@ n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, n_comp_t * component
     guint64 priority = 0;
     n_slist_t  * item = NULL;
 
-    g_assert(candidate != NULL);
+    //g_assert(candidate != NULL);
 
     for (item = component->local_candidates; item; item = n_slist_next(item))
     {
@@ -489,10 +488,10 @@ void component_attach_socket(n_comp_t * component, n_socket_t * nicesock)
     n_slist_t  * l;
     SocketSource * socket_source;
 
-    g_assert(component != NULL);
-    g_assert(nicesock != NULL);
+    //g_assert(component != NULL);
+    //g_assert(nicesock != NULL);
 
-    g_assert(component->ctx != NULL);
+    //g_assert(component->ctx != NULL);
 
     if (nicesock->fileno == NULL)
         return;
@@ -510,7 +509,7 @@ void component_attach_socket(n_comp_t * component, n_socket_t * nicesock)
     }
     else
     {
-        socket_source = g_slice_new0(SocketSource);
+        socket_source = n_slice_new0(SocketSource);
         socket_source->socket = nicesock;
         socket_source->component = component;
         component->socket_sources = n_slist_prepend(component->socket_sources, socket_source);
@@ -526,8 +525,7 @@ void component_attach_socket(n_comp_t * component, n_socket_t * nicesock)
  *
  * Must *not* take the agent lock, since it?s called from within
  * comp_set_io_context(), which holds the n_comp_t?s I/O lock. */
-static void
-component_reattach_all_sockets(n_comp_t * component)
+static void component_reattach_all_sockets(n_comp_t * component)
 {
     n_slist_t  * i;
 
@@ -550,8 +548,7 @@ component_reattach_all_sockets(n_comp_t * component)
  *
  * If the @socket doesn?t exist in this @component, do nothing.
  */
-void
-component_detach_socket(n_comp_t * component, n_socket_t * nicesock)
+void component_detach_socket(n_comp_t * component, n_socket_t * nicesock)
 {
     n_slist_t  * l;
     SocketSource * socket_source;
@@ -694,7 +691,7 @@ IOCallbackData * io_callback_data_new(const uint8_t * buf, uint32_t buf_len)
 {
     IOCallbackData * data;
 
-    data = g_slice_new0(IOCallbackData);
+    data = n_slice_new0(IOCallbackData);
     data->buf = g_memdup(buf, buf_len);
     data->buf_len = buf_len;
     data->offset = 0;
@@ -705,7 +702,7 @@ IOCallbackData * io_callback_data_new(const uint8_t * buf, uint32_t buf_len)
 void io_callback_data_free(IOCallbackData * data)
 {
     n_free(data->buf);
-    g_slice_free(IOCallbackData, data);
+    n_slice_free(IOCallbackData, data);
 }
 
 /* This is called with the global agent lock released. It does not take that
@@ -760,8 +757,7 @@ static int emit_io_callback_cb(void * user_data)
                     io_user_data);
 
         /* Check for the user destroying things underneath our feet. */
-        if (!agent_find_comp(agent, stream_id, component_id,
-                                  NULL, &component))
+        if (!agent_find_comp(agent, stream_id, component_id, NULL, &component))
         {
             nice_debug("%s: Agent or component destroyed.", G_STRFUNC);
             goto done;
@@ -790,9 +786,9 @@ void component_emit_io_callback(n_comp_t * component,  const uint8_t * buf, uint
     n_agent_recv_func io_callback;
     void * io_user_data;
 
-    g_assert(component != NULL);
-    g_assert(buf != NULL);
-    g_assert(buf_len > 0);
+    //g_assert(component != NULL);
+    //g_assert(buf != NULL);
+    //g_assert(buf_len > 0);
 
     agent = component->agent;
     stream_id = component->stream->id;
@@ -808,10 +804,10 @@ void component_emit_io_callback(n_comp_t * component,  const uint8_t * buf, uint
     if (io_callback == NULL)
         return;
 
-    g_assert(NICE_IS_AGENT(agent));
-    g_assert(stream_id > 0);
-    g_assert(component_id > 0);
-    g_assert(io_callback != NULL);
+    //g_assert(NICE_IS_AGENT(agent));
+    //g_assert(stream_id > 0);
+    //g_assert(component_id > 0);
+    //g_assert(io_callback != NULL);
 
     /* Only allocate a closure if the callback is being deferred to an idle
      * handler. */
@@ -820,7 +816,7 @@ void component_emit_io_callback(n_comp_t * component,  const uint8_t * buf, uint
         /* Thread owns the main context, so invoke the callback directly. */
         agent_unlock_and_emit(agent);
         io_callback(agent, stream_id, component_id, buf_len, (gchar *) buf, io_user_data);
-		nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+		//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
         agent_lock();
     }
     else
@@ -846,8 +842,7 @@ static void component_schedule_io_callback(n_comp_t * component)
     GSource * source;
 
     /* Already scheduled or nothing to schedule? */
-    if (component->io_callback_id != 0 ||
-            n_queue_is_empty(&component->pending_io_messages))
+    if (component->io_callback_id != 0 || n_queue_is_empty(&component->pending_io_messages))
         return;
 
     /* Add the idle callback. If n_agent_attach_recv() is called with a
@@ -886,7 +881,7 @@ TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const
     }
     else
     {
-        g_slice_free(TurnServer, turn);
+        n_slice_free(TurnServer, turn);
         return NULL;
     }
     turn->username = g_strdup(username);
@@ -910,6 +905,6 @@ void turn_server_unref(TurnServer * turn)
     {
         n_free(turn->username);
         n_free(turn->password);
-        g_slice_free(TurnServer, turn);
+        n_slice_free(TurnServer, turn);
     }
 }

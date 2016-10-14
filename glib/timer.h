@@ -36,6 +36,8 @@ int32_t timer_stop(int32_t handle);
 
 int32_t timer_modify(int32_t handle, uint32_t interval);
 
+int32_t timer_set_mono(int32_t handle, int64_t ticks);
+
 int32_t timer_destroy(int32_t handle);
 
 int32_t timer_close(int32_t handle);

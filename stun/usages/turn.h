@@ -232,8 +232,7 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
         struct sockaddr_storage * relay_addr, socklen_t * relay_addrlen,
         struct sockaddr_storage * addr, socklen_t * addrlen,
         struct sockaddr_storage * alternate_server, socklen_t * alternate_server_len,
-        uint32_t * bandwidth, uint32_t * lifetime,
-        StunUsageTurnCompatibility compatibility);
+        uint32_t * bandwidth, uint32_t * lifetime);
 
 /**
  * stun_usage_turn_refresh_process:
@@ -248,7 +247,6 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
  * means the Refresh was successful, but no relay address is given (kept the same
  * as for the original allocation)
  */
-StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg,
-        uint32_t * lifetime, StunUsageTurnCompatibility compatibility);
+StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg, uint32_t * lifetime);
 
 #endif

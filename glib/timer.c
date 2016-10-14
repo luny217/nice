@@ -28,6 +28,7 @@
 typedef struct
 {
 	int32_t once, ticks, interval, enable;
+	int64_t mono_ticks;
 	notifycallback func;
 	void * data;
 	char identify[MAX_ID_LEN];
@@ -80,6 +81,16 @@ static void _timer_loop(void *arg)
 		for (i = fd->timer_list; i; i = i->next)
 		{
 			n_timer = (n_timer_t *) i->data;
+
+			if (n_timer->mono_ticks && n_timer->enable)
+			{
+				if ((get_monotonic_time() - n_timer->mono_ticks <= 0) && n_timer->enable)
+				{
+					n_timer->func(n_timer->data);					
+					n_timer->mono_ticks = 0;
+				}
+			}
+			
 			if (n_timer->ticks && n_timer->enable)
 			{
 				n_timer->ticks -= step;
@@ -87,7 +98,7 @@ static void _timer_loop(void *arg)
 			if (n_timer->ticks <= 0 && n_timer->enable)
 			{
 				n_timer->func(n_timer->data);
-				
+
 				if (n_timer->once)
 				{
 					timer_stop((int32_t)n_timer);
@@ -96,7 +107,7 @@ static void _timer_loop(void *arg)
 				{
 					n_timer->ticks += n_timer->interval;
 				}
-			}			
+			}
 		}
 	}
 	printf("_timer_loop exit\n");
@@ -161,6 +172,7 @@ int32_t timer_init(int32_t handle, int32_t  once, uint32_t interval, notifycallb
 	{
 		n_timer->once = once;
 		n_timer->interval = n_timer->ticks = interval;
+		n_timer->mono_ticks = 0;
 		n_timer->data = data;
 		n_timer->func = func;
 		n_timer->enable = FALSE;
@@ -205,6 +217,7 @@ int32_t timer_stop(int32_t handle)
 	{
 		n_timer->enable = FALSE;
 		n_timer->ticks = n_timer->interval;
+		n_timer->mono_ticks = 0;
 		printf("[%s] timer is stop \n", n_timer->identify);
 		return 0;
 	}
@@ -218,8 +231,22 @@ int32_t timer_modify(int32_t handle, uint32_t interval)
 
 	if (n_timer != NULL && n_timer->enable == TRUE)
 	{
-		printf("[%s] timer is modify from  %d to %d\n", n_timer->identify, n_timer->interval, interval);
+		printf("[%s] timer is modify from  %d to %lu\n", n_timer->identify, n_timer->interval, interval);
 		n_timer->ticks = n_timer->interval = interval;		
+		return 0;
+	}
+	return -1;
+}
+
+int32_t timer_set_mono(int32_t handle, int64_t ticks)
+{
+	n_timer_fd_t * fd = &timer_fd;
+	n_timer_t * n_timer = (n_timer_t *)handle;
+
+	if (n_timer != NULL && n_timer->enable == TRUE)
+	{
+		printf("[%s] timer set monotonic_time %lld\n", n_timer->identify, ticks);
+		n_timer->mono_ticks = ticks;
 		return 0;
 	}
 	return -1;

@@ -181,8 +181,7 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
         struct sockaddr_storage * relay_addr, socklen_t * relay_addrlen,
         struct sockaddr_storage * addr, socklen_t * addrlen,
         struct sockaddr_storage * alternate_server, socklen_t * alternate_server_len,
-        uint32_t * bandwidth, uint32_t * lifetime,
-        StunUsageTurnCompatibility compatibility)
+        uint32_t * bandwidth, uint32_t * lifetime)
 {
     int val, code = -1;
     StunUsageTurnReturn ret = STUN_TURN_RET_RELAY_SUCCESS;
@@ -246,74 +245,17 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
 
     stun_debug("Received %u-bytes TURN message", stun_msg_len(msg));
 
-    if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_DRAFT9 ||
-            compatibility == STUN_USAGE_TURN_COMPATIBILITY_RFC5766)
-    {
-        val = stun_msg_find_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, addr, addrlen);
+	val = stun_msg_find_xor_addr(msg, STUN_ATT_XOR_MAPPED_ADDRESS, addr, addrlen);
 
-        if (val == STUN_MSG_RET_SUCCESS)
-            ret = STUN_TURN_RET_MAPPED_SUCCESS;
-        val = stun_msg_find_xor_addr(msg, STUN_ATT_RELAY_ADDRESS, relay_addr, relay_addrlen);
-        if (val != STUN_MSG_RET_SUCCESS)
-        {
-            stun_debug(" No RELAYED-ADDRESS: %d", val);
-            return STUN_TURN_RET_ERROR;
-        }
-    }
-    else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_GOOGLE)
-    {
-        val = stun_msg_find_addr(msg,
-                                     STUN_ATT_MAPPED_ADDRESS, relay_addr, relay_addrlen);
-        if (val != STUN_MSG_RET_SUCCESS)
-        {
-            stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_TURN_RET_ERROR;
-        }
-    }
-    else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_MSN)
-    {
-        val = stun_msg_find_addr(msg,
-                                     STUN_ATT_MSN_MAPPED_ADDRESS, addr, addrlen);
-
-        if (val == STUN_MSG_RET_SUCCESS)
-            ret = STUN_TURN_RET_MAPPED_SUCCESS;
-
-        val = stun_msg_find_addr(msg,
-                                     STUN_ATT_MAPPED_ADDRESS, relay_addr, relay_addrlen);
-        if (val != STUN_MSG_RET_SUCCESS)
-        {
-            stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_TURN_RET_ERROR;
-        }
-    }
-    else if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_OC2007)
-    {
-        union
-        {
-            stun_trans_id id;
-            uint32_t u32[4];
-        } transid;
-        uint32_t magic_cookie;
-
-        stun_msg_id(msg, transid.id);
-        magic_cookie = transid.u32[0];
-
-        val = stun_msg_find_xor_addr_full(msg,
-                                              STUN_ATT_MS_XOR_MAPPED_ADDRESS, addr, addrlen,
-                                              htonl(magic_cookie));
-
-        if (val == STUN_MSG_RET_SUCCESS)
-            ret = STUN_TURN_RET_MAPPED_SUCCESS;
-
-        val = stun_msg_find_addr(msg,
-                                     STUN_ATT_MAPPED_ADDRESS, relay_addr, relay_addrlen);
-        if (val != STUN_MSG_RET_SUCCESS)
-        {
-            stun_debug(" No MAPPED-ADDRESS: %d", val);
-            return STUN_TURN_RET_ERROR;
-        }
-    }
-
+	if (val == STUN_MSG_RET_SUCCESS)
+		ret = STUN_TURN_RET_MAPPED_SUCCESS;
+	val = stun_msg_find_xor_addr(msg, STUN_ATT_RELAY_ADDRESS, relay_addr, relay_addrlen);
+	if (val != STUN_MSG_RET_SUCCESS)
+	{
+		stun_debug(" No RELAYED-ADDRESS: %d", val);
+		return STUN_TURN_RET_ERROR;
+	}
+   
     stun_msg_find32(msg, STUN_ATT_LIFETIME, lifetime);
     stun_msg_find32(msg, STUN_ATT_BANDWIDTH, bandwidth);
 
@@ -324,24 +266,14 @@ StunUsageTurnReturn stun_usage_turn_process(stun_msg_t * msg,
 
 
 
-StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg,
-        uint32_t * lifetime, StunUsageTurnCompatibility compatibility)
+StunUsageTurnReturn stun_usage_turn_refresh_process(stun_msg_t * msg, uint32_t * lifetime)
 {
     int code = -1;
     StunUsageTurnReturn ret = STUN_TURN_RET_RELAY_SUCCESS;
 
-    if (compatibility == STUN_USAGE_TURN_COMPATIBILITY_DRAFT9 ||
-            compatibility == STUN_USAGE_TURN_COMPATIBILITY_RFC5766)
-    {
-        if (stun_msg_get_method(msg) != STUN_REFRESH)
-            return STUN_TURN_RET_INVALID;
-    }
-    else
-    {
-        if (stun_msg_get_method(msg) != STUN_ALLOCATE)
-            return STUN_TURN_RET_INVALID;
-    }
-
+    if (stun_msg_get_method(msg) != STUN_REFRESH)
+        return STUN_TURN_RET_INVALID;
+    
     switch (stun_msg_get_class(msg))
     {
         case STUN_REQUEST:

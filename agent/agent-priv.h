@@ -5,8 +5,8 @@
 
 /* note: this is a private header part of agent.h */
 
-#include <config.h>
-#include <glib.h>
+//#include <config.h>
+//#include <glib.h>
 #include <stdint.h>
 
 #include "agent.h"
@@ -78,7 +78,6 @@ uint32_t n_input_msg_iter_get_n_valid_msgs(NiceInputMessageIter * iter);
 
 struct _agent_st
 {
-    GObject parent;                 /* gobject pointer */
     int32_t full_mode;             /* property: full-mode */
     n_timeval_t next_check_tv;         /* property: next conncheck timestamp */
     char * stun_server_ip;         /* property: STUN server IP */
@@ -88,7 +87,6 @@ struct _agent_st
     uint32_t max_conn_checks;          /* property: max connectivity checks */
 	n_slist_t * local_addresses;        /* list of NiceAddresses for local interfaces */
 	n_slist_t * streams_list;               /* list of n_stream_t objects */
-    GMainContext * main_context;    /* main context pointer */
     uint32_t next_candidate_id;        /* id of next created candidate */
     uint32_t next_stream_id;           /* id of next created candidate */
     NiceRNG * rng;                  /* random number generator */
@@ -123,7 +121,6 @@ void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate);
 void agent_sig_new_remote_cand(n_agent_t * agent, n_cand_t * candidate);
 void agent_sig_initial_binding_request_received(n_agent_t * agent, n_stream_t * stream);
 uint64_t agent_candidate_pair_priority(n_agent_t * agent, n_cand_t * local, n_cand_t * remote);
-StunUsageTurnCompatibility agent_to_turn_compatibility(n_agent_t * agent);
 void agent_remove_local_candidate(n_agent_t * agent, n_cand_t * candidate);
 void n_agent_init_stun_agent(n_agent_t * agent, stun_agent_t * stun_agent);
 void _set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos);
