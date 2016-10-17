@@ -8,7 +8,7 @@
 #include <config.h>
 #include <errno.h>
 #include <string.h>
-#include <glib.h>
+//#include <glib.h>
 #include "debug.h"
 #include "agent.h"
 #include "agent-priv.h"

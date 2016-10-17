@@ -1318,13 +1318,13 @@ int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t compo
     TurnServer * turn;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
+    /*g_return_val_if_fail(stream_id >= 1, FALSE);
     g_return_val_if_fail(component_id >= 1, FALSE);
     g_return_val_if_fail(server_ip, FALSE);
     g_return_val_if_fail(server_port, FALSE);
     g_return_val_if_fail(username, FALSE);
     g_return_val_if_fail(password, FALSE);
-    g_return_val_if_fail(type <= RELAY_TYPE_TURN_TLS, FALSE);
+    g_return_val_if_fail(type <= RELAY_TYPE_TURN_TLS, FALSE);*/
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -2430,12 +2430,12 @@ static int32_t n_send_msgs_nonblock_internal(n_agent_t * agent, uint32_t stream_
     //nice_debug("[%s]: n_sent: %d, n_messages: %u", G_STRFUNC,  n_sent, n_messages);
 
 done:
-    g_assert((child_error != NULL) == (n_sent == -1));
+    /*g_assert((child_error != NULL) == (n_sent == -1));
     g_assert(n_sent != 0);
     g_assert(n_sent < 0 ||
              (!allow_partial && (uint32_t) n_sent <= n_messages) ||
              (allow_partial && n_messages == 1 &&
-              (uint32_t) n_sent <= output_message_get_size(&messages[0])));
+              (uint32_t) n_sent <= output_message_get_size(&messages[0])));*/
 
     if (child_error != NULL)
         g_propagate_error(error, child_error);
@@ -2449,11 +2449,11 @@ int32_t n_agent_send_msgs_nonblocking(n_agent_t * agent, uint32_t stream_id, uin
         const n_output_msg_t * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
 {
     //g_return_val_if_fail(NICE_IS_AGENT(agent), -1);
-    g_return_val_if_fail(stream_id >= 1, -1);
+    /*g_return_val_if_fail(stream_id >= 1, -1);
     g_return_val_if_fail(component_id >= 1, -1);
     g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
     g_return_val_if_fail(cancellable == NULL || G_IS_CANCELLABLE(cancellable), -1);
-    g_return_val_if_fail(error == NULL || *error == NULL, -1);
+    g_return_val_if_fail(error == NULL || *error == NULL, -1);*/
 
     if (g_cancellable_set_error_if_cancelled(cancellable, error))
         return -1;
@@ -2484,8 +2484,8 @@ n_slist_t * n_agent_get_local_cands(n_agent_t * agent, uint32_t stream_id, uint3
 	n_slist_t * item = NULL;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
-    g_return_val_if_fail(stream_id >= 1, NULL);
-    g_return_val_if_fail(component_id >= 1, NULL);
+    /*g_return_val_if_fail(stream_id >= 1, NULL);
+    g_return_val_if_fail(component_id >= 1, NULL);*/
 
 	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -2510,8 +2510,8 @@ n_slist_t * n_agent_get_remote_cands(n_agent_t * agent, uint32_t stream_id, uint
     n_slist_t * ret = NULL, *item = NULL;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
-    g_return_val_if_fail(stream_id >= 1, NULL);
-    g_return_val_if_fail(component_id >= 1, NULL);
+    /*g_return_val_if_fail(stream_id >= 1, NULL);
+    g_return_val_if_fail(component_id >= 1, NULL);*/
 
 	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
 	agent_lock();
@@ -2701,7 +2701,7 @@ int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * user_data)
      * has_io_callback cannot change throughout this function, as we operate
      * entirely with the agent lock held, and comp_set_io_callback() would
      * need to take the agent lock to change the n_comp_t's io_callback. */
-    g_assert(!has_io_callback || component->recv_messages == NULL);    
+    //g_assert(!has_io_callback || component->recv_messages == NULL);    
         
     /* FIXME: Currently, the critical path for reliable packet delivery has two
         * memcpy()s: one into the pseudo-TCP receive buffer, and one out of it.

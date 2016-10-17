@@ -468,7 +468,6 @@ end:
     return result;
 }
 
-
 static int parse_remote_data(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, char * line)
 {
     n_slist_t  * remote_candidates = NULL;
@@ -536,40 +535,6 @@ end:
     return result;
 }
 
-#if 0
-int main(int argc, char * argv[])
-{
-	char write_file[] = "wtest.dat";
-
-	g_networking_init();
-
-	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
-
-	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
-	{
-		printf("Open %s failed:%s\n", write_file, strerror(errno));
-		return -1;
-	}
-
-	uv_loop_t  * loop = uv_default_loop();
-	uv_thread_t  tid;
-	int ret = -1;
-
-	ret = uv_thread_create(&tid, (uv_thread_cb)nice_thread, NULL);
-
-	/* Start the event loop.  Control continues in do_bind(). */
-	if (uv_run(loop, UV_RUN_DEFAULT))
-	{
-		abort();
-	}
-
-	uv_thread_join(&tid);
-
-	uv_loop_delete(loop);
-
-	return EXIT_SUCCESS;
-}
-#else
 int main(int argc, char * argv[])
 {
 	//GThread * gexamplethread;
@@ -611,4 +576,3 @@ int main(int argc, char * argv[])
 
 	return EXIT_SUCCESS;
 }
-#endif
