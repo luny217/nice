@@ -129,7 +129,7 @@ void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6)
 
 void nice_address_set_port(n_addr_t * addr, uint32_t port)
 {
-    g_assert(addr);
+    //g_assert(addr);
 
     switch (addr->s.addr.sa_family)
     {
@@ -211,7 +211,7 @@ void nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * _sa)
 
     sa.addr = _sa;
 
-    g_assert(_sa);
+    //g_assert(_sa);
 
     switch (addr->s.addr.sa_family)
     {
@@ -222,7 +222,7 @@ void nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * _sa)
             memcpy(sa.in6, &addr->s.ip6, sizeof(*sa.in6));
             break;
         default:
-            g_return_if_reached();
+			break;
     }
 }
 
@@ -237,7 +237,7 @@ void nice_address_to_string(const n_addr_t * addr, char * dst)
             inet_ntop(AF_INET6, &addr->s.ip6.sin6_addr, dst, INET6_ADDRSTRLEN);
             break;
         default:
-            g_return_if_reached();
+			break;
     }
 }
 
@@ -259,14 +259,14 @@ int nice_address_equal(const n_addr_t * a, const n_addr_t * b)
                    && (a->s.ip6.sin6_scope_id == b->s.ip6.sin6_scope_id);
 
         default:
-            g_return_val_if_reached(FALSE);
+			return FALSE;
     }
 }
 
 
 n_addr_t * nice_address_dup(const n_addr_t * a)
 {
-    n_addr_t * dup = g_slice_new0(n_addr_t);
+    n_addr_t * dup = n_slice_new0(n_addr_t);
 
     *dup = *a;
     return dup;
@@ -321,7 +321,7 @@ int nice_address_is_private(const n_addr_t * a)
         case AF_INET6:
             return ipv6_address_is_private(a->s.ip6.sin6_addr.s6_addr);
         default:
-            g_return_val_if_reached(FALSE);
+			return FALSE;
     }
 }
 
@@ -366,6 +366,6 @@ int nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b)
                    && (a->s.ip6.sin6_scope_id == b->s.ip6.sin6_scope_id);
 
         default:
-            g_return_val_if_reached(FALSE);
+			return FALSE;
     }
 }

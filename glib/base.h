@@ -51,4 +51,6 @@ char ** n_strsplit(const char * string, const char * delimiter, uint32_t  max_to
 char ** n_strsplit_set(const char *string, const char *delimiters, int32_t max_tokens);
 
 void n_strfreev(char **str_array);
+
+void * n_memdup(const void * mem, uint32_t  byte_size);
 #endif

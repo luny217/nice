@@ -481,7 +481,7 @@ out:
  * number on error (including if the request would have blocked returning no
  * messages). */
 static int32_t
-pst_recv_messages(pst_socket_t * self, n_input_msg_t * messages, uint32_t n_messages, NiceInputMessageIter * iter, GError ** error)
+pst_recv_messages(pst_socket_t * self, n_input_msg_t * messages, uint32_t n_messages, n_input_msg_iter_t * iter, GError ** error)
 {
     for (; iter->message < n_messages; iter->message++)
     {
@@ -561,24 +561,24 @@ done:
 /* This is called with the agent lock held. */
 static void pst_readable(pst_socket_t * sock, void * user_data)
 {
-    n_comp_t * component = user_data;
-    n_agent_t * agent = component->agent;
-    n_stream_t * stream = component->stream;
+    n_comp_t * comp = user_data;
+    n_agent_t * agent = comp->agent;
+    n_stream_t * stream = comp->stream;
     int32_t has_io_callback;
     uint32_t stream_id = stream->id;
-    uint32_t component_id = component->id;
+    uint32_t comp_id = comp->id;
 
 //    g_object_ref(agent);
 
-    nice_debug("[%s]: s%d:%d pseudo Tcp socket readable", G_STRFUNC, stream->id, component->id);
+    nice_debug("[%s]: s%d:%d pseudo Tcp socket readable", G_STRFUNC, stream->id, comp->id);
 
-    component->tcp_readable = TRUE;
+    comp->tcp_readable = TRUE;
 
-    has_io_callback = component_has_io_callback(component);
+    has_io_callback = component_has_io_callback(comp);
 
     /* Only dequeue pseudo-TCP data if we can reliably inform the client. The
      * agent lock is held here, so has_io_callback can only change during
-     * component_emit_io_callback(), after which it??s re-queried. This ensures
+     * comp_emit_io_cb(), after which it??s re-queried. This ensures
      * no data loss of packets already received and dequeued. */
     if (has_io_callback)
     {
@@ -596,8 +596,8 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
             if (len == 0)
             {
                 /* Reached EOS. */
-                component->tcp_readable = FALSE;
-                pst_close(component->tcp, FALSE);
+                comp->tcp_readable = FALSE;
+                pst_close(comp->tcp, FALSE);
                 break;
             }
             else if (len < 0)
@@ -606,10 +606,10 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
                 if (pst_get_error(sock) != EWOULDBLOCK)
                 {
                     nice_debug("%s: calling _pseudo_tcp_error()", G_STRFUNC);
-                    _pseudo_tcp_error(agent, stream, component);
+                    _pseudo_tcp_error(agent, stream, comp);
                 }
 
-                if (component->recv_buf_error != NULL)
+                if (comp->recv_buf_error != NULL)
                 {
                     GIOErrorEnum error_code;
 
@@ -620,29 +620,29 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
                     else
                         error_code = G_IO_ERROR_FAILED;
 
-                    g_set_error(component->recv_buf_error, G_IO_ERROR, error_code, "Error reading data from pseudo-TCP socket.");
+                    g_set_error(comp->recv_buf_error, G_IO_ERROR, error_code, "Error reading data from pseudo-TCP socket.");
                 }
                 break;
             }
 
-            component_emit_io_callback(component, buf, len);
+            comp_emit_io_cb(comp, buf, len);
 
-            if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
+            if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
             {
                 nice_debug("n_stream_t or n_comp_t disappeared during the callback");
                 goto out;
             }
-            if (pst_is_closed(component->tcp))
+            if (pst_is_closed(comp->tcp))
             {
                 nice_debug("PseudoTCP socket got destroyed in readable callback!");
                 goto out;
             }
 
-            has_io_callback = component_has_io_callback(component);
+            has_io_callback = component_has_io_callback(comp);
         }
         while (has_io_callback);
     }
-    else if (component->recv_messages != NULL)
+    else if (comp->recv_messages != NULL)
     {
         int32_t n_valid_messages;
         GError * child_error = NULL;
@@ -651,15 +651,15 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
          * error occurs. Copy the data directly into the client's receive message
          * array without making any callbacks. Update component->recv_messages_iter
          * as we go. */
-        n_valid_messages = pst_recv_messages(sock, component->recv_messages, component->n_recv_messages,
-                           &component->recv_messages_iter, &child_error);
+        n_valid_messages = pst_recv_messages(sock, comp->recv_messages, comp->n_recv_messages,
+                           &comp->recv_messages_iter, &child_error);
 
         nice_debug("%s: Client buffers case: Received %d valid messages:", G_STRFUNC, n_valid_messages);
-        n_debug_input_msg(component->recv_messages, component->n_recv_messages);
+        n_debug_input_msg(comp->recv_messages, comp->n_recv_messages);
 
         if (n_valid_messages < 0)
         {
-            g_propagate_error(component->recv_buf_error, child_error);
+            g_propagate_error(comp->recv_buf_error, child_error);
         }
         else
         {
@@ -668,18 +668,18 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
 
         if (n_valid_messages < 0 && g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
         {
-            component->tcp_readable = FALSE;
+            comp->tcp_readable = FALSE;
         }
         else if (n_valid_messages < 0)
         {
             nice_debug("%s: calling _pseudo_tcp_error()", G_STRFUNC);
-            _pseudo_tcp_error(agent, stream, component);
+            _pseudo_tcp_error(agent, stream, comp);
         }
         else if (n_valid_messages == 0)
         {
             /* Reached EOS. */
-            component->tcp_readable = FALSE;
-            pst_close(component->tcp, FALSE);
+            comp->tcp_readable = FALSE;
+            pst_close(comp->tcp, FALSE);
         }
     }
     else
@@ -687,8 +687,8 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
         nice_debug("%s: no data read", G_STRFUNC);
     }
 
-    if (stream && component)
-        adjust_tcp_clock(agent, stream, component);
+    if (stream && comp)
+        adjust_tcp_clock(agent, stream, comp);
 
 out:
    // g_object_unref(agent);
@@ -2301,14 +2301,14 @@ static uint32_t input_message_get_size(const n_input_msg_t * message)
 
 /*
  * n_input_msg_iter_reset:
- * @iter: a #NiceInputMessageIter
+ * @iter: a #n_input_msg_iter_t
  *
  * Reset the given @iter to point to the beginning of the array of messages.
  * This may be used both to initialise it and to reset it after use.
  *
  * Since: 0.1.5
  */
-void n_input_msg_iter_reset(NiceInputMessageIter * iter)
+void n_input_msg_iter_reset(n_input_msg_iter_t * iter)
 {
     iter->message = 0;
     iter->buffer = 0;
@@ -2317,7 +2317,7 @@ void n_input_msg_iter_reset(NiceInputMessageIter * iter)
 
 /*
  * n_input_msg_iter_is_at_end:
- * @iter: a #NiceInputMessageIter
+ * @iter: a #n_input_msg_iter_t
  * @messages: (array length=n_messages): an array of #NiceInputMessages
  * @n_messages: number of entries in @messages
  *
@@ -2329,14 +2329,14 @@ void n_input_msg_iter_reset(NiceInputMessageIter * iter)
  *
  * Since: 0.1.5
  */
-int32_t n_input_msg_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * messages, uint32_t n_messages)
+int32_t n_input_msg_iter_is_at_end(n_input_msg_iter_t * iter, n_input_msg_t * messages, uint32_t n_messages)
 {
     return (iter->message == n_messages && iter->buffer == 0 && iter->offset == 0);
 }
 
 /*
  * n_input_msg_iter_get_n_valid_msgs:
- * @iter: a #NiceInputMessageIter
+ * @iter: a #n_input_msg_iter_t
  *
  * Calculate the number of valid messages in the messages array. A valid message
  * is one which contains at least one valid byte of data in its buffers.
@@ -2345,7 +2345,7 @@ int32_t n_input_msg_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * 
  *
  * Since: 0.1.5
  */
-uint32_t n_input_msg_iter_get_n_valid_msgs(NiceInputMessageIter * iter)
+uint32_t n_input_msg_iter_get_n_valid_msgs(n_input_msg_iter_t * iter)
 {
     if (iter->buffer == 0 && iter->offset == 0)
         return iter->message;
@@ -2779,9 +2779,10 @@ done:
 //    return G_SOURCE_REMOVE;
 }
 
-int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, GMainContext * ctx, n_agent_recv_func func, void * data)
+#if 1
+int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, GMainContext * ctx, n_agent_recv_func func, void * data)
 {
-    n_comp_t * component = NULL;
+    n_comp_t * comp = NULL;
     n_stream_t * stream = NULL;
     int32_t ret = FALSE;
 
@@ -2795,18 +2796,18 @@ int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp
     /* attach candidates */
 
     /* step: check that params specify an existing pair */
-    if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
+    if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
     {
-        nice_debug("Could not find component %u in stream %u", component_id, stream_id);
+        nice_debug("Could not find component %u in stream %u", comp_id, stream_id);
         goto done;
     }
 
-    if (ctx == NULL)
-        ctx = g_main_context_default();
+    /*if (ctx == NULL)
+        ctx = g_main_context_default();*/
 
     /* Set the component's I/O context. */
-    comp_set_io_context(component, ctx);
-    comp_set_io_callback(component, func, data);
+    /*comp_set_io_context(component, ctx);*/
+    comp_set_io_callback(comp, func, data);
     ret = TRUE;
 
     if (func)
@@ -2817,14 +2818,63 @@ int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp
          * next incoming data.
          * but only do this if we know we're already readable, otherwise we might
          * trigger an error in the initial, pre-connection attach. */
-        if (agent->reliable && !pst_is_closed(component->tcp) && component->tcp_readable)
-            pst_readable(component->tcp, component);
+        if (agent->reliable && !pst_is_closed(comp->tcp) && comp->tcp_readable)
+            pst_readable(comp->tcp, comp);
     }
 
 done:
     agent_unlock_and_emit(agent);
     return ret;
 }
+
+#else
+int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, GMainContext * ctx, n_agent_recv_func func, void * data)
+{
+	n_comp_t * component = NULL;
+	n_stream_t * stream = NULL;
+	int32_t ret = FALSE;
+
+	//g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
+	//g_return_val_if_fail(stream_id >= 1, FALSE);
+	//g_return_val_if_fail(component_id >= 1, FALSE);
+
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	agent_lock();
+
+	/* attach candidates */
+
+	/* step: check that params specify an existing pair */
+	if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
+	{
+		nice_debug("Could not find component %u in stream %u", component_id, stream_id);
+		goto done;
+	}
+
+	if (ctx == NULL)
+		ctx = g_main_context_default();
+
+	/* Set the component's I/O context. */
+	comp_set_io_context(component, ctx);
+	comp_set_io_callback(component, func, data);
+	ret = TRUE;
+
+	if (func)
+	{
+		/* If we got detached, maybe our readable callback didn't finish reading
+		* all available data in the pseudotcp, so we need to make sure we free
+		* our recv window, so the readable callback can be triggered again on the
+		* next incoming data.
+		* but only do this if we know we're already readable, otherwise we might
+		* trigger an error in the initial, pre-connection attach. */
+		if (agent->reliable && !pst_is_closed(component->tcp) && component->tcp_readable)
+			pst_readable(component->tcp, component);
+	}
+
+done:
+	agent_unlock_and_emit(agent);
+	return ret;
+}
+#endif
 
 int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, const char * lfoundation, const char * rfoundation)
 {

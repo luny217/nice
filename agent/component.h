@@ -18,6 +18,8 @@ typedef struct _comp_st n_comp_t;
 #include "socket.h"
 #include "nlist.h"
 #include "nqueue.h"
+#include "pthread.h"
+#include "uv.h"
 
 /* (ICE 4.1.1.1, ID-19)
  * ""For RTP-based media streams, the RTP itself has a component
@@ -34,7 +36,7 @@ struct _cand_pair_alive_st
 {
     n_agent_t * agent;
     //GSource * tick_source;
-	int32_t  tick_clock;
+    int32_t  tick_clock;
     uint32_t stream_id;
     uint32_t component_id;
     StunTimer timer;
@@ -86,7 +88,7 @@ typedef struct
  *
  * The @offset member gives the byte offset into @buf which has already been
  * sent to the client. #IOCallbackData buffers remain in the
- * #n_comp_t::pending_io_messages queue until all of their bytes have been sent
+ * #n_comp_t::pend_io_msgs queue until all of their bytes have been sent
  * to the client.
  *
  * @offset is guaranteed to be smaller than @buf_len. */
@@ -105,12 +107,12 @@ struct _comp_st
     n_comp_type_e type;
     uint32_t id;                    /* component id */
     n_comp_state_e state;
-	n_slist_t * local_candidates;   /* list of n_cand_t objs */
-	n_slist_t * remote_candidates;  /* list of n_cand_t objs */
-	n_slist_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
+    n_slist_t * local_candidates;   /* list of n_cand_t objs */
+    n_slist_t * remote_candidates;  /* list of n_cand_t objs */
+    n_slist_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
     uint32_t socket_sources_age;    /* incremented when socket_sources changes */
-	n_slist_t * incoming_checks;    /* list of n_inchk_t objs */
-	n_dlist_t * turn_servers;            /* List of TurnServer objs */
+    n_slist_t * incoming_checks;    /* list of n_inchk_t objs */
+    n_dlist_t * turn_servers;            /* List of TurnServer objs */
     n_cand_pair_t selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
     n_cand_t * restart_candidate; /* for storing active remote candidate during a restart */
     n_cand_t * turn_candidate; /* for storing active turn candidate if turn servers have been cleared */
@@ -120,44 +122,40 @@ struct _comp_st
      *
      * recv_messages and io_callback are mutually exclusive, but it is allowed for
      * both to be NULL if the n_comp_t is not currently ready to receive data. */
-    GMutex io_mutex;                  /* protects io_callback, io_user_data,
-                                         pending_io_messages and io_callback_id.
+    pthread_mutex_t io_mutex;            /* protects io_callback, io_user_data,
+                                         pend_io_msgs and io_callback_id.
                                          immutable: can be accessed without
                                          holding the agent lock; if the agent
                                          lock is to be taken, it must always be
                                          taken before this one */
+                                     
     n_agent_recv_func io_callback;    /* function called on io cb */
     void * io_user_data;            /* data passed to the io function */
-    n_queue_t pending_io_messages;       /* queue of messages which have been
+    n_queue_t pend_io_msgs;       /* queue of messages which have been
                                          received but not passed to the client
                                          in an I/O callback or recv() call yet.
                                          each element is an owned
                                          IOCallbackData */
     uint32_t io_callback_id;             /* GSource ID of the I/O callback */
+    uv_idle_t io_cb_handle;
 
-    GMainContext * own_ctx;            /* own context for GSources for this
-                                       component */
-    GMainContext * ctx;                /* context for GSources for this
-                                       component (possibly set from the app) */
+    GMainContext * own_ctx;            /* own context for GSources for this component */
+    GMainContext * ctx;                /* context for GSources for this component (possibly set from the app) */
     n_input_msg_t * recv_messages; /* unowned messages for receiving into */
     uint32_t n_recv_messages;            /* length of recv_messages */
-    NiceInputMessageIter recv_messages_iter; /* current write position in
+    n_input_msg_iter_t recv_messages_iter; /* current write position in
                                                 recv_messages */
     GError ** recv_buf_error;         /* error information about failed reads */
 
-    n_agent_t * agent;  /* unowned, immutable: can be accessed without holding the
-                      * agent lock */
-    n_stream_t * stream;  /* unowned, immutable: can be accessed without holding the
-                    * agent lock */
-
-    stun_agent_t stun_agent; /* This stun agent is used to validate all stun requests */
-
+    n_agent_t * agent;  /* unowned, immutable: can be accessed without holding the agent lock */
+    n_stream_t * stream;  /* unowned, immutable: can be accessed without holding the agent lock */
+    stun_agent_t stun_agent; /* This stun agent is used to validate all stun requests */   
 
     GCancellable * stop_cancellable;
     GSource * stop_cancellable_source; /* owned */
 
     pst_socket_t * tcp;
-	int32_t tcp_clock;
+    int32_t tcp_clock;
     uint64_t last_clock_timeout;
     int tcp_readable;
     GCancellable * tcp_writable_cancellable;
@@ -186,7 +184,7 @@ void component_free_socket_sources(n_comp_t * component);
 
 void comp_set_io_context(n_comp_t * component, GMainContext * context);
 void comp_set_io_callback(n_comp_t * component,  n_agent_recv_func func, void * user_data);
-void component_emit_io_callback(n_comp_t * component, const uint8_t * buf, uint32_t buf_len);
+void comp_emit_io_cb(n_comp_t * component, const uint8_t * buf, uint32_t buf_len);
 int component_has_io_callback(n_comp_t * component);
 void component_clean_turn_servers(n_comp_t * component);
 TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password, n_relay_type_e type);

@@ -3,10 +3,13 @@
 #ifndef _SOCKET_H
 #define _SOCKET_H
 
+#include <uv.h>
 #include "agent.h"
 #include "address.h"
 #include <gio/gio.h>
 
+
+/*
 #ifdef G_OS_WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -15,7 +18,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#endif
+#endif*/
+
+
 
 typedef struct _socket_st n_socket_t;
 
@@ -39,7 +44,8 @@ struct _socket_st
 {
     n_addr_t addr;
     NiceSocketType type;
-    GSocket * fileno;
+    //GSocket * fileno;
+	uv_udp_t  fileno;
     /* Implementations must handle any value of n_recv_messages, including 0. Iff
      * n_recv_messages is 0, recv_messages may be NULL. */
     int32_t(*recv_messages)(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);

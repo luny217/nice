@@ -41,12 +41,7 @@
 
 #include "socket.h"
 
-G_BEGIN_DECLS
-
-n_socket_t *
-nice_udp_bsd_socket_new(n_addr_t * addr);
-
-G_END_DECLS
+n_socket_t * nice_udp_bsd_socket_new(n_addr_t * addr);
 
 #endif /* _UDP_BSD_H */
 

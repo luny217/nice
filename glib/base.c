@@ -550,3 +550,29 @@ void n_strfreev(char **str_array)
 		free(str_array);
 	}
 }
+
+/**
+* n_memdup:
+* @mem: the memory to copy.
+* @byte_size: the number of bytes to copy.
+*
+* Allocates @byte_size bytes of memory, and copies @byte_size bytes into it
+* from @mem. If @mem is %NULL it returns %NULL.
+*
+* Returns: a pointer to the newly-allocated copy of the memory, or %NULL if @mem
+*  is %NULL.
+*/
+void * n_memdup(const void * mem, uint32_t  byte_size)
+{
+	void * new_mem;
+
+	if (mem)
+	{
+		new_mem = malloc(byte_size);
+		memcpy(new_mem, mem, byte_size);
+	}
+	else
+		new_mem = NULL;
+
+	return new_mem;
+}

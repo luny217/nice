@@ -19,7 +19,7 @@
 #include <agent.h>
 #include "agent-priv.h"
 #include <gio/gnetworking.h>
-//#include "uv.h"
+#include "uv.h"
 #include "event.h"
 #include "pthread.h"
 #include "timer.h"
@@ -165,7 +165,9 @@ void nice_thread(void * data)
 
     // Attach to the component to receive the data
     // Without this call, candidates cannot be gathered
-    n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
+    //n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
+
+	n_agent_attach_recv(agent, stream_id, 1, NULL, cb_nice_recv, NULL);
 
     //n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", RELAY_TYPE_TURN_UDP);
 
@@ -535,6 +537,52 @@ end:
     return result;
 }
 
+#if 1
+int main(int argc, char * argv[])
+{
+	char write_file[] = "wtest.dat";
+	uv_loop_t  * loop = uv_default_loop();
+	pthread_t tid;
+	int ret;
+
+	g_networking_init();
+	clock_win32_init();
+
+	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
+
+	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
+	{
+		printf("Open %s failed:%s\n", write_file, strerror(errno));
+		return -1;
+	}
+
+	ret = timer_open();
+
+	ret = pthread_create(&tid, 0, (void *)nice_thread, NULL);
+
+	pthread_mutex_init(&gather_mutex, NULL);
+	pthread_mutex_init(&negotiate_mutex, NULL);
+
+	pthread_cond_init(&gather_cond, NULL);
+	pthread_cond_init(&negotiate_cond, NULL);
+
+	// Run the main loop and the example thread
+	exit_thread = FALSE;
+	/* Start the event loop.  Control continues in do_bind(). */
+	if (uv_run(loop, UV_RUN_DEFAULT))
+	{
+		abort();
+	}
+
+	uv_loop_delete(loop);
+
+	exit_thread = TRUE;
+
+	pthread_join(tid, NULL);
+
+	return EXIT_SUCCESS;
+}
+#else
 int main(int argc, char * argv[])
 {
 	//GThread * gexamplethread;
@@ -558,7 +606,7 @@ int main(int argc, char * argv[])
 	ret = pthread_create(&tid, 0, (void *)nice_thread, NULL);
 
 	pthread_mutex_init(&gather_mutex, NULL);
-	pthread_mutex_init(&negotiate_mutex,NULL);
+	pthread_mutex_init(&negotiate_mutex, NULL);
 
 	pthread_cond_init(&gather_cond, NULL);
 	pthread_cond_init(&negotiate_cond, NULL);
@@ -576,3 +624,4 @@ int main(int argc, char * argv[])
 
 	return EXIT_SUCCESS;
 }
+#endif

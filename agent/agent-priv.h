@@ -14,7 +14,7 @@
 #include "nqueue.h"
 
 /**
- * NiceInputMessageIter:
+ * n_input_msg_iter_t:
  * @message: index of the message currently being written into
  * @buffer: index of the buffer currently being written into
  * @offset: byte offset into the buffer
@@ -34,11 +34,11 @@ typedef struct
     uint32_t message;
     uint32_t buffer;
     uint32_t offset;
-} NiceInputMessageIter;
+} n_input_msg_iter_t;
 
-void n_input_msg_iter_reset(NiceInputMessageIter * iter);
-int n_input_msg_iter_is_at_end(NiceInputMessageIter * iter, n_input_msg_t * messages, uint32_t n_messages);
-uint32_t n_input_msg_iter_get_n_valid_msgs(NiceInputMessageIter * iter);
+void n_input_msg_iter_reset(n_input_msg_iter_t * iter);
+int n_input_msg_iter_is_at_end(n_input_msg_iter_t * iter, n_input_msg_t * messages, uint32_t n_messages);
+uint32_t n_input_msg_iter_get_n_valid_msgs(n_input_msg_iter_t * iter);
 
 #include "socket.h"
 #include "candidate.h"
