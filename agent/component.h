@@ -75,7 +75,7 @@ void incoming_check_free(n_inchk_t * icheck);
 typedef struct
 {
     n_socket_t * socket;
-    GSource * source;
+    //GSource * source;    
     n_comp_t * component;
 } SocketSource;
 

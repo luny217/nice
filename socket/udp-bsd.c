@@ -156,7 +156,8 @@ static int32_t socket_recv_messages(n_socket_t * sock, n_input_msg_t * recv_mess
     if (sock->priv == NULL)
         return 0;
 
-    /* Read messages into recv_messages until one fails or would block, or we
+    #if 0
+/* Read messages into recv_messages until one fails or would block, or we
      * reach the end. */
     for (i = 0; i < n_recv_messages; i++)
     {
@@ -203,6 +204,7 @@ static int32_t socket_recv_messages(n_socket_t * sock, n_input_msg_t * recv_mess
         if (recvd <= 0)
             break;
     }
+#endif
 
     /* Was there an error processing the first message? */
     if (error && i == 0)

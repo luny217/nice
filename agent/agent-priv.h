@@ -85,17 +85,17 @@ struct _agent_st
     int32_t controlling_mode;      /* property: controlling-mode */
     uint32_t timer_ta;                 /* property: timer Ta */
     uint32_t max_conn_checks;          /* property: max connectivity checks */
-	n_slist_t * local_addresses;        /* list of NiceAddresses for local interfaces */
-	n_slist_t * streams_list;               /* list of n_stream_t objects */
+    n_slist_t * local_addresses;        /* list of NiceAddresses for local interfaces */
+    n_slist_t * streams_list;               /* list of n_stream_t objects */
     uint32_t next_candidate_id;        /* id of next created candidate */
     uint32_t next_stream_id;           /* id of next created candidate */
     NiceRNG * rng;                  /* random number generator */
-	n_slist_t * discovery_list;        /* list of n_cand_disc_t items */
+    n_slist_t * discovery_list;        /* list of n_cand_disc_t items */
     uint32_t disc_unsched_items;  /* number of discovery items unscheduled */
-	int32_t disc_timer;
-	int32_t cocheck_timer;
-	int32_t keepalive_timer;
-	n_slist_t * refresh_list;        /* list of n_cand_refresh_t items */
+    int32_t disc_timer;
+    int32_t cocheck_timer;
+    int32_t keepalive_timer;
+    n_slist_t * refresh_list;        /* list of n_cand_refresh_t items */
     uint64_t tie_breaker;            /* tie breaker (ICE sect 5.2 "Determining Role" ID-19) */
     int32_t media_after_tick;       /* Received media after keepalive tick */
     int32_t reliable;               /* property: reliable */
@@ -103,7 +103,7 @@ struct _agent_st
     n_queue_t pending_signals;
     int use_ice_udp;
     int use_ice_tcp;
-	int32_t n_event;
+    int32_t n_event;
     /* XXX: add pointer to internal data struct for ABI-safe extensions */
 };
 
@@ -157,38 +157,38 @@ void nice_debug(const char * fmt, ...) G_GNUC_PRINTF(1, 2);
 
 typedef struct
 {
-	uint32_t stream_id;
-	uint32_t component_id;
-	char lfoundation[CAND_MAX_FOUNDATION];
-	char rfoundation[CAND_MAX_FOUNDATION];
+    uint32_t stream_id;
+    uint32_t component_id;
+    char lfoundation[CAND_MAX_FOUNDATION];
+    char rfoundation[CAND_MAX_FOUNDATION];
 } ev_new_pair_t;
 
 typedef struct
 {
-	uint32_t stream_id;
-	uint32_t component_id;
-	n_cand_t * lcandidate;
-	n_cand_t * rcandidate;
+    uint32_t stream_id;
+    uint32_t component_id;
+    n_cand_t * lcandidate;
+    n_cand_t * rcandidate;
 } ev_new_pair_full_t;
 
 typedef struct
 {
-	uint32_t stream_id;
-	uint32_t comp_id;
-	n_comp_state_e state;
+    uint32_t stream_id;
+    uint32_t comp_id;
+    n_comp_state_e state;
 } ev_state_changed_t;
 
 typedef struct
 {
-	uint32_t stream_id;
-	uint32_t comp_id;
+    uint32_t stream_id;
+    uint32_t comp_id;
 } ev_trans_writable_t;
 
 typedef struct
 {
-	uint32_t stream_id;
-	uint32_t comp_id;
-	char foundation[CAND_MAX_FOUNDATION];
+    uint32_t stream_id;
+    uint32_t comp_id;
+    char foundation[CAND_MAX_FOUNDATION];
 } ev_new_cand_t;
 
 #endif /*_NICE_AGENT_PRIV_H */

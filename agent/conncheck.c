@@ -673,14 +673,18 @@ static int _conn_keepalive_tick_unlocked(n_agent_t * agent)
                     if (nice_debug_is_enabled())
                     {
                         char tmpbuf[INET6_ADDRSTRLEN];
+						uv_os_fd_t fd;
+						uv_fileno((const uv_handle_t*)&((n_socket_t *)p->local->sockptr)->fileno, &fd);
                         nice_address_to_string(&p->remote->addr, tmpbuf);
-                        nice_debug("[%s]: Keepalive STUN-CC REQ to '%s:%u', "
+                        
+						nice_debug("[%s]: Keepalive STUN-CC REQ to '%s:%u', "
                                    "socket=%u (c-id:%u), username='%.*s' (%" G_GSIZE_FORMAT "), "
                                    "password='%.*s' (%" G_GSIZE_FORMAT "), priority=%u.", G_STRFUNC,
                                    tmpbuf, nice_address_get_port(&p->remote->addr),
-                                   g_socket_get_fd(((n_socket_t *)p->local->sockptr)->fileno),
+                                   fd,
                                    component->id, (int) uname_len, uname, uname_len,
                                    (int) password_len, password, password_len, priority);
+
                     }
                     if (uname_len > 0)
                     {
@@ -1797,13 +1801,15 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
     if (nice_debug_is_enabled())
     {
         char tmpbuf[INET6_ADDRSTRLEN];
+		uv_os_fd_t fd;
+		uv_fileno((const uv_handle_t*)&pair->sockptr->fileno, &fd);
         nice_address_to_string(&pair->remote->addr, tmpbuf);
         nice_debug("[%s]: STUN-CC REQ to '%s:%u', socket=%u, "
                    "pair=%s (c-id:%u), tie=%llu, username='%.*s' (%" G_GSIZE_FORMAT "), "
                    "password='%.*s' (%" G_GSIZE_FORMAT "), priority=%u.", G_STRFUNC,
                    tmpbuf,
                    nice_address_get_port(&pair->remote->addr),
-                   pair->sockptr->fileno ? g_socket_get_fd(pair->sockptr->fileno) : -1,
+                   fd,
                    pair->foundation, pair->component_id,
                    (unsigned long long)agent->tie_breaker,
                    (int) uname_len, uname, uname_len,
@@ -2056,14 +2062,11 @@ static void _reply_to_cocheck(n_agent_t * agent, n_stream_t * stream, n_comp_t *
     if (nice_debug_is_enabled())
     {
         char tmpbuf[INET6_ADDRSTRLEN];
+		uv_os_fd_t fd;
+		uv_fileno((const uv_handle_t*)&sockptr->fileno, &fd);
         nice_address_to_string(toaddr, tmpbuf);
         nice_debug("[%s]: stun-cc resp to '%s:%u', socket=%u, len=%u, cand=%p (c-id:%u), use-cand=%d.", G_STRFUNC,
-                   tmpbuf,
-                   nice_address_get_port(toaddr),
-                   sockptr->fileno ? g_socket_get_fd(sockptr->fileno) : -1,
-                   (unsigned)rbuf_len,
-                   rcand, component->id,
-                   (int)use_candidate);
+                   tmpbuf, nice_address_get_port(toaddr), fd, (unsigned)rbuf_len, rcand, component->id,  (int)use_candidate);
     }
 
     agent_socket_send(sockptr, toaddr, rbuf_len, (const char *)rbuf);

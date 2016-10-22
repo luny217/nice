@@ -23,6 +23,48 @@ void incoming_check_free(n_inchk_t * icheck)
     n_slice_free(n_inchk_t, icheck);
 }
 
+#if 1
+/* Must *not* take the agent lock, since its called from within
+ * comp_set_io_context(), which holds the Components I/O lock. */
+static void socket_source_attach(SocketSource * socket_source)
+{
+    GSource * source;
+    uv_os_fd_t fd;
+       
+    uv_fileno((const uv_handle_t*)&socket_source->socket->fileno, &fd);
+
+
+    uv_udp_recv_start(&socket_source->socket->fileno, comp_alloc_cb, comp_io_cb);
+
+    /* Create a source. */
+    source = g_socket_create_source(socket_source->socket->fileno, G_IO_IN, NULL);
+    g_source_set_callback(source, (GSourceFunc) comp_io_cb, socket_source, NULL);
+
+    /* Add the source. */
+    nice_debug("[%s]: Attaching source %p (socket %p, FD %d) to context %p", G_STRFUNC, source, socket_source->socket, fd);
+
+    //g_assert(socket_source->source == NULL);
+    socket_source->source = source;
+    g_source_attach(source, context);
+}
+
+static void socket_source_detach(SocketSource * source)
+{
+    uv_os_fd_t fd;
+       
+    uv_fileno((const uv_handle_t*)&source->socket->fileno, &fd);
+    
+    nice_debug("Detaching source %p (socket %p, FD %d)", source->source, source->socket, fd);
+
+    if (source->source != NULL)
+    {
+        g_source_destroy(source->source);
+        g_source_unref(source->source);
+    }
+    source->source = NULL;
+}
+
+#else
 /* Must *not* take the agent lock, since its called from within
  * comp_set_io_context(), which holds the Components I/O lock. */
 static void socket_source_attach(SocketSource * socket_source, GMainContext * context)
@@ -58,6 +100,7 @@ static void socket_source_detach(SocketSource * source)
     source->source = NULL;
 }
 
+#endif
 static void socket_source_free(SocketSource * source)
 {
     socket_source_detach(source);
@@ -486,8 +529,8 @@ void component_attach_socket(n_comp_t * component, n_socket_t * nicesock)
 
     //g_assert(component->ctx != NULL);
 
-    if (nicesock->fileno == NULL)
-        return;
+    /*if (nicesock->fileno == NULL)
+        return;*/
 
     /* Find an existing SocketSource in the component which contains @socket, or
      * create a new one.
@@ -698,8 +741,7 @@ void io_callback_data_free(IOCallbackData * data)
     n_slice_free(IOCallbackData, data);
 }
 
-/* This is called with the global agent lock released. It does not take that
- * lock, but does take the io_mutex. */
+/* 回收用，不一定会调用 */
 static int emit_io_callback_cb(void * user_data)
 {
     n_comp_t * comp = user_data;
@@ -711,29 +753,13 @@ static int emit_io_callback_cb(void * user_data)
 
     agent = comp->agent;
 
-    g_object_ref(agent);
+    //g_object_ref(agent);
 
     stream_id = comp->stream->id;
     comp_id = comp->id;
 
     pthread_mutex_lock(&comp->io_mutex);
 
-    /* The members of n_comp_t are guaranteed not to have changed since this
-     * GSource was attached in comp_emit_io_cb(). The n_comp_t?s agent
-     * and stream are immutable after construction, as are the stream and
-     * component IDs. The callback and its user data may have changed, but are
-     * guaranteed to be non-%NULL at the start as the idle source is removed when
-     * the callback is set to %NULL. They may become %NULL during the io_callback,
-     * so must be re-checked every loop iteration. The data buffer is copied into
-     * the #IOCallbackData closure.
-     *
-     * If the component is destroyed (which happens if the agent or stream are
-     * destroyed) between attaching the GSource and firing it, the GSource is
-     * detached in component_free() and this callback is never invoked. If the
-     * agent is destroyed during an io_callback, its weak pointer will be
-     * nullified. Similarly, the n_comp_t needs to be re-queried for after every
-     * iteration, just in case the client has removed the stream in the
-     * callback. */
     while (TRUE)
     {
         io_callback = comp->io_callback;
@@ -764,7 +790,7 @@ static int emit_io_callback_cb(void * user_data)
     pthread_mutex_unlock(&comp->io_mutex);
 
 done:
-    g_object_unref(agent);
+    //g_object_unref(agent);
 
     return G_SOURCE_REMOVE;
 }
