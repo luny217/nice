@@ -2640,7 +2640,15 @@ static void n_agent_dispose(GObject * object)
 #if 1
 int32_t comp_alloc_cb(uv_handle_t * handle, size_t size, uv_buf_t * buf)
 {
-    http_connection* connection = (http_connection*)handle->data;
+    SocketSource * socket_source = (SocketSource *)handle->data;
+
+    n_comp_t * comp = socket_source->component;
+    n_agent_t * agent = comp->agent;
+    n_stream_t * stream = comp->stream;
+
+    
+    
+    *buf = uv_buf_init(chunk.buffer, chunk.size);
 
 }
 

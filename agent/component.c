@@ -28,10 +28,12 @@ void incoming_check_free(n_inchk_t * icheck)
  * comp_set_io_context(), which holds the Components I/O lock. */
 static void socket_source_attach(SocketSource * socket_source)
 {
-    GSource * source;
+    //GSource * source;
     uv_os_fd_t fd;
        
     uv_fileno((const uv_handle_t*)&socket_source->socket->fileno, &fd);
+
+    socket_source->socket->fileno.data = socket_source;
 
 
     uv_udp_recv_start(&socket_source->socket->fileno, comp_alloc_cb, comp_io_cb);
@@ -41,7 +43,7 @@ static void socket_source_attach(SocketSource * socket_source)
     g_source_set_callback(source, (GSourceFunc) comp_io_cb, socket_source, NULL);
 
     /* Add the source. */
-    nice_debug("[%s]: Attaching source %p (socket %p, FD %d) to context %p", G_STRFUNC, source, socket_source->socket, fd);
+    nice_debug("[%s]: Attaching (socket %p, FD %d) to context %d", G_STRFUNC, socket_source->socket, fd);
 
     //g_assert(socket_source->source == NULL);
     socket_source->source = source;
