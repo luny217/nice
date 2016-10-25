@@ -17,7 +17,7 @@ static volatile unsigned int n_components_destroyed = 0;
 static void comp_sched_io_cb(n_comp_t * component);
 static void comp_desched_io_cb(n_comp_t * component);
 
-void incoming_check_free(n_inchk_t * icheck)
+void incoming_check_free(n_inchk_t * icheck)1
 {
     n_free(icheck->username);
     n_slice_free(n_inchk_t, icheck);

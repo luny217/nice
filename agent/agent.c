@@ -2646,8 +2646,8 @@ int32_t comp_alloc_cb(uv_handle_t * handle, size_t size, uv_buf_t * buf)
     n_agent_t * agent = comp->agent;
     n_stream_t * stream = comp->stream;
 
-    
-    
+
+
     *buf = uv_buf_init(chunk.buffer, chunk.size);
 
 }
@@ -2655,7 +2655,7 @@ int32_t comp_alloc_cb(uv_handle_t * handle, size_t size, uv_buf_t * buf)
 /*IO回调函数, 由socket_source_attach关联*/
 int32_t comp_io_cb(uv_udp_t * handle, ssize_t nread, const uv_buf_t * rcvbuf, const struct sockaddr * addr, unsigned flags)
 {
-    SocketSource * socket_source = user_data;
+    SocketSource * socket_source = (SocketSource *)handle->data;
     n_comp_t * component;
     n_agent_t * agent;
     n_stream_t * stream;
@@ -2680,10 +2680,7 @@ int32_t comp_io_cb(uv_udp_t * handle, ssize_t nread, const uv_buf_t * rcvbuf, co
     agent = component->agent;
     stream = component->stream;
 
-    //g_object_ref(agent);
-
-    /* Remove disconnected sockets when we get a HUP */
-    if (condition & G_IO_HUP)
+    if (nread == -1)
     {
         nice_debug("[%s]: n_socket_t %p has received HUP", G_STRFUNC,  socket_source->socket);
         if (component->selected_pair.local &&
@@ -2696,7 +2693,7 @@ int32_t comp_io_cb(uv_udp_t * handle, ssize_t nread, const uv_buf_t * rcvbuf, co
 
         component_detach_socket(component, socket_source->socket);
         agent_unlock();
-        return G_SOURCE_REMOVE;
+        return -1;
     }
 
     has_io_callback = component_has_io_callback(component);
@@ -2746,7 +2743,7 @@ done:
      * client perform a read. */
     if (component->n_recv_messages == 0 && component->recv_messages == NULL)
     {
-        agent_unlock_and_emit(agent);
+        agent_unlock(agent);
     }
     else
     {
