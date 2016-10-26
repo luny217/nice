@@ -81,7 +81,7 @@ typedef struct
 typedef struct
 {
     n_outvector_t * buffers;
-	uint32_t n_buffers;
+    uint32_t n_buffers;
 } n_output_msg_t;
 
 
@@ -171,7 +171,7 @@ typedef enum
 {
     NICE_COMPONENT_TYPE_RTP = 1,
     NICE_COMPONENT_TYPE_RTCP = 2
-} n_comp_type_e; 
+} n_comp_type_e;
 
 /**
  * n_agent_recv_func:
@@ -283,7 +283,7 @@ void n_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t comp
  * %FALSE if the address was invalid.
  */
 int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,  const char * server_ip, uint32_t server_port,
-											const char * username, const char * password, n_relay_type_e type);
+                           const char * username, const char * password, n_relay_type_e type);
 
 /**
  * n_agent_gather_cands:
@@ -484,7 +484,7 @@ int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t component_i
  * Returns: the number of messages sent (may be zero), or -1 on error
  */
 int32_t n_agent_send_msgs_nonblocking(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, const n_output_msg_t * messages,
-    uint32_t n_messages,  GCancellable * cancellable, GError ** error);
+                                      uint32_t n_messages,  GCancellable * cancellable, GError ** error);
 
 /**
  * n_agent_get_local_cands:
@@ -592,7 +592,7 @@ int n_agent_restart_stream(n_agent_t * agent, uint32_t stream_id);
  * Returns: %TRUE on success, %FALSE if the stream or component IDs are invalid.
  */
 int n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,
-    GMainContext * ctx,  n_agent_recv_func func,  void * data);
+                        GMainContext * ctx,  n_agent_recv_func func,  void * data);
 
 /**
  * n_agent_set_selected_pair:

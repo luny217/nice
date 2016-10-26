@@ -1047,7 +1047,7 @@ uint32_t n_udp_turn_socket_parse_recv_msg(n_socket_t * sock, n_socket_t ** from_
     return (len > 0) ? 1 : 0;
 }
 
-uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_sock,
+uint32_t turn_message_parse(n_socket_t * sock, n_socket_t ** from_sock,
                                 n_addr_t * from, uint32_t len, uint8_t * buf,
                                 n_addr_t * recv_from, uint8_t * _recv_buf, uint32_t recv_len)
 {
@@ -1068,8 +1068,8 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
      * we must use RFC4571 framing */
     if (nice_socket_is_reliable(sock))
     {
-        recv_buf.u8 = _recv_buf + sizeof(guint16);
-        recv_len -= sizeof(guint16);
+        recv_buf.u8 = _recv_buf + sizeof(uint16_t);
+        recv_len -= sizeof(uint16_t);
     }
     else
     {

@@ -25,8 +25,6 @@
 #include <arpa/inet.h>
 #endif
 
-G_BEGIN_DECLS
-
 
 /**
  * n_addr_t:
@@ -107,7 +105,7 @@ n_addr_t * nice_address_dup(const n_addr_t * addr);
   </para>
  </note>
  */
-voidnice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4);
+void nice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4);
 
 
 /**
@@ -124,8 +122,7 @@ voidnice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4);
   </para>
  </note>
  */
-void
-nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6);
+void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6);
 
 
 /**
@@ -135,8 +132,7 @@ nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6);
  *
  * Set the port of @addr to @port
  */
-void
-nice_address_set_port(n_addr_t * addr, guint port);
+void nice_address_set_port(n_addr_t * addr, guint port);
 
 /**
  * nice_address_get_port:
@@ -146,8 +142,7 @@ nice_address_set_port(n_addr_t * addr, guint port);
  *
  * Returns: The port of @addr
  */
-guint
-nice_address_get_port(const n_addr_t * addr);
+uint32_t nice_address_get_port(const n_addr_t * addr);
 
 /**
  * nice_address_set_from_string:
@@ -158,8 +153,7 @@ nice_address_get_port(const n_addr_t * addr);
  *
  * Returns: %TRUE if success, %FALSE on error
  */
-gboolean
-nice_address_set_from_string(n_addr_t * addr, const gchar * str);
+int nice_address_set_from_string(n_addr_t * addr, const gchar * str);
 
 /**
  * n_addr_set_from_sock:
@@ -169,8 +163,7 @@ nice_address_set_from_string(n_addr_t * addr, const gchar * str);
  * Sets an IPv4 or IPv6 address from the sockaddr structure @sin
  *
  */
-void
-n_addr_set_from_sock(n_addr_t * addr, const struct sockaddr * sin);
+void n_addr_set_from_sock(n_addr_t * addr, const struct sockaddr * sin);
 
 
 /**
@@ -181,8 +174,7 @@ n_addr_set_from_sock(n_addr_t * addr, const struct sockaddr * sin);
  * Fills the sockaddr structure @sin with the address contained in @addr
  *
  */
-void
-nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * sin);
+void nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * sin);
 
 /**
  * nice_address_equal:
@@ -194,8 +186,7 @@ nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * sin);
  *
  * Returns: %TRUE if @a and @b are the same address, %FALSE if they are different
  */
-gboolean
-nice_address_equal(const n_addr_t * a, const n_addr_t * b);
+int nice_address_equal(const n_addr_t * a, const n_addr_t * b);
 
 /**
  * nice_address_equal_no_port:
@@ -210,8 +201,7 @@ nice_address_equal(const n_addr_t * a, const n_addr_t * b);
  *
  * Since: 0.1.8
  */
-gboolean
-nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b);
+int nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b);
 
 /**
  * nice_address_to_string:
@@ -221,8 +211,7 @@ nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b);
  * Transforms the address @addr into a human readable string
  *
  */
-void
-nice_address_to_string(const n_addr_t * addr, gchar * dst);
+void nice_address_to_string(const n_addr_t * addr, gchar * dst);
 
 /**
  * nice_address_is_private:
@@ -232,8 +221,7 @@ nice_address_to_string(const n_addr_t * addr, gchar * dst);
  *
  * Returns: %TRUE if @addr is a private address, %FALSE otherwise
  */
-gboolean
-nice_address_is_private(const n_addr_t * addr);
+int nice_address_is_private(const n_addr_t * addr);
 
 /**
  * n_addr_is_valid:
@@ -243,9 +231,8 @@ nice_address_is_private(const n_addr_t * addr);
  *
  * Returns: %TRUE if @addr is valid, %FALSE otherwise
  */
-G_GNUC_WARN_UNUSED_RESULT
-gboolean
-n_addr_is_valid(const n_addr_t * addr);
+
+int n_addr_is_valid(const n_addr_t * addr);
 
 /**
  * nice_address_ip_version:
@@ -255,11 +242,9 @@ n_addr_is_valid(const n_addr_t * addr);
  *
  * Returns: 4 for IPv4, 6 for IPv6 and 0 for undefined address
  */
-G_GNUC_WARN_UNUSED_RESULT
-int
-nice_address_ip_version(const n_addr_t * addr);
 
-G_END_DECLS
+int nice_address_ip_version(const n_addr_t * addr);
+
 
 #endif /* __LIBNICE_ADDRESS_H__ */
 

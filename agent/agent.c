@@ -2100,10 +2100,10 @@ static n_recv_status_t agent_recv_msg_unlocked(n_agent_t * agent, n_stream_t * s
     {
         if (!nice_socket_is_reliable(nicesock) && !pst_is_closed(comp->tcp))
         {
-            /* If we don??t yet have an underlying selected socket, queue up the
-             * incoming data to handle later. This is because we can??t send ACKs (or,
+            /* If we don't yet have an underlying selected socket, queue up the
+             * incoming data to handle later. This is because we can't send ACKs (or,
              * more importantly for the first few packets, SYNACKs) without an
-             * underlying socket. We??d rather wait a little longer for a pair to be
+             * underlying socket. We'd rather wait a little longer for a pair to be
              * selected, then process the incoming packets and send out ACKs, than try
              * to process them now, fail to send the ACKs, and incur a timeout in our
              * pseudo-TCP state machine. */
@@ -2653,10 +2653,12 @@ int32_t comp_alloc_cb(uv_handle_t * handle, size_t size, uv_buf_t * buf)
 }
 
 /*IO回调函数, 由socket_source_attach关联*/
-int32_t comp_io_cb(uv_udp_t * handle, ssize_t nread, const uv_buf_t * rcvbuf, const struct sockaddr * addr, unsigned flags)
+int32_t comp_io_cb(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf_vec, const struct sockaddr * addr, unsigned flags)
 {
     SocketSource * socket_source = (SocketSource *)handle->data;
-    n_comp_t * component;
+    n_dlist_t * item;
+    n_input_msg_t * message;
+    n_comp_t * comp;
     n_agent_t * agent;
     n_stream_t * stream;
     int32_t has_io_callback;
@@ -2676,63 +2678,147 @@ int32_t comp_io_cb(uv_udp_t * handle, ssize_t nread, const uv_buf_t * rcvbuf, co
 
     agent_lock();
 
-    component = socket_source->component;
-    agent = component->agent;
-    stream = component->stream;
+    comp = socket_source->component;
+    agent = comp->agent;
+    stream = comp->stream;
 
     if (nread == -1)
     {
         nice_debug("[%s]: n_socket_t %p has received HUP", G_STRFUNC,  socket_source->socket);
-        if (component->selected_pair.local &&
-                component->selected_pair.local->sockptr == socket_source->socket &&
-                component->state == COMP_STATE_READY)
+        if (comp->selected_pair.local &&
+                comp->selected_pair.local->sockptr == socket_source->socket &&
+                comp->state == COMP_STATE_READY)
         {
             nice_debug("[%s]: Selected pair socket %p has HUP, declaring failed", G_STRFUNC, socket_source->socket);
-            agent_sig_comp_state_change(agent, stream->id, component->id, COMP_STATE_FAILED);
+            agent_sig_comp_state_change(agent, stream->id, comp->id, COMP_STATE_FAILED);
         }
 
-        component_detach_socket(component, socket_source->socket);
+        component_detach_socket(comp, socket_source->socket);
         agent_unlock();
         return -1;
     }
 
-    has_io_callback = component_has_io_callback(component);
+    has_io_callback = component_has_io_callback(comp);
 
-    if (pst_is_closed(component->tcp))
+    if (pst_is_closed(comp->tcp))
     {
         nice_debug("[%s]: not handling incoming packet for s%d:%d "
                    "because pseudo-TCP socket does not exist in reliable mode.", G_STRFUNC,
-                   stream->id, component->id);
+                   stream->id, comp->id);
         remove_source = TRUE;
         goto done;
     }
 
     while (has_io_callback)
     {
-        /* Receive a single message. This will receive it into the given
-            * @local_bufs then, for pseudo-TCP, emit I/O callbacks or copy it into
-            * component->recv_messages in pst_readable(). STUN packets
-            * will be parsed in-place. */
-        retval = agent_recv_msg_unlocked(agent, stream, component, socket_source->socket, &local_message);
-
-        /* Dont expect any valid messages to escape pst_readable()
-            * when in reliable mode. */
-        //g_assert_cmpint(retval, != , RECV_SUCCESS);
-
-        if (retval == RECV_WOULD_BLOCK)
+        if (nice_debug_is_enabled())
         {
-            /* EWOULDBLOCK. */
-            break;
-        }
-        else if (retval == RECV_ERROR)
-        {
-            /* Other error. */
-            nice_debug("[%s]: error receiving message", G_STRFUNC);
-            remove_source = TRUE;
-            break;
+            char tmpbuf[INET6_ADDRSTRLEN];
+            uv_os_fd_t fd;
+            uv_fileno((const uv_handle_t *)handle, &fd);
+            nice_address_to_string(message->from, tmpbuf);
+            nice_debug("[%s]: Packet received on local socket %d from [%s]:%u (% G_GSSIZE_FORMAT octets).", G_STRFUNC,
+                       fd, tmpbuf, nice_address_get_port(message->from), message->length);
         }
 
-        nice_debug("[%s]: received %d valid messages with %d bytes", G_STRFUNC, retval, local_message.length);
+#if 0
+        for (item = comp->turn_servers; item; item = n_dlist_next(item))
+        {
+            TurnServer * turn = item->data;
+            n_slist_t * i = NULL;
+
+            if (!nice_address_equal(message->from, &turn->server))
+                continue;
+
+            nice_debug("[%s]: Packet received from TURN server candidate", G_STRFUNC);
+
+            for (i = comp->local_candidates; i; i = i->next)
+            {
+                n_cand_t * cand = i->data;
+
+                if (cand->type == CAND_TYPE_RELAYED && cand->stream_id == stream->id && cand->component_id == comp->id)
+                {
+                    retval = turn_message_parse(cand->sockptr, &nicesock, message);
+                    break;
+                }
+            }
+            break;
+        }
+#endif
+
+        agent->media_after_tick = TRUE;
+
+        if (stun_msg_valid_buflen_fast(buf, nread, 1) == nread)
+        {
+            int32_t validated_len;
+
+            validated_len = stun_msg_valid_buflen(buf, nread, 1);
+
+            if (validated_len == (int32_t) nread)
+            {
+                int32_t handled;
+
+                handled = cocheck_handle_in_stun(agent, stream, comp, nicesock, message->from, (char *)buf, validated_len);
+
+                if (handled)
+                {
+                    /* Handled STUN message. */
+                    nice_debug("[%s]: Valid STUN packet received.", G_STRFUNC);
+                    retval = RECV_OOB;
+                    goto done;
+                }
+            }
+
+            nice_debug("[%s]: Packet passed fast STUN validation but failed slow validation.", G_STRFUNC);
+
+        }
+
+        /* 不是stun数据包，尝试按照TCP数据包处理 */
+        if (nread > 0)
+        {
+            if (!pst_is_closed(comp->tcp))
+            {
+                if (comp->selected_pair.local == NULL)
+                {
+                    n_outvector_t * vec = n_slice_new(n_outvector_t);
+                    vec->buffer = compact_input_message(message, &vec->size);
+                    n_queue_push_tail(&comp->queued_tcp_packets, vec);
+                    nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, vec->size, agent);
+
+                    return RECV_OOB;
+                }
+                else
+                {
+                    process_queued_tcp_packets(agent, stream, comp);
+                }
+
+                /* Received data on a reliable connection. */
+
+                nice_debug("%s: notifying pseudo-TCP of packet, length %" G_GSIZE_FORMAT, G_STRFUNC, message->length);
+                pst_notify_message(comp->tcp, message);
+
+                adjust_tcp_clock(agent, stream, comp);
+
+                /* Success! Handled out-of-band. */
+                retval = RECV_OOB;
+                goto done;
+            }
+            else if (pst_is_closed(comp->tcp))
+            {
+                nice_debug("[%s]: Received data on a pseudo tcp FAILED component. Ignoring.", G_STRFUNC);
+
+                retval = RECV_OOB;
+                goto done;
+            }
+        }
+
+done:
+        /* Clear local modifications. */
+        if (message->from == &from)
+        {
+            message->from = NULL;
+        }
+        return retval;
 
         has_io_callback = component_has_io_callback(component);
     }

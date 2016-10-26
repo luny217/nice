@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 bool stun_msg_init(stun_msg_t * msg, StunClass c, stun_method_e m,
-                       const stun_trans_id id)
+                   const stun_trans_id id)
 {
 
     if (msg->buffer_len < STUN_MSG_HEADER_LENGTH)
@@ -233,7 +233,7 @@ stun_msg_ret_e stun_msg_find_xor_addr(const stun_msg_t * msg, stun_attr_e type, 
 
 stun_msg_ret_e
 stun_msg_find_xor_addr_full(const stun_msg_t * msg, stun_attr_e type,
-                                struct sockaddr_storage * addr, socklen_t * addrlen, uint32_t magic_cookie)
+                            struct sockaddr_storage * addr, socklen_t * addrlen, uint32_t magic_cookie)
 {
     stun_msg_ret_e val = stun_msg_find_addr(msg, type, addr, addrlen);
     if (val)
@@ -407,7 +407,7 @@ stun_msg_ret_e stun_msg_append_xor_addr(stun_msg_t * msg, stun_attr_e type, cons
 }
 
 stun_msg_ret_e stun_msg_append_xor_addr_full(stun_msg_t * msg, stun_attr_e type,
-                                  const struct sockaddr_storage * addr, socklen_t addrlen,  uint32_t magic_cookie)
+        const struct sockaddr_storage * addr, socklen_t addrlen,  uint32_t magic_cookie)
 {
     stun_msg_ret_e val;
     /* Must be big enough to hold any supported address: */
@@ -445,35 +445,36 @@ stun_msg_ret_e stun_msg_append_error(stun_msg_t * msg, stun_err_e code)
  * incoming packets, filtering packets for closer inspection as to whether
  * they?re STUN packets. If they look like they might be, their buffers are
  * compacted to allow a more thorough check. */
-ssize_t stun_msg_valid_buflen_fast(StunInputVector * buffers, int n_buffers, size_t total_length, int has_padding)
+ssize_t stun_msg_valid_buflen_fast(char * buf, size_t len, int has_padding)
 {
     size_t mlen;
 
-    if (total_length < 1 || n_buffers == 0 || buffers[0].buffer == NULL)
+    if (buf == NULL || len < 1)
     {
         stun_debug("STUN error: No data!");
         return STUN_MSG_BUFFER_INVALID;
     }
 
-    if (buffers[0].buffer[0] >> 6)
+    if (buf[0] >> 6)
     {
         stun_debug("STUN error: RTP or other non-protocol packet!");
         return STUN_MSG_BUFFER_INVALID; // RTP or other non-STUN packet
     }
 
-    if (total_length < STUN_MSG_LENGTH_POS + STUN_MSG_LENGTH_LEN)
+    if (len < STUN_MSG_LENGTH_POS + STUN_MSG_LENGTH_LEN)
     {
         stun_debug("STUN error: Incomplete STUN message header!");
         return STUN_MSG_BUFFER_INCOMPLETE;
     }
 
-    if (buffers[0].size >= STUN_MSG_LENGTH_POS + STUN_MSG_LENGTH_LEN)
+    if (len >= STUN_MSG_LENGTH_POS + STUN_MSG_LENGTH_LEN)
     {
         /* Fast path. */
-        mlen = stun_getw(buffers[0].buffer + STUN_MSG_LENGTH_POS);
+        mlen = stun_getw(buf + STUN_MSG_LENGTH_POS);
     }
     else
     {
+#if 0
         /* Slow path. Tiny buffers abound. */
         size_t skip_remaining = STUN_MSG_LENGTH_POS;
         unsigned int i;
@@ -488,7 +489,7 @@ ssize_t stun_msg_valid_buflen_fast(StunInputVector * buffers, int n_buffers, siz
                 break;
         }
 
-        /* Read bytes. May be split over two buffers. We?ve already checked that
+        /* Read bytes. May be split over two buffers. We've already checked that
          * @total_length is long enough, so @n_buffers should be too. */
         if (buffers[i].size - skip_remaining > 1)
         {
@@ -499,6 +500,7 @@ ssize_t stun_msg_valid_buflen_fast(StunInputVector * buffers, int n_buffers, siz
             mlen = (*(buffers[i].buffer + skip_remaining) << 8) |
                    (*(buffers[i + 1].buffer));
         }
+#endif
     }
 
     mlen += STUN_MSG_HEADER_LENGTH;
@@ -509,32 +511,31 @@ ssize_t stun_msg_valid_buflen_fast(StunInputVector * buffers, int n_buffers, siz
         return STUN_MSG_BUFFER_INVALID; // wrong padding
     }
 
-    if (total_length < mlen)
+    if (len < mlen)
     {
-        stun_debug("STUN error: Incomplete message: %u of %u bytes!",
-                   (unsigned) total_length, (unsigned) mlen);
+        stun_debug("STUN error: Incomplete message: %u of %u bytes!", (unsigned) len, (unsigned) mlen);
         return STUN_MSG_BUFFER_INCOMPLETE; // partial message
     }
 
     return mlen;
 }
 
-int stun_msg_valid_buflen(const uint8_t * msg, size_t length,  bool has_padding)
+int stun_msg_valid_buflen(const uint8_t * buf, size_t length,  bool has_padding)
 {
     ssize_t fast_retval;
     size_t mlen;
     size_t len;
-    StunInputVector input_buffer = { msg, length };
+    //StunInputVector input_buffer = { msg, length };
 
     /* Fast pre-check first. */
-    fast_retval = stun_msg_valid_buflen_fast(&input_buffer, 1,  length, has_padding);
+    fast_retval = stun_msg_valid_buflen_fast(buf, length, has_padding);
     if (fast_retval <= 0)
         return fast_retval;
 
     mlen = fast_retval;
 
     /* Skip past the header (validated above). */
-    msg += 20;
+    buf += 20;
     len = mlen - 20;
 
     /* from then on, we know we have the entire packet in buffer */
@@ -549,7 +550,7 @@ int stun_msg_valid_buflen(const uint8_t * msg, size_t length,  bool has_padding)
             return STUN_MSG_BUFFER_INVALID;
         }
 
-        alen = stun_getw(msg + STUN_ATT_TYPE_LEN);
+        alen = stun_getw(buf + STUN_ATT_TYPE_LEN);
         if (has_padding)
             alen = stun_align(alen);
 
@@ -559,13 +560,12 @@ int stun_msg_valid_buflen(const uint8_t * msg, size_t length,  bool has_padding)
 
         if (len < alen)
         {
-            stun_debug("STUN error: %u instead of %u bytes for attribute!",
-                       (unsigned)len, (unsigned)alen);
+            stun_debug("STUN error: %u instead of %u bytes for attribute!", (unsigned)len, (unsigned)alen);
             return STUN_MSG_BUFFER_INVALID; // no room for attribute value + padding
         }
 
         len -= alen;
-        msg += 4 + alen;
+        buf += 4 + alen;
     }
 
     return mlen;

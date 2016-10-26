@@ -45,7 +45,7 @@ struct _socket_st
     n_addr_t addr;
     NiceSocketType type;
     //GSocket * fileno;
-    uv_udp_t fileno;
+    int fileno;
     /* Implementations must handle any value of n_recv_messages, including 0. Iff
      * n_recv_messages is 0, recv_messages may be NULL. */
     int32_t(*recv_messages)(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);

@@ -358,7 +358,7 @@ static void _assign_foundation(n_agent_t * agent, n_cand_t * cand)
                 n_cand_t * n = k->data;
 
                 /* note: candidate must not on the local candidate list */
-                g_assert(cand != n);
+                //g_assert(cand != n);
 
                 if (cand->type == n->type && cand->transport == n->transport &&
 					cand->stream_id == n->stream_id && nice_address_equal_no_port(&cand->base_addr, &n->base_addr) &&
@@ -368,16 +368,16 @@ static void _assign_foundation(n_agent_t * agent, n_cand_t * cand)
                      *       time is supported, so there is no need to check
                      *       for candidates that would otherwise share the
                      *       foundation, but have different STUN servers */
-                    g_strlcpy(cand->foundation, n->foundation, CAND_MAX_FOUNDATION);
+                    strncpy(cand->foundation, n->foundation, CAND_MAX_FOUNDATION);
                     if (n->username)
                     {
                         n_free(cand->username);
-						cand->username = g_strdup(n->username);
+						cand->username = n_strdup(n->username);
                     }
                     if (n->password)
                     {
                         n_free(cand->password);
-						cand->password = g_strdup(n->password);
+						cand->password = n_strdup(n->password);
                     }
                     return;
                 }
@@ -385,7 +385,7 @@ static void _assign_foundation(n_agent_t * agent, n_cand_t * cand)
         }
     }
 
-    g_snprintf(cand->foundation, CAND_MAX_FOUNDATION, "%u", agent->next_candidate_id++);
+    snprintf(cand->foundation, CAND_MAX_FOUNDATION, "%u", agent->next_candidate_id++);
 }
 
 static void _assign_remote_foundation(n_agent_t * agent, n_cand_t * candidate)
@@ -468,7 +468,7 @@ HostCandidateResult disc_add_local_host_cand(n_agent_t * agent, uint32_t stream_
     //_generate_cand_cred(agent, candidate);
     _assign_foundation(agent, candidate);
 
-    nicesock = nice_udp_bsd_socket_new(address);   
+    nicesock = n_udp_socket_new(address);
     if (!nicesock)
     {
         res = CANDIDATE_CANT_CREATE_SOCKET;

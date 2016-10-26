@@ -63,8 +63,8 @@ struct _NiceSocketQueuedSend
  */
 int32_t n_socket_recv_msgs(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
 {
-    g_return_val_if_fail(sock != NULL, -1);
-    g_return_val_if_fail(n_recv_messages == 0 || recv_messages != NULL, -1);
+    //g_return_val_if_fail(sock != NULL, -1);
+    //g_return_val_if_fail(n_recv_messages == 0 || recv_messages != NULL, -1);
 
     return sock->recv_messages(sock, recv_messages, n_recv_messages);
 }
@@ -106,8 +106,8 @@ int32_t n_socket_recv_msgs(n_socket_t * sock, n_input_msg_t * recv_messages, uin
  */
 int32_t nice_socket_send_messages(n_socket_t * sock, const n_addr_t * to, const n_output_msg_t * messages, uint32_t n_messages)
 {
-    g_return_val_if_fail(sock != NULL, -1);
-    g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
+    //g_return_val_if_fail(sock != NULL, -1);
+    //g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
 
     return sock->send_messages(sock, to, messages, n_messages);
 }
@@ -145,7 +145,7 @@ int32_t nice_socket_send_messages(n_socket_t * sock, const n_addr_t * to, const 
  * Since: 0.1.5
  */
 int32_t nice_socket_send_messages_reliable(n_socket_t * sock, const n_addr_t * to,
-                                   const n_output_msg_t * messages, uint32_t n_messages)
+        const n_output_msg_t * messages, uint32_t n_messages)
 {
     g_return_val_if_fail(sock != NULL, -1);
     g_return_val_if_fail(n_messages == 0 || messages != NULL, -1);
@@ -173,6 +173,7 @@ int32_t nice_socket_recv(n_socket_t * sock, n_addr_t * from, uint32_t len, char 
  * -1 on error. */
 int32_t nice_socket_send(n_socket_t * sock, const n_addr_t * to, uint32_t len, const char * buf)
 {
+#if 0
     n_outvector_t local_buf = { buf, len };
     n_output_msg_t local_message = { &local_buf, 1};
     int32_t ret;
@@ -180,7 +181,51 @@ int32_t nice_socket_send(n_socket_t * sock, const n_addr_t * to, uint32_t len, c
     ret = sock->send_messages(sock, to, &local_message, 1);
     if (ret == 1)
         return len;
-    return ret;
+#endif
+
+    struct udp_socket_private_st * priv = sock->priv;
+    int32_t len = -1;
+    uv_udp_send_t req;
+
+    /* Socket has been closed: */
+    if (priv == NULL)
+        return -1;
+
+    if (!n_addr_is_valid(&priv->niceaddr) || !nice_address_equal(&priv->niceaddr, to))
+    {
+        union
+        {
+            struct sockaddr_storage storage;
+            struct sockaddr addr;
+        } sa;
+        //GSocketAddress * gaddr;
+
+        /*if (priv->gaddr)
+            g_object_unref(priv->gaddr);*/
+
+        nice_address_copy_to_sockaddr(to, &sa.addr);
+        /*gaddr = g_socket_address_new_from_native(&sa.addr, sizeof(sa));
+        priv->gaddr = gaddr;*/
+
+        /*if (gaddr == NULL)
+            return -1;*/
+
+        priv->niceaddr = *to;
+
+        len = sendto(sock->fileno, msg->buffers, msg->n_buffers, (struct sockaddr *)&sa.addr, NULL);
+
+        if (len < 0)
+        {
+            /*if (g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
+            len = 0;
+
+            g_error_free(child_error);*/
+        }
+    }
+
+    // len = g_socket_send_message(sock->fileno, priv->gaddr, msg->buffers, msg->n_buffers, NULL, 0, G_SOCKET_MSG_NONE, NULL, &child_error);
+
+    return len;
 }
 
 int nice_socket_is_reliable(n_socket_t * sock)
