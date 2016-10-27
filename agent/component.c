@@ -26,12 +26,12 @@ void incoming_check_free(n_inchk_t * icheck)1
 #if 1
 /* Must *not* take the agent lock, since its called from within
  * comp_set_io_context(), which holds the Components I/O lock. */
-static void socket_source_attach(SocketSource * socket_source)
+static void socket_source_attach(n_socket_source_t * socket_source)
 {
     //GSource * source;
     uv_os_fd_t fd;
-       
-    uv_fileno((const uv_handle_t*)&socket_source->socket->fileno, &fd);
+
+    uv_fileno((const uv_handle_t *)&socket_source->socket->fileno, &fd);
 
     socket_source->socket->fileno.data = socket_source;
 
@@ -50,12 +50,12 @@ static void socket_source_attach(SocketSource * socket_source)
     g_source_attach(source, context);
 }
 
-static void socket_source_detach(SocketSource * source)
+static void socket_source_detach(n_socket_source_t * source)
 {
     uv_os_fd_t fd;
-       
-    uv_fileno((const uv_handle_t*)&source->socket->fileno, &fd);
-    
+
+    uv_fileno((const uv_handle_t *)&source->socket->fileno, &fd);
+
     nice_debug("Detaching source %p (socket %p, FD %d)", source->source, source->socket, fd);
 
     if (source->source != NULL)
@@ -69,7 +69,7 @@ static void socket_source_detach(SocketSource * source)
 #else
 /* Must *not* take the agent lock, since its called from within
  * comp_set_io_context(), which holds the Components I/O lock. */
-static void socket_source_attach(SocketSource * socket_source, GMainContext * context)
+static void socket_source_attach(n_socket_source_t * socket_source, GMainContext * context)
 {
     GSource * source;
 
@@ -86,7 +86,7 @@ static void socket_source_attach(SocketSource * socket_source, GMainContext * co
     g_source_attach(source, context);
 }
 
-static void socket_source_detach(SocketSource * source)
+static void socket_source_detach(n_socket_source_t * source)
 {
     nice_debug("Detaching source %p (socket %p, FD %d) from context %p",
                source->source, source->socket,
@@ -103,15 +103,15 @@ static void socket_source_detach(SocketSource * source)
 }
 
 #endif
-static void socket_source_free(SocketSource * source)
+static void socket_source_free(n_socket_source_t * source)
 {
     socket_source_detach(source);
     nice_socket_free(source->socket);
 
-    n_slice_free(SocketSource, source);
+    n_slice_free(n_socket_source_t, source);
 }
 
-n_comp_t * component_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
+n_comp_t * comp_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
 {
     n_comp_t * comp;
 
@@ -513,7 +513,7 @@ n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, n_comp_t * component
 
 static int32_t _find_socket_source(const void * a, const void * b)
 {
-    const SocketSource * source_a = a;
+    const n_socket_source_t * source_a = a;
     const n_socket_t * socket_b = b;
 
     return (source_a->socket == socket_b) ? 0 : 1;
@@ -521,42 +521,29 @@ static int32_t _find_socket_source(const void * a, const void * b)
 
 /* This takes ownership of the socket.
  * It creates and attaches a source to the components context. */
-void component_attach_socket(n_comp_t * component, n_socket_t * nicesock)
+void comp_attach_socket(n_comp_t * comp, n_socket_t * nicesock)
 {
-    n_slist_t  * l;
-    SocketSource * socket_source;
+    n_slist_t * l;
+    n_socket_source_t * socket_source;
 
-    //g_assert(component != NULL);
-    //g_assert(nicesock != NULL);
-
-    //g_assert(component->ctx != NULL);
-
-    /*if (nicesock->fileno == NULL)
-        return;*/
-
-    /* Find an existing SocketSource in the component which contains @socket, or
-     * create a new one.
-     *
-     * Whenever a source is added or remove to socket_sources, socket_sources_age
-     * must be incremented.
-     */
-    l = n_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
+    /* 在链表里查找nicesock, 没有的话创建一个新的，并且添加到链表尾部 */
+    l = n_slist_find_custom(comp->socket_srcs_slist, nicesock, _find_socket_source);
     if (l != NULL)
     {
         socket_source = l->data;
     }
     else
     {
-        socket_source = n_slice_new0(SocketSource);
+        socket_source = n_slice_new0(n_socket_source_t);
         socket_source->socket = nicesock;
-        socket_source->component = component;
-        component->socket_sources = n_slist_prepend(component->socket_sources, socket_source);
-        component->socket_sources_age++;
+        socket_source->component = comp;
+        comp->socket_srcs_slist = n_slist_prepend(comp->socket_srcs_slist, socket_source);
+        comp->socket_sources_age++;
     }
-
-    /* Create and attach a source */
-    nice_debug("[%s]: n_comp_t %p: Attach source (stream %u)", G_STRFUNC, component, component->stream->id);
-    socket_source_attach(socket_source, component->ctx);
+    
+    nice_debug("[%s]: n_comp_t %p: attach source (fd %d)", G_STRFUNC, comp, nicesock->sock_fd);
+    
+    socket_source_attach(socket_source, comp->ctx);
 }
 
 /* Reattaches socket handles of @component to the main context.
@@ -567,9 +554,9 @@ static void component_reattach_all_sockets(n_comp_t * component)
 {
     n_slist_t  * i;
 
-    for (i = component->socket_sources; i != NULL; i = i->next)
+    for (i = component->socket_srcs_slist; i != NULL; i = i->next)
     {
-        SocketSource * socket_source = i->data;
+        n_socket_source_t * socket_source = i->data;
         nice_debug("Reattach source %p.", socket_source->source);
         socket_source_detach(socket_source);
         socket_source_attach(socket_source, component->ctx);
@@ -589,7 +576,7 @@ static void component_reattach_all_sockets(n_comp_t * component)
 void component_detach_socket(n_comp_t * component, n_socket_t * nicesock)
 {
     n_slist_t  * l;
-    SocketSource * socket_source;
+    n_socket_source_t * socket_source;
 
     nice_debug("Detach socket %p.", nicesock);
 
@@ -609,14 +596,14 @@ void component_detach_socket(n_comp_t * component, n_socket_t * nicesock)
         l = next;
     }
 
-    /* Find the SocketSource for the socket. */
-    l = n_slist_find_custom(component->socket_sources, nicesock,  _find_socket_source);
+    /* Find the n_socket_source_t for the socket. */
+    l = n_slist_find_custom(component->socket_srcs_slist, nicesock,  _find_socket_source);
     if (l == NULL)
         return;
 
     /* Detach the source. */
     socket_source = l->data;
-    component->socket_sources = n_slist_delete_link(component->socket_sources, l);
+    component->socket_srcs_slist = n_slist_delete_link(component->socket_srcs_slist, l);
     component->socket_sources_age++;
 
     socket_source_detach(socket_source);
@@ -634,9 +621,9 @@ void component_detach_all_sockets(n_comp_t * component)
 {
     n_slist_t  * i;
 
-    for (i = component->socket_sources; i != NULL; i = i->next)
+    for (i = component->socket_srcs_slist; i != NULL; i = i->next)
     {
-        SocketSource * socket_source = i->data;
+        n_socket_source_t * socket_source = i->data;
         nice_debug("Detach source %p, socket %p.", socket_source->source,  socket_source->socket);
         socket_source_detach(socket_source);
     }
@@ -646,8 +633,8 @@ void component_free_socket_sources(n_comp_t * component)
 {
     nice_debug("Free socket sources for component %p.", component);
 
-    n_slist_free_full(component->socket_sources, (n_destroy_notify) socket_source_free);
-    component->socket_sources = NULL;
+    n_slist_free_full(component->socket_srcs_slist, (n_destroy_notify) socket_source_free);
+    component->socket_srcs_slist = NULL;
     component->socket_sources_age++;
 
     comp_clear_selected_pair(component);
@@ -669,7 +656,7 @@ void comp_set_io_context(n_comp_t * comp, GMainContext * context)
         component_detach_all_sockets(comp);
         g_main_context_unref(comp->ctx);
 
-		comp->ctx = context;
+        comp->ctx = context;
         component_reattach_all_sockets(comp);
     }
 
@@ -873,7 +860,7 @@ static void comp_desched_io_cb(n_comp_t * comp)
 {
     /* Already descheduled? */
     if (&comp->io_cb_handle == NULL)
-    	return;
+        return;
 
     uv_idle_stop(&comp->io_cb_handle);
 }

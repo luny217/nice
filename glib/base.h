@@ -79,5 +79,27 @@ struct pollfd
 #define POLLNVAL   0x1000  /* invalid file descriptor */
 int poll(struct pollfd *fds, nfds_t numfds, int timeout);
 
+#if 0
+int net_errno(void)
+{
+    int err = WSAGetLastError();
+    switch (err) {
+    case WSAEWOULDBLOCK:
+        return AVERROR(EAGAIN);
+    case WSAEINTR:
+        return AVERROR(EINTR);
+    case WSAEPROTONOSUPPORT:
+        return AVERROR(EPROTONOSUPPORT);
+    case WSAETIMEDOUT:
+        return AVERROR(ETIMEDOUT);
+    case WSAECONNREFUSED:
+        return AVERROR(ECONNREFUSED);
+    case WSAEINPROGRESS:
+        return AVERROR(EINPROGRESS);
+    }
+    return -err;
+}
+#endif
+
 #endif
 #endif

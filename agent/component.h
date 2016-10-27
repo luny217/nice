@@ -75,9 +75,8 @@ void incoming_check_free(n_inchk_t * icheck);
 typedef struct
 {
     n_socket_t * socket;
-    //GSource * source;    
     n_comp_t * component;
-} SocketSource;
+} n_socket_source_t;
 
 
 /* A message which has been received and processed (so is guaranteed not
@@ -109,8 +108,8 @@ struct _comp_st
     n_comp_state_e state;
     n_slist_t * local_candidates;   /* list of n_cand_t objs */
     n_slist_t * remote_candidates;  /* list of n_cand_t objs */
-    n_slist_t * socket_sources;     /* list of SocketSource objs; must only grow monotonically */
-    uint32_t socket_sources_age;    /* incremented when socket_sources changes */
+    n_slist_t * socket_srcs_slist;     /* list of n_socket_source_t objs; must only grow monotonically */
+    uint32_t socket_sources_age;    /* incremented when socket_srcs_slist changes */
     n_slist_t * incoming_checks;    /* list of n_inchk_t objs */
     n_dlist_t * turn_servers;            /* List of TurnServer objs */
     n_cand_pair_t selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
@@ -177,7 +176,7 @@ void component_restart(n_comp_t * cmp);
 void comp_update_selected_pair(n_comp_t * component, const n_cand_pair_t * pair);
 n_cand_t * comp_find_remote_cand(const n_comp_t * component, const n_addr_t * addr);
 n_cand_t * comp_set_selected_remote_cand(n_agent_t * agent, n_comp_t * component, n_cand_t * candidate);
-void component_attach_socket(n_comp_t * component, n_socket_t * nsocket);
+void comp_attach_socket(n_comp_t * component, n_socket_t * nsocket);
 void component_detach_socket(n_comp_t * component, n_socket_t * nsocket);
 void component_detach_all_sockets(n_comp_t * component);
 void component_free_socket_sources(n_comp_t * component);

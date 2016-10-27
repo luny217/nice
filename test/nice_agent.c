@@ -140,7 +140,7 @@ void nice_thread(void * data)
     {
         //g_object_set(agent, "stun-server", stun_addr, NULL);
         //g_object_set(agent, "stun-server-port", stun_port, NULL);
-		agent->stun_server_ip = g_strdup(stun_addr);
+		agent->stun_server_ip = n_strdup(stun_addr);
 		agent->stun_server_port = stun_port;
     }
     //g_object_set(agent, "controlling-mode", controlling, NULL);
@@ -148,13 +148,7 @@ void nice_thread(void * data)
 
 	nice_debug("++++++++controlling_mode = %d\n", agent->controlling_mode);
 
-	//ret = uv_thread_create(&loop_tid, (uv_thread_cb)nice_event_loop, (void*)agent);
 	ret = pthread_create(&loop_tid, 0, (void *)nice_event_loop, (void*)agent);
-
-    // Connect to the signals
-    //g_signal_connect(agent, "candidate-gathering-done", G_CALLBACK(cb_cand_gathering_done), NULL);
-    //g_signal_connect(agent, "new-selected-pair", G_CALLBACK(cb_new_selected_pair), NULL);
-    //g_signal_connect(agent, "component-state-changed", G_CALLBACK(cb_comp_state_changed), NULL);
 
     // Create a new stream with one component
     stream_id = n_agent_add_stream(agent, 1);
@@ -163,11 +157,7 @@ void nice_thread(void * data)
 
 	n_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
 
-    // Attach to the component to receive the data
-    // Without this call, candidates cannot be gathered
-    //n_agent_attach_recv(agent, stream_id, 1, g_main_loop_get_context(gloop), cb_nice_recv, NULL);
-
-	n_agent_attach_recv(agent, stream_id, 1, NULL, cb_nice_recv, NULL);
+	//n_agent_attach_recv(agent, stream_id, 1, NULL, cb_nice_recv, NULL);
 
     //n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", RELAY_TYPE_TURN_UDP);
 

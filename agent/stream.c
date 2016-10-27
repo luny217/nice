@@ -13,23 +13,20 @@ static volatile unsigned int n_streams_destroyed = 0;
  * @file stream.c
  * @brief ICE stream functionality
  */
-n_stream_t * stream_new(uint32_t n_components, n_agent_t * agent)
+n_stream_t * stream_new(n_agent_t * agent, uint32_t n_comps)
 {
     n_stream_t * stream;
     uint32_t n;
-    n_comp_t * component;
-
-    g_atomic_int_inc(&n_streams_created);
-    nice_debug("[%s]: created nicestream (%u created, %u destroyed)\n", G_STRFUNC, n_streams_created, n_streams_destroyed);
+    n_comp_t * comp;
 
     stream = n_slice_new0(n_stream_t);
-    for (n = 0; n < n_components; n++)
+    for (n = 0; n < n_comps; n++)
     {
-        component = component_new(n + 1, agent, stream);
-        stream->components = n_slist_append(stream->components, component);
+        comp = comp_new(n + 1, agent, stream);
+        stream->components = n_slist_append(stream->components, comp);
     }
 
-    stream->n_components = n_components;
+    stream->n_components = n_comps;
     stream->initial_binding_request_received = FALSE;
 
     return stream;
@@ -50,21 +47,19 @@ void stream_free(n_stream_t * stream)
 {
     free(stream->name);
     n_slist_free_full(stream->components, (n_destroy_notify) component_free);
-    n_slice_free(n_stream_t, stream);
-
-    g_atomic_int_inc(&n_streams_destroyed);
-    nice_debug("Destroyed NiceStream (%u created, %u destroyed)", n_streams_created, n_streams_destroyed);
+    n_slice_free(n_stream_t, stream);  
 }
 
 n_comp_t * stream_find_comp_by_id(const n_stream_t * stream, uint32_t id)
 {
-    n_slist_t * i;
+    n_slist_t * l;
+    n_comp_t * comp = NULL;
 
-    for (i = stream->components; i; i = i->next)
+    for (l = stream->components; l; l = l->next)
     {
-        n_comp_t * component = i->data;
-        if (component && component->id == id)
-            return component;
+        comp = l->data;
+        if (comp && comp->id == id)
+            return comp;
     }
 
     return NULL;
@@ -76,14 +71,13 @@ n_comp_t * stream_find_comp_by_id(const n_stream_t * stream, uint32_t id)
  */
 int stream_all_components_ready(const n_stream_t * stream)
 {
-	n_slist_t * i;
+	n_slist_t * l;
+	n_comp_t * comp = NULL;
 
-    for (i = stream->components; i; i = i->next)
+    for (l = stream->components; l; l = l->next)
     {
-        n_comp_t * component = i->data;
-        if (component &&
-                !(component->state == COMP_STATE_CONNECTED ||
-                  component->state == COMP_STATE_READY))
+        n_comp_t * comp = l->data;
+        if (comp && !(comp->state == COMP_STATE_CONNECTED || comp->state == COMP_STATE_READY))
             return FALSE;
     }
 

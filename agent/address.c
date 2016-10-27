@@ -2,7 +2,7 @@
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #else
-#define 
+#define
 #endif
 
 #include <string.h>
@@ -14,7 +14,7 @@
 #include "nlist.h"
 #include "address.h"
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 #define inet_pton inet_pton_win32
 #define inet_ntop inet_ntop_win32
 
@@ -162,7 +162,7 @@ uint32_t nice_address_get_port(const n_addr_t * addr)
 }
 
 
- int nice_address_set_from_string(n_addr_t * addr, const char * str)
+int nice_address_set_from_string(n_addr_t * addr, const char * str)
 {
     struct addrinfo hints;
     struct addrinfo * res;
@@ -222,7 +222,7 @@ void nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * _sa)
             memcpy(sa.in6, &addr->s.ip6, sizeof(*sa.in6));
             break;
         default:
-			break;
+            break;
     }
 }
 
@@ -237,7 +237,7 @@ void nice_address_to_string(const n_addr_t * addr, char * dst)
             inet_ntop(AF_INET6, &addr->s.ip6.sin6_addr, dst, INET6_ADDRSTRLEN);
             break;
         default:
-			break;
+            break;
     }
 }
 
@@ -259,7 +259,7 @@ int nice_address_equal(const n_addr_t * a, const n_addr_t * b)
                    && (a->s.ip6.sin6_scope_id == b->s.ip6.sin6_scope_id);
 
         default:
-			return FALSE;
+            return FALSE;
     }
 }
 
@@ -321,7 +321,7 @@ int nice_address_is_private(const n_addr_t * a)
         case AF_INET6:
             return ipv6_address_is_private(a->s.ip6.sin6_addr.s6_addr);
         default:
-			return FALSE;
+            return FALSE;
     }
 }
 
@@ -366,6 +366,6 @@ int nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b)
                    && (a->s.ip6.sin6_scope_id == b->s.ip6.sin6_scope_id);
 
         default:
-			return FALSE;
+            return FALSE;
     }
 }

@@ -41,7 +41,7 @@
  *
  * Since: 0.0.11
  */
-typedef struct _PseudoTcpSocket pst_socket_t; 
+typedef struct _PseudoTcpSocket pst_socket_t;
 
 typedef struct _PseudoTcpSocketClass pst_socket_tClass;
 
@@ -155,7 +155,7 @@ typedef enum
     WR_SUCCESS,
     WR_TOO_LARGE,
     WR_FAIL
-} pst_wret_e; 
+} pst_wret_e;
 
 /**
  * PseudoTcpShutdown:
@@ -193,7 +193,7 @@ typedef enum
  */
 typedef struct
 {
-	void * user_data;
+    void * user_data;
     void (*PseudoTcpOpened)(pst_socket_t * tcp, void * data);
     void (*PseudoTcpReadable)(pst_socket_t * tcp, void * data);
     void (*PseudoTcpWritable)(pst_socket_t * tcp, void * data);
@@ -225,7 +225,7 @@ typedef struct
  * Since: 0.0.11
  */
 pst_socket_t * pst_new(guint32 conversation,
-                                        pst_callback_t * callbacks);
+                       pst_callback_t * callbacks);
 
 
 /**
@@ -293,7 +293,7 @@ int32_t  pst_recv(pst_socket_t * self, char * buffer, size_t len);
  * Since: 0.0.11
  */
 int32_t pst_send(pst_socket_t * self, const char * buffer,
-                            guint32 len);
+                 guint32 len);
 
 
 /**
@@ -391,7 +391,7 @@ int pst_get_error(pst_socket_t * self);
  * Since: 0.0.11
  */
 gboolean pst_get_next_clock(pst_socket_t * self,
-        guint64 * timeout);
+                            guint64 * timeout);
 
 
 /**
@@ -435,7 +435,7 @@ void pst_notify_mtu(pst_socket_t * self, guint16 mtu);
  * Since: 0.0.11
  */
 gboolean pst_notify_packet(pst_socket_t * self,
-        const gchar * buffer, guint32 len);
+                           const gchar * buffer, guint32 len);
 
 
 /**
@@ -451,7 +451,7 @@ gboolean pst_notify_packet(pst_socket_t * self,
  * Since: 0.1.5
  */
 gboolean pst_notify_message(pst_socket_t * self,
-        n_input_msg_t * message);
+                            n_input_msg_t * message);
 
 
 /**

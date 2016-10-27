@@ -42,10 +42,10 @@ typedef void (*NiceSocketWritableCb)(n_socket_t * sock, void * user_data);
 
 struct _socket_st
 {
+    int sock_fd;
     n_addr_t addr;
     NiceSocketType type;
-    //GSocket * fileno;
-    int fileno;
+    //GSocket * fileno;    
     /* Implementations must handle any value of n_recv_messages, including 0. Iff
      * n_recv_messages is 0, recv_messages may be NULL. */
     int32_t(*recv_messages)(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
@@ -63,14 +63,14 @@ int32_t n_socket_recv_msgs(n_socket_t * sock, n_input_msg_t * recv_messages, uin
 int32_t nice_socket_send_messages(n_socket_t * sock, const n_addr_t * addr, const n_output_msg_t * messages, uint32_t n_messages);
 int32_t nice_socket_send_messages_reliable(n_socket_t * sock, const n_addr_t * addr, const n_output_msg_t * messages, uint32_t n_messages);
 int32_t nice_socket_recv(n_socket_t * sock, n_addr_t * from, uint32_t len, char * buf);
-int32_t nice_socket_send(n_socket_t * sock, const n_addr_t * to, uint32_t len,  const char * buf);
+int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * buf);
 //int32_t nice_socket_send_reliable(n_socket_t * sock, const n_addr_t * addr, uint32_t len, const char * buf);
 int nice_socket_is_reliable(n_socket_t * sock);
 int nice_socket_can_send(n_socket_t * sock, n_addr_t * addr);
 void nice_socket_set_writable_callback(n_socket_t * sock, NiceSocketWritableCb callback, void * user_data);
 void nice_socket_free(n_socket_t * sock);
 
-#include "udp-bsd.h"
+//#include "udp-bsd.h"
 //#include "tcp-bsd.h"
 //#include "tcp-active.h"
 //#include "tcp-passive.h"

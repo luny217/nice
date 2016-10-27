@@ -486,7 +486,7 @@ HostCandidateResult disc_add_local_host_cand(n_agent_t * agent, uint32_t stream_
     }
 
     _set_socket_tos(agent, nicesock, stream->tos);
-    component_attach_socket(comp, nicesock);
+    comp_attach_socket(comp, nicesock);
 
     *outcandidate = candidate;
 
@@ -581,7 +581,7 @@ n_cand_t * disc_add_relay_cand(n_agent_t * agent, uint32_t stream_id, uint32_t c
     if (!_add_local_cand_pruned(agent, stream_id, comp, candidate))
         goto errors;
 
-    component_attach_socket(comp, relay_socket);
+    comp_attach_socket(comp, relay_socket);
     agent_sig_new_cand(agent, candidate);
 
     return candidate;
