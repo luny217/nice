@@ -129,8 +129,6 @@ void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6)
 
 void nice_address_set_port(n_addr_t * addr, uint32_t port)
 {
-    //g_assert(addr);
-
     switch (addr->s.addr.sa_family)
     {
         case AF_INET:
@@ -140,7 +138,7 @@ void nice_address_set_port(n_addr_t * addr, uint32_t port)
             addr->s.ip6.sin6_port = htons(port);
             break;
         default:
-            g_return_if_reached();
+            break;
     }
 }
 
@@ -157,8 +155,9 @@ uint32_t nice_address_get_port(const n_addr_t * addr)
         case AF_INET6:
             return ntohs(addr->s.ip6.sin6_port);
         default:
-            g_return_val_if_reached(0);
+            break;
     }
+    return 0;
 }
 
 

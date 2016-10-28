@@ -108,7 +108,7 @@ n_socket_t * n_udp_socket_new(n_addr_t * addr)
     nice_address_init(&priv->niceaddr);
 
     sock->type = NICE_SOCKET_TYPE_UDP_BSD;
-    sock->fileno = gsock;
+    sock->sock_fd = gsock;
     sock->send_messages = socket_send_messages;
     sock->recv_messages = socket_recv_messages;
     sock->is_reliable = socket_is_reliable;
@@ -139,7 +139,7 @@ static void socket_close(n_socket_t * sock)
 
 static int32_t socket_recv_messages(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages)
 {
-    uint32_t i;
+    uint32_t i = 0;
     int error = FALSE;
 
     /* Socket has been closed: */
@@ -206,13 +206,13 @@ static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const
 {
     struct udp_socket_private_st * priv = sock->priv;
     int32_t len = -1;
-    uv_udp_send_t req;
 
     /* Socket has been closed: */
     if (priv == NULL)
         return -1;
 
-    if (!n_addr_is_valid(&priv->niceaddr) || !nice_address_equal(&priv->niceaddr, to))
+   #if 0
+ if (!n_addr_is_valid(&priv->niceaddr) || !nice_address_equal(&priv->niceaddr, to))
     {
         union
         {
@@ -243,6 +243,7 @@ static int32_t socket_send_message(n_socket_t * sock, const n_addr_t * to, const
             g_error_free(child_error);*/
         }
     }
+#endif
 
     // len = g_socket_send_message(sock->fileno, priv->gaddr, msg->buffers, msg->n_buffers, NULL, 0, G_SOCKET_MSG_NONE, NULL, &child_error);
 

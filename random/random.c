@@ -56,7 +56,7 @@ void nice_rng_generate_bytes(NiceRNG * rng, guint len, gchar * buf)
  * @param low closed lower bound
  * @param high open upper bound
  */
-uint32_t nice_rng_generate_int(NiceRNG * rng, guint low, guint high)
+uint32_t n_rng_gen_int(NiceRNG * rng, guint low, guint high)
 {
     return rng->generate_int(rng, low, high);
 }

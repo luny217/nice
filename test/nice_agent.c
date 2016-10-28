@@ -19,7 +19,7 @@
 #include <agent.h>
 #include "agent-priv.h"
 #include <gio/gnetworking.h>
-#include "uv.h"
+//#include "uv.h"
 #include "event.h"
 #include "pthread.h"
 #include "timer.h"
@@ -153,18 +153,22 @@ void nice_thread(void * data)
     // Create a new stream with one component
     stream_id = n_agent_add_stream(agent, 1);
     if (stream_id == 0)
+    {
 		nice_debug("Failed to add stream");
-
-	n_agent_set_port_range(agent, stream_id, 1, 1024, 4096);
+    }
+    
+	agent_set_port_range(agent, stream_id, 1, 1024, 4096);
 
 	//n_agent_attach_recv(agent, stream_id, 1, NULL, cb_nice_recv, NULL);
 
-    //n_agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test", RELAY_TYPE_TURN_UDP);
+    //agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test");
 
     // Start gathering local candidates
     if (!n_agent_gather_cands(agent, stream_id))
+    {
 		nice_debug("failed to start candidate gathering");
-
+    }
+    
     nice_debug("waiting for candidate-gathering-done signal...");
 
     pthread_mutex_lock(&gather_mutex);

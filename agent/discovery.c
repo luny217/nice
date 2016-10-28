@@ -327,7 +327,7 @@ static uint32_t _highest_remote_foundation(n_comp_t * component)
  *   for reflexive and relayed candidates, the STUN or TURN servers
  *   used to obtain them have the same IP address.
  */
-static int _compare_turn_servers(TurnServer * turn1, TurnServer * turn2)
+static int _compare_turn_servers(turn_server_t * turn1, turn_server_t * turn2)
 {
     if (turn1 == turn2)
         return TRUE;
@@ -549,7 +549,7 @@ n_cand_t * disc_add_server_cand(n_agent_t * agent, uint32_t stream_id, uint32_t 
  *
  * @return pointer to the created candidate, or NULL on error
  */
-n_cand_t * disc_add_relay_cand(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_addr_t * address, n_socket_t * base_socket, TurnServer * turn)
+n_cand_t * disc_add_relay_cand(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_addr_t * address, n_socket_t * base_socket, turn_server_t * turn)
 {
     n_cand_t * candidate;
     n_comp_t * comp;

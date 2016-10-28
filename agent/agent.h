@@ -262,7 +262,7 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id);
  * </para>
  *
  */
-void n_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t min_port, uint32_t max_port);
+void agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t min_port, uint32_t max_port);
 
 /**
  * n_agent_set_relay_info:

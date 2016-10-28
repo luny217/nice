@@ -111,7 +111,7 @@ struct _comp_st
     n_slist_t * socket_srcs_slist;     /* list of n_socket_source_t objs; must only grow monotonically */
     uint32_t socket_sources_age;    /* incremented when socket_srcs_slist changes */
     n_slist_t * incoming_checks;    /* list of n_inchk_t objs */
-    n_dlist_t * turn_servers;            /* List of TurnServer objs */
+    n_dlist_t * turn_servers;            /* List of turn_server_t objs */
     n_cand_pair_t selected_pair; /* independent from checklists, see ICE 11.1. "Sending Media" (ID-19) */
     n_cand_t * restart_candidate; /* for storing active remote candidate during a restart */
     n_cand_t * turn_candidate; /* for storing active turn candidate if turn servers have been cleared */
@@ -168,10 +168,10 @@ struct _comp_st
     n_queue_t queued_tcp_packets;
 };
 
-n_comp_t * component_new(uint32_t component_id, n_agent_t * agent, n_stream_t * stream);
+n_comp_t * comp_new(uint32_t component_id, n_agent_t * agent, n_stream_t * stream);
 void component_close(n_comp_t * cmp);
 void component_free(n_comp_t * cmp);
-int comp_find_pair(n_comp_t * cmp, n_agent_t * agent, const gchar * lfoundation, const gchar * rfoundation, n_cand_pair_t * pair);
+int comp_find_pair(n_comp_t * cmp, n_agent_t * agent, const char * lfoundation, const char * rfoundation, n_cand_pair_t * pair);
 void component_restart(n_comp_t * cmp);
 void comp_update_selected_pair(n_comp_t * component, const n_cand_pair_t * pair);
 n_cand_t * comp_find_remote_cand(const n_comp_t * component, const n_addr_t * addr);
@@ -186,9 +186,9 @@ void comp_set_io_callback(n_comp_t * component,  n_agent_recv_func func, void * 
 void comp_emit_io_cb(n_comp_t * component, const uint8_t * buf, uint32_t buf_len);
 int component_has_io_callback(n_comp_t * component);
 void component_clean_turn_servers(n_comp_t * component);
-TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password, n_relay_type_e type);
-TurnServer * turn_server_ref(TurnServer * turn);
-void turn_server_unref(TurnServer * turn);
+turn_server_t * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password);
+turn_server_t * turn_server_ref(turn_server_t * turn);
+void turn_server_unref(turn_server_t * turn);
 
 #endif /* _NICE_COMPONENT_H */
 

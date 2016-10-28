@@ -629,26 +629,24 @@ static void pst_closed(pst_socket_t * sock, uint32_t err, void * user_data)
 
 static pst_wret_e pst_write_packet(pst_socket_t * psocket, const char * buffer, uint32_t len, void * user_data)
 {
-    n_comp_t * component = user_data;
+    n_comp_t * comp = user_data;
 
-    if (component->selected_pair.local != NULL)
+    if (comp->selected_pair.local != NULL)
     {
         n_socket_t * sock;
         n_addr_t * addr;
 
-        sock = component->selected_pair.local->sockptr;
-        addr = &component->selected_pair.remote->addr;
+        sock = comp->selected_pair.local->sockptr;
+        addr = &comp->selected_pair.remote->addr;
 
         if (nice_debug_is_enabled())
         {
             char tmpbuf[INET6_ADDRSTRLEN];
-            uv_os_fd_t fd;
-            uv_fileno((const uv_handle_t *)&sock->fileno, &fd);
             nice_address_to_string(addr, tmpbuf);
 
-            nice_debug("[%s]: s%d:%d: sending %d bytes on socket %p (FD %d) to [%s]:%d",
-                       G_STRFUNC, component->stream->id, component->id, len,
-                       &sock->fileno, fd, tmpbuf, nice_address_get_port(addr));
+            nice_debug("[%s]: %d:%d: sending %d bytes on socket  (FD %d) to [%s]:%d",
+                       G_STRFUNC, comp->stream->id, comp->id, len,
+                       &sock->sock_fd, tmpbuf, nice_address_get_port(addr));
         }
 
         /* Send the segment. nice_socket_send() returns 0 on EWOULDBLOCK; in that
@@ -665,7 +663,7 @@ static pst_wret_e pst_write_packet(pst_socket_t * psocket, const char * buffer, 
     else
     {
         nice_debug("%s: WARNING: Failed to send pseudo-TCP packet from agent %p "
-                   "as no pair has been selected yet.", G_STRFUNC, component->agent);
+                   "as no pair has been selected yet.", G_STRFUNC, comp->agent);
     }
 
     return WR_FAIL;
@@ -798,8 +796,7 @@ void agent_gathering_done(n_agent_t * agent)
                 {
                     char tmpbuf[INET6_ADDRSTRLEN];
                     nice_address_to_string(&local_candidate->addr, tmpbuf);
-                    nice_debug("[%s]: gathered %s local candidate : [%s]:%u" " for s%d/c%d", G_STRFUNC,
-                               _transport_to_string(local_candidate->transport),
+                    nice_debug("[%s]: gathered local candidate : [%s]:%u for s%d/c%d", G_STRFUNC,
                                tmpbuf, nice_address_get_port(&local_candidate->addr),
                                local_candidate->stream_id, local_candidate->component_id);
                 }
@@ -1152,7 +1149,7 @@ static void _add_new_cdisc_stun(n_agent_t * agent, n_socket_t * nicesock, n_addr
     ++agent->disc_unsched_items;
 }
 
-static void _add_new_cdisc_turn(n_agent_t * agent, n_socket_t * nicesock, TurnServer * turn, n_stream_t * stream, uint32_t comp_id)
+static void _add_new_cdisc_turn(n_agent_t * agent, n_socket_t * nicesock, turn_server_t * turn, n_stream_t * stream, uint32_t comp_id)
 {
     n_cand_disc_t * cdisco;
     n_comp_t * comp = stream_find_comp_by_id(stream, comp_id);
@@ -1214,33 +1211,23 @@ uint32_t n_agent_add_stream(n_agent_t * agent, uint32_t n_comps)
 }
 
 
-int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,  const char * server_ip,
-                           uint32_t server_port, const char * username, const char * password, n_relay_type_e type)
+int agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id,  const char * server_ip,
+                         uint32_t server_port, const char * username, const char * password)
 {
-    n_comp_t * component = NULL;
+    n_comp_t * comp = NULL;
     n_stream_t * stream = NULL;
     int32_t ret = TRUE;
-    TurnServer * turn;
+    turn_server_t * turn;
 
-    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    /*g_return_val_if_fail(stream_id >= 1, FALSE);
-    g_return_val_if_fail(component_id >= 1, FALSE);
-    g_return_val_if_fail(server_ip, FALSE);
-    g_return_val_if_fail(server_port, FALSE);
-    g_return_val_if_fail(username, FALSE);
-    g_return_val_if_fail(password, FALSE);
-    g_return_val_if_fail(type <= RELAY_TYPE_TURN_TLS, FALSE);*/
-
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
-    if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
+    if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
     {
         ret = FALSE;
         goto done;
     }
 
-    turn = turn_server_new(server_ip, server_port, username, password, type);
+    turn = turn_server_new(server_ip, server_port, username, password);
 
     if (!turn)
     {
@@ -1248,11 +1235,11 @@ int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t compo
         goto done;
     }
 
-    nice_debug("[%s]: added relay server [%s]:%d of type %d to s/c %d/%d "
-               "with user/pass : %s -- %s", G_STRFUNC, server_ip, server_port, type,
-               stream_id, component_id, username, password);
+    nice_debug("[%s]: added relay server [%s]:%d  to s/c %d/%d "
+               "with user/pass : %s -- %s", G_STRFUNC, server_ip, server_port,
+               stream_id, comp_id, username, password);
 
-    component->turn_servers = n_dlist_append(component->turn_servers, turn);
+    comp->turn_servers = n_dlist_append(comp->turn_servers, turn);
 
     if (stream->gathering_started)
     {
@@ -1260,12 +1247,12 @@ int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t compo
 
         stream->gathering = TRUE;
 
-        for (i = component->local_candidates; i; i = i->next)
+        for (i = comp->local_candidates; i; i = i->next)
         {
             n_cand_t * candidate = i->data;
 
             if (candidate->type == CAND_TYPE_HOST)
-                _add_new_cdisc_turn(agent, candidate->sockptr, turn, stream, component_id);
+                _add_new_cdisc_turn(agent, candidate->sockptr, turn, stream, comp_id);
         }
 
         if (agent->disc_unsched_items)
@@ -1273,7 +1260,7 @@ int n_agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t compo
     }
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock(agent);
     return ret;
 }
 
@@ -1281,24 +1268,22 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
 {
     int32_t ret = TRUE;
     uint32_t cid;
-    n_slist_t * i, * local_addresses = NULL;
+    n_slist_t * l, * local_addresses = NULL;
     n_stream_t * stream;
-    //HostCandidateResult res = CANDIDATE_CANT_CREATE_SOCKET;
 
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     stream = agent_find_stream(agent, stream_id);
     if (stream == NULL)
     {
-        agent_unlock_and_emit(agent);
+        agent_unlock(agent);
         return FALSE;
     }
 
     if (stream->gathering_started)
     {
         /* n_stream_t is already gathering, ignore this call */
-        agent_unlock_and_emit(agent);
+        agent_unlock(agent);
         return TRUE;
     }
 
@@ -1329,9 +1314,9 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
     }
     else
     {
-        for (i = agent->local_addresses; i; i = i->next)
+        for (l = agent->local_addresses; l; l = l->next)
         {
-            n_addr_t * addr = i->data;
+            n_addr_t * addr = l->data;
             n_addr_t * dupaddr = nice_address_dup(addr);
 
             local_addresses = n_slist_append(local_addresses, dupaddr);
@@ -1339,24 +1324,24 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
     }
 
     /* 为所有本地地址生成候选地址 */
-    for (i = local_addresses; i; i = i->next)
+    for (l = local_addresses; l; l = l->next)
     {
-        n_addr_t * addr = i->data;
+        n_addr_t * addr = l->data;
         n_cand_t * host_candidate;
         uint32_t  current_port, start_port;
         HostCandidateResult res = CANDIDATE_CANT_CREATE_SOCKET;
 
         for (cid = 1; cid <= stream->n_components; cid++)
         {
-            n_comp_t * component = stream_find_comp_by_id(stream, cid);
+            n_comp_t * comp = stream_find_comp_by_id(stream, cid);
 
-            if (component == NULL)
+            if (comp == NULL)
                 continue;
 
-            start_port = component->min_port;
-            if (component->min_port != 0)
+            start_port = comp->min_port;
+            if (comp->min_port != 0)
             {
-                start_port = nice_rng_generate_int(agent->rng, component->min_port, component->max_port + 1);
+                start_port = n_rng_gen_int(agent->rng, comp->min_port, comp->max_port + 1);
             }
             current_port = start_port;
 
@@ -1370,7 +1355,7 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
                 nice_print_cand(agent, host_candidate, host_candidate);
                 if (current_port > 0)
                     current_port++;
-                if (current_port > component->max_port) current_port = component->min_port;
+                if (current_port > comp->max_port) current_port = comp->min_port;
                 if (current_port == 0 || current_port == start_port)
                     break;
             }
@@ -1393,31 +1378,32 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
                     char ip[NICE_ADDRESS_STRING_LEN];
                     nice_address_to_string(addr, ip);
                     nice_debug("[%s]: Unable to add local host candidate %s for"
-                               " s%d:%d. Invalid interface?", G_STRFUNC, ip, stream->id, component->id);
+                               " s%d:%d. Invalid interface?", G_STRFUNC, ip, stream->id, comp->id);
                 }
                 ret = FALSE;
                 goto error;
             }
 
-            /* TODO: Add server-reflexive support for TCP candidates */
+            /*添加stun外网映射候选*/
             if (agent->stun_server_ip)
             {
                 n_addr_t stun_server;
                 if (nice_address_set_from_string(&stun_server, agent->stun_server_ip))
                 {
                     nice_address_set_port(&stun_server, agent->stun_server_port);
-                    /*添加stun外网映射候选*/
+
                     _add_new_cdisc_stun(agent, host_candidate->sockptr, stun_server, stream, cid);
                 }
             }
 
-            if (component->turn_servers)
+            /*添加turn转发候选*/
+            if (comp->turn_servers)
             {
                 n_dlist_t * item;
-                for (item = component->turn_servers; item; item = item->next)
+                for (item = comp->turn_servers; item; item = item->next)
                 {
-                    TurnServer * turn = item->data;
-                    /*添加turn转发候选*/
+                    turn_server_t * turn = item->data;
+
                     _add_new_cdisc_turn(agent, host_candidate->sockptr, turn, stream, cid);
                 }
             }
@@ -1431,10 +1417,10 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
      * successful. But before sending gathering-done */
     for (cid = 1; cid <= stream->n_components; cid++)
     {
-        n_comp_t * component = stream_find_comp_by_id(stream, cid);
-        for (i = component->local_candidates; i; i = i->next)
+        n_comp_t * comp = stream_find_comp_by_id(stream, cid);
+        for (l = comp->local_candidates; l; l = l->next)
         {
-            n_cand_t * candidate = i->data;
+            n_cand_t * candidate = l->data;
             //agent_sig_new_cand(agent, candidate);
         }
     }
@@ -1451,9 +1437,9 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
     }
 
 error:
-    for (i = local_addresses; i; i = i->next)
+    for (l = local_addresses; l; l = l->next)
     {
-        nice_address_free(i->data);
+        nice_address_free(l->data);
     }
     n_slist_free(local_addresses);
 
@@ -1461,24 +1447,25 @@ error:
     {
         for (cid = 1; cid <= stream->n_components; cid++)
         {
-            n_comp_t * component = stream_find_comp_by_id(stream, cid);
+            n_comp_t * comp = stream_find_comp_by_id(stream, cid);
 
-            component_free_socket_sources(component);
+            component_free_socket_sources(comp);
 
-            for (i = component->local_candidates; i; i = i->next)
+            for (l = comp->local_candidates; l; l = l->next)
             {
-                n_cand_t * candidate = i->data;
+                n_cand_t * candidate = l->data;
 
                 agent_remove_local_candidate(agent, candidate);
 
                 n_cand_free(candidate);
             }
-            n_slist_free(component->local_candidates);
-            component->local_candidates = NULL;
+            n_slist_free(comp->local_candidates);
+            comp->local_candidates = NULL;
         }
         disc_prune_stream(agent, stream_id);
     }
 
+out:
     agent_unlock_and_emit(agent);
 
     return ret;
@@ -1515,10 +1502,6 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
 
     n_stream_t * stream;
 
-    //g_return_if_fail(NICE_IS_AGENT(agent));
-    g_return_if_fail(stream_id >= 1);
-
-    //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
     stream = agent_find_stream(agent, stream_id);
 
@@ -1552,42 +1535,33 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
     return;
 }
 
-void n_agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t min_port, uint32_t max_port)
+void agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t min_port, uint32_t max_port)
 {
     n_stream_t * stream;
-    n_comp_t * component;
+    n_comp_t * comp;
 
-    //g_return_if_fail(NICE_IS_AGENT(agent));
-    g_return_if_fail(stream_id >= 1);
-    g_return_if_fail(component_id >= 1);
-
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
-    if (agent_find_comp(agent, stream_id, component_id, &stream, &component))
+    if (agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
     {
         if (stream->gathering_started)
         {
-            g_critical("n_agent_gather_cands (stream_id=%u) already called for this stream", stream_id);
+            nice_debug("n_agent_gather_cands (stream_id=%u) already called for this stream", stream_id);
         }
         else
         {
-            component->min_port = min_port;
-            component->max_port = max_port;
+            comp->min_port = min_port;
+            comp->max_port = max_port;
         }
     }
 
-    agent_unlock_and_emit(agent);
+    agent_unlock(agent);
 }
 
 int32_t n_agent_add_local_addr(n_agent_t * agent, n_addr_t * addr)
 {
     n_addr_t * dupaddr;
 
-    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(addr != NULL, FALSE);
-
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     dupaddr = nice_address_dup(addr);
@@ -1636,7 +1610,7 @@ static int32_t _add_remote_cand(
             candidate->base_addr = *base_addr;
         candidate->priority = priority;
         if (foundation)
-            g_strlcpy(candidate->foundation, foundation, CAND_MAX_FOUNDATION);
+            strncpy(candidate->foundation, foundation, CAND_MAX_FOUNDATION);
         /* note: username and password must remain the same during
          *       a session; see sect 9.1.2 in ICE ID-19 */
 
@@ -1650,12 +1624,12 @@ static int32_t _add_remote_cand(
         if (username)
         {
             n_free(candidate->username);
-            candidate->username = g_strdup(username);
+            candidate->username = n_strdup(username);
         }
         if (password)
         {
             n_free(candidate->password);
-            candidate->password = g_strdup(password);
+            candidate->password = n_strdup(password);
         }
     }
     else
@@ -1682,9 +1656,8 @@ static int32_t _add_remote_cand(
             char tmpbuf[INET6_ADDRSTRLEN] = {0};
             if (addr)
                 nice_address_to_string(addr, tmpbuf);
-            nice_debug("[%s]: Adding %s remote candidate with addr [%s]:%u"
-                       " for s%d/c%d. U/P '%s'/'%s' prio: %u", G_STRFUNC,
-                       _transport_to_string(transport), tmpbuf,
+            nice_debug("[%s]: adding remote candidate with addr [%s]:%u"
+                       " for s%d/c%d. U/P '%s'/'%s' prio: %u", G_STRFUNC, tmpbuf,
                        addr ? nice_address_get_port(addr) : 0, stream_id, comp_id,
                        username, password, priority);
         }
@@ -1694,11 +1667,11 @@ static int32_t _add_remote_cand(
 
         candidate->transport = transport;
         candidate->priority = priority;
-        candidate->username = g_strdup(username);
-        candidate->password = g_strdup(password);
+        candidate->username = n_strdup(username);
+        candidate->password = n_strdup(password);
 
         if (foundation)
-            g_strlcpy(candidate->foundation, foundation, CAND_MAX_FOUNDATION);
+            strncpy(candidate->foundation, foundation, CAND_MAX_FOUNDATION);
     }
 
     if (cocheck_add_cand(agent, stream_id, comp, candidate) < 0)
@@ -1929,16 +1902,14 @@ static n_recv_status_t agent_recv_msg_unlocked(n_agent_t * agent, n_stream_t * s
     if (nice_debug_is_enabled())
     {
         char tmpbuf[INET6_ADDRSTRLEN];
-        uv_os_fd_t fd;
-        uv_fileno((const uv_handle_t *)&nicesock->fileno, &fd);
         nice_address_to_string(message->from, tmpbuf);
         nice_debug("[%s]: Packet received on local socket %d from [%s]:%u (% G_GSSIZE_FORMAT octets).", G_STRFUNC,
-                   fd, tmpbuf, nice_address_get_port(message->from), message->length);
+                   nicesock->sock_fd, tmpbuf, nice_address_get_port(message->from), message->length);
     }
 
     for (item = comp->turn_servers; item; item = n_dlist_next(item))
     {
-        TurnServer * turn = item->data;
+        turn_server_t * turn = item->data;
         n_slist_t * i = NULL;
 
         if (!nice_address_equal(message->from, &turn->server))
@@ -2529,7 +2500,7 @@ static void n_agent_dispose(GObject * object)
 #if 1
 
 /**/
-int32_t n_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf_vec, const struct sockaddr * addr, unsigned flags)
+int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf_vec, const struct sockaddr * addr, unsigned flags)
 {
     n_socket_source_t * socket_source = (n_socket_source_t *)handle->data;
     n_dlist_t * item;
@@ -2600,7 +2571,7 @@ int32_t n_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf_vec
 #if 0
         for (item = comp->turn_servers; item; item = n_dlist_next(item))
         {
-            TurnServer * turn = item->data;
+            turn_server_t * turn = item->data;
             n_slist_t * i = NULL;
 
             if (!nice_address_equal(message->from, &turn->server))
@@ -2696,14 +2667,14 @@ done:
         }
         return retval;
 
-        has_io_callback = component_has_io_callback(component);
+        has_io_callback = component_has_io_callback(comp);
     }
 
 done:
     /* If we're in the middle of a read, don't emit any signals, or we could cause
      * re-entrancy by (e.g.) emitting component-state-changed and having the
      * client perform a read. */
-    if (component->n_recv_messages == 0 && component->recv_messages == NULL)
+    if (comp->n_recv_messages == 0 && comp->recv_messages == NULL)
     {
         agent_unlock(agent);
     }
@@ -2722,61 +2693,61 @@ done:
 //    return G_SOURCE_REMOVE;
 }
 
+#define ANENT_MAX_FD 128
+
 void _agent_worker(void * arg)
 {
-    n_comp_t * comp = = (n_comp_t *)arg;
+    n_comp_t * comp = (n_comp_t *)arg;
     int poll_delay = 100;
-    int len, n, i;
+    int len, n, i, fd_idx = 0;
     n_slist_t  * l;
     n_socket_source_t * socket_source;
-    struct pollfd p[2] =
+    struct pollfd p[ANENT_MAX_FD] = {0};
+
+
+    while (1)
     {
-        {s->rtp_fd, POLLIN, 0},
-        {s->rtcp_fd, POLLIN, 0}
-    };
-
-
-    for (;;)
-    {
-
-
         for (l = comp->socket_srcs_slist; l != NULL; l = l->next)
         {
             socket_source = i->data;
-            nice_debug("Reattach source %p.", socket_source->source);
-            socket_source_detach(socket_source);
-            socket_source_attach(socket_source, component->ctx);
+            
+            if (socket_source->socket && socket_source->socket->sock_fd > 0)
+            {
+                p[fd_idx].fd = socket_source->socket->sock_fd;
+                p[fd_idx].events = POLLIN;
+                if (fd_idx < ANENT_MAX_FD) 
+                {
+                    fd_idx++;
+                }
+                else
+                {
+                    nice_debug("pollfd is overload\n");
+                }
+            }
         }
 
-        n = poll(p, 2, poll_delay);
+        n = poll(p, fd_idx, poll_delay);
         if (n > 0)
         {
-            for (i = 1; i >= 0; i--)
+            for (i = 0; i < n; i++)
             {
                 if (!(p[i].revents & POLLIN))
                     continue;
                 /**addr_lens[i] = sizeof(*addrs[i]);
                 len = recvfrom(p[i].fd, buf, size, 0, (struct sockaddr *)addrs[i], addr_lens[i]);
                 if (len < 0)
-                {
-                    if (ff_neterrno() == AVERROR(EAGAIN) ||
-                            ff_neterrno() == AVERROR(EINTR))
-                        continue;
-                    return AVERROR(EIO);
+                {                    
                 }*/
 
-                n_recv_packet();
+                agent_recv_packet();
 
             }
         }
         else if (n < 0)
         {
-            if (ff_neterrno() == AVERROR(EINTR))
-                continue;
-            return AVERROR(EIO);
+            nice_debug("poll err = %d\n", n);
+            continue;
         }
-        if (h->flags & AVIO_FLAG_NONBLOCK)
-            return AVERROR(EAGAIN);
     }
 }
 
@@ -2837,199 +2808,6 @@ int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp
          * trigger an error in the initial, pre-connection attach. */
         if (agent->reliable && !pst_is_closed(comp->tcp) && comp->tcp_readable)
             pst_readable(comp->tcp, comp);
-    }
-
-done:
-    agent_unlock_and_emit(agent);
-    return ret;
-}
-
-#else
-int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * user_data)
-{
-    n_socket_source_t * socket_source = user_data;
-    n_comp_t * component;
-    n_agent_t * agent;
-    n_stream_t * stream;
-    int32_t has_io_callback;
-    int32_t remove_source = FALSE;
-    uint8_t local_header_buf[TCP_HEADER_SIZE];
-    uint8_t local_body_buf[MAX_BUFFER_SIZE];
-    n_invector_t local_bufs[] =
-    {
-        { local_header_buf, sizeof(local_header_buf) },
-        { local_body_buf, sizeof(local_body_buf) },
-    };
-    n_input_msg_t local_message =
-    {
-        local_bufs, G_N_ELEMENTS(local_bufs), NULL, 0
-    };
-    n_recv_status_t retval = 0;
-
-    //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
-
-    /*
-    if (g_source_is_destroyed(g_main_current_source()))
-    {
-    / * Silently return FALSE. * /
-    nice_debug("[%s]: source %p destroyed", G_STRFUNC, g_main_current_source());
-
-    agent_unlock();
-    return G_SOURCE_REMOVE;
-    }
-    */
-
-    component = socket_source->component;
-    agent = component->agent;
-    stream = component->stream;
-
-    //g_object_ref(agent);
-
-    /* Remove disconnected sockets when we get a HUP */
-    if (condition & G_IO_HUP)
-    {
-        nice_debug("[%s]: n_socket_t %p has received HUP", G_STRFUNC, socket_source->socket);
-        if (component->selected_pair.local &&
-                component->selected_pair.local->sockptr == socket_source->socket &&
-                component->state == COMP_STATE_READY)
-        {
-            nice_debug("[%s]: Selected pair socket %p has HUP, declaring failed", G_STRFUNC, socket_source->socket);
-            agent_sig_comp_state_change(agent, stream->id, component->id, COMP_STATE_FAILED);
-        }
-
-        component_detach_socket(component, socket_source->socket);
-        agent_unlock();
-        return G_SOURCE_REMOVE;
-    }
-
-    has_io_callback = component_has_io_callback(component);
-
-    /* Choose which receive buffer to use. If we??re reading for
-    * n_agent_attach_recv(), use a local static buffer. If we??re reading for
-    * nice_agent_recv_messages(), use the buffer provided by the client.
-    *
-    * has_io_callback cannot change throughout this function, as we operate
-    * entirely with the agent lock held, and comp_set_io_callback() would
-    * need to take the agent lock to change the n_comp_t's io_callback. */
-    //g_assert(!has_io_callback || component->recv_messages == NULL);
-
-    /* FIXME: Currently, the critical path for reliable packet delivery has two
-    * memcpy()s: one into the pseudo-TCP receive buffer, and one out of it.
-    * This could moderately easily be reduced to one memcpy() in the common
-    * case of in-order packet delivery, by replacing local_body_buf with a
-    * pointer into the pseudo-TCP receive buffer. If it turns out the packet
-    * is out-of-order (which we can only know after parsing its header), the
-    * data will need to be moved in the buffer. If the packet *is* in order,
-    * however, the only memcpy() then needed is from the pseudo-TCP receive
-    * buffer to the client's message buffers.
-    *
-    * In fact, in the case of a reliable agent with I/O callbacks, zero
-    * memcpy()s can be achieved (for in-order packet delivery) by emittin the
-    * I/O callback directly from the pseudo-TCP receive buffer. */
-
-    if (pst_is_closed(component->tcp))
-    {
-        nice_debug("[%s]: not handling incoming packet for s%d:%d "
-                   "because pseudo-TCP socket does not exist in reliable mode.", G_STRFUNC,
-                   stream->id, component->id);
-        remove_source = TRUE;
-        goto done;
-    }
-
-    while (has_io_callback)
-    {
-        /* Receive a single message. This will receive it into the given
-        * @local_bufs then, for pseudo-TCP, emit I/O callbacks or copy it into
-        * component->recv_messages in pst_readable(). STUN packets
-        * will be parsed in-place. */
-        retval = agent_recv_msg_unlocked(agent, stream, component, socket_source->socket, &local_message);
-
-        /* Dont expect any valid messages to escape pst_readable()
-        * when in reliable mode. */
-        //g_assert_cmpint(retval, != , RECV_SUCCESS);
-
-        if (retval == RECV_WOULD_BLOCK)
-        {
-            /* EWOULDBLOCK. */
-            break;
-        }
-        else if (retval == RECV_ERROR)
-        {
-            /* Other error. */
-            nice_debug("[%s]: error receiving message", G_STRFUNC);
-            remove_source = TRUE;
-            break;
-        }
-
-        nice_debug("[%s]: received %d valid messages with %d bytes", G_STRFUNC, retval, local_message.length);
-
-        has_io_callback = component_has_io_callback(component);
-    }
-
-done:
-    /* If we're in the middle of a read, don't emit any signals, or we could cause
-    * re-entrancy by (e.g.) emitting component-state-changed and having the
-    * client perform a read. */
-    if (component->n_recv_messages == 0 && component->recv_messages == NULL)
-    {
-        agent_unlock_and_emit(agent);
-    }
-    else
-    {
-        agent_unlock();
-    }
-
-    // g_object_unref(agent);
-
-    return !remove_source;
-
-    //out:
-    //    g_object_unref(agent);
-    //    agent_unlock_and_emit(agent);
-    //    return G_SOURCE_REMOVE;
-}
-
-int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, GMainContext * ctx, n_agent_recv_func func, void * data)
-{
-    n_comp_t * component = NULL;
-    n_stream_t * stream = NULL;
-    int32_t ret = FALSE;
-
-    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    //g_return_val_if_fail(stream_id >= 1, FALSE);
-    //g_return_val_if_fail(component_id >= 1, FALSE);
-
-    //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
-
-    /* attach candidates */
-
-    /* step: check that params specify an existing pair */
-    if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
-    {
-        nice_debug("Could not find component %u in stream %u", component_id, stream_id);
-        goto done;
-    }
-
-    if (ctx == NULL)
-        ctx = g_main_context_default();
-
-    /* Set the component's I/O context. */
-    comp_set_io_context(component, ctx);
-    comp_set_io_callback(component, func, data);
-    ret = TRUE;
-
-    if (func)
-    {
-        /* If we got detached, maybe our readable callback didn't finish reading
-        * all available data in the pseudotcp, so we need to make sure we free
-        * our recv window, so the readable callback can be triggered again on the
-        * next incoming data.
-        * but only do this if we know we're already readable, otherwise we might
-        * trigger an error in the initial, pre-connection attach. */
-        if (agent->reliable && !pst_is_closed(component->tcp) && component->tcp_readable)
-            pst_readable(component->tcp, component);
     }
 
 done:

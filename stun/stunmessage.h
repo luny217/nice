@@ -861,7 +861,7 @@ typedef struct
  *
  * Since: 0.1.5
  */
-ssize_t stun_msg_valid_buflen_fast(StunInputVector * buffers, int n_buffers, size_t total_length, int has_padding);
+ssize_t stun_msg_valid_buflen_fast(char * buf, size_t len, int has_padding);
 /**
  * stun_msg_id:
  * @msg: The #stun_msg_t

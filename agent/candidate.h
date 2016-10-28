@@ -74,10 +74,10 @@ typedef enum
 
 typedef struct _cand_st n_cand_t; 
 
-typedef struct _TurnServer TurnServer;
+typedef struct _turn_server_st turn_server_t;
 
 /**
- * TurnServer:
+ * turn_server_t:
  * @ref_count: Reference count for the structure.
  * @server: The #n_addr_t of the TURN server
  * @username: The TURN username
@@ -86,13 +86,13 @@ typedef struct _TurnServer TurnServer;
  *
  * A structure to store the TURN relay settings
  */
-struct _TurnServer
+struct _turn_server_st
 {
     uint32_t ref_count;
     n_addr_t server;
     char * username;
     char * password;
-    n_relay_type_e type;
+    //n_relay_type_e type;
 };
 
 /**
@@ -109,7 +109,7 @@ struct _TurnServer
  * by n_agent_set_local_credentials() or n_agent_set_remote_credentials())
  * @password: The candidate-specific password to use (overrides the one set
  * by n_agent_set_local_credentials() or n_agent_set_remote_credentials())
- * @turn: The #TurnServer settings if the candidate is
+ * @turn: The #turn_server_t settings if the candidate is
  * of type %NICE_CANDIDATE_TYPE_RELAYED
  * @sockptr: The underlying socket
  *
@@ -135,7 +135,7 @@ struct _cand_st
     char foundation[CAND_MAX_FOUNDATION];
     char * username;       /* pointer to a nul-terminated username string */
     char * password;       /* pointer to a nul-terminated password string */
-    TurnServer * turn;
+    turn_server_t * turn;
     void * sockptr;
 };
 

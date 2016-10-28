@@ -842,7 +842,7 @@ void comp_emit_io_cb(n_comp_t * comp, const uint8_t * buf, uint32_t buf_len)
     }
 }
 
-#if 1
+#if 0
 /* Note: Must be called with the io_mutex held. */
 static void comp_sched_io_cb(n_comp_t * comp)
 {
@@ -898,9 +898,10 @@ static void comp_desched_io_cb(n_comp_t * component)
     component->io_callback_id = 0;
 }
 #endif
-TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password, n_relay_type_e type)
+
+turn_server_t * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password)
 {
-    TurnServer * turn = g_slice_new(TurnServer);
+    turn_server_t * turn = n_slice_new(turn_server_t);
 
     nice_address_init(&turn->server);
 
@@ -911,23 +912,22 @@ TurnServer * turn_server_new(const char * server_ip, uint32_t server_port, const
     }
     else
     {
-        n_slice_free(TurnServer, turn);
+        n_slice_free(turn_server_t, turn);
         return NULL;
     }
     turn->username = n_strdup(username);
     turn->password = n_strdup(password);
-    turn->type = type;
 
     return turn;
 }
 
-TurnServer * turn_server_ref(TurnServer * turn)
+turn_server_t * turn_server_ref(turn_server_t * turn)
 {
     turn->ref_count++;
     return turn;
 }
 
-void turn_server_unref(TurnServer * turn)
+void turn_server_unref(turn_server_t * turn)
 {
     turn->ref_count--;
 
@@ -935,6 +935,6 @@ void turn_server_unref(TurnServer * turn)
     {
         n_free(turn->username);
         n_free(turn->password);
-        n_slice_free(TurnServer, turn);
+        n_slice_free(turn_server_t, turn);
     }
 }
