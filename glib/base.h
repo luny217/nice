@@ -54,7 +54,9 @@ void n_strfreev(char **str_array);
 
 void * n_memdup(const void * mem, uint32_t  byte_size);
 
-#ifdef _WIN32
+typedef unsigned long nfds_t;
+
+#if 0 //def _WIN32
 typedef unsigned long nfds_t;
 
 struct pollfd 
@@ -78,28 +80,11 @@ struct pollfd
 #define POLLHUP    0x0080  /* disconnected */
 #define POLLNVAL   0x1000  /* invalid file descriptor */
 int poll(struct pollfd *fds, nfds_t numfds, int timeout);
-
-#if 0
-int net_errno(void)
-{
-    int err = WSAGetLastError();
-    switch (err) {
-    case WSAEWOULDBLOCK:
-        return AVERROR(EAGAIN);
-    case WSAEINTR:
-        return AVERROR(EINTR);
-    case WSAEPROTONOSUPPORT:
-        return AVERROR(EPROTONOSUPPORT);
-    case WSAETIMEDOUT:
-        return AVERROR(ETIMEDOUT);
-    case WSAECONNREFUSED:
-        return AVERROR(ECONNREFUSED);
-    case WSAEINPROGRESS:
-        return AVERROR(EINPROGRESS);
-    }
-    return -err;
-}
 #endif
 
+#if 1
+int net_errno(void);
 #endif
+
+
 #endif

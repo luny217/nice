@@ -161,6 +161,8 @@ void nice_thread(void * data)
 
 	//n_agent_attach_recv(agent, stream_id, 1, NULL, cb_nice_recv, NULL);
 
+	n_agent_dispatcher(agent, stream_id, 1);
+
     //agent_set_relay_info(agent, stream_id, 1, stun_addr, stun_port, "test", "test");
 
     // Start gathering local candidates
@@ -229,9 +231,9 @@ void nice_thread(void * data)
         char ipaddr[INET6_ADDRSTRLEN];
 
         nice_address_to_string(&local->addr, ipaddr);
-		nice_debug("negotiation complete: ([%s]:%d,", ipaddr, nice_address_get_port(&local->addr));
+		nice_debug("negotiation complete: ([%s]:%d,", ipaddr, n_addr_get_port(&local->addr));
         nice_address_to_string(&remote->addr, ipaddr);
-		nice_debug(" [%s]:%d)\n", ipaddr, nice_address_get_port(&remote->addr));
+		nice_debug(" [%s]:%d)\n", ipaddr, n_addr_get_port(&remote->addr));
     }
 
     // Listen to stdin and send data written to it
@@ -447,7 +449,7 @@ static int print_local_data(n_agent_t * agent, uint32_t stream_id, uint32_t comp
                c->foundation,
                c->priority,
                ipaddr,
-               nice_address_get_port(&c->addr),
+               n_addr_get_port(&c->addr),
                candidate_type_name[c->type]);
     }
     printf("\n");
@@ -531,7 +533,6 @@ end:
     return result;
 }
 
-#if 1
 int main(int argc, char * argv[])
 {
 	char write_file[] = "wtest.dat";
@@ -539,8 +540,9 @@ int main(int argc, char * argv[])
 	pthread_t tid;
 	int ret;
 
-	g_networking_init();
+	n_networking_init();
 	clock_win32_init();
+	nice_debug_init();
 
 	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
 
@@ -563,12 +565,10 @@ int main(int argc, char * argv[])
 	// Run the main loop and the example thread
 	exit_thread = FALSE;
 	/* Start the event loop.  Control continues in do_bind(). */
-	if (uv_run(loop, UV_RUN_DEFAULT))
+	while (1)
 	{
-		abort();
+		sleep_ms(100);
 	}
-
-	uv_loop_delete(loop);
 
 	exit_thread = TRUE;
 
@@ -576,46 +576,3 @@ int main(int argc, char * argv[])
 
 	return EXIT_SUCCESS;
 }
-#else
-int main(int argc, char * argv[])
-{
-	//GThread * gexamplethread;
-	char write_file[] = "wtest.dat";
-	pthread_t tid;
-	int ret;
-
-	g_networking_init();
-	clock_win32_init();
-
-	//g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
-
-	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
-	{
-		printf("Open %s failed:%s\n", write_file, strerror(errno));
-		return -1;
-	}
-
-	ret = timer_open();
-
-	ret = pthread_create(&tid, 0, (void *)nice_thread, NULL);
-
-	pthread_mutex_init(&gather_mutex, NULL);
-	pthread_mutex_init(&negotiate_mutex, NULL);
-
-	pthread_cond_init(&gather_cond, NULL);
-	pthread_cond_init(&negotiate_cond, NULL);
-
-	gloop = g_main_loop_new(NULL, FALSE);
-
-	// Run the main loop and the example thread
-	exit_thread = FALSE;
-	g_main_loop_run(gloop);
-	exit_thread = TRUE;
-
-	g_main_loop_unref(gloop);
-
-	pthread_join(tid, NULL);
-
-	return EXIT_SUCCESS;
-}
-#endif

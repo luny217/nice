@@ -13,9 +13,9 @@
  */
 
 
-#include <glib.h>
+//#include <glib.h>
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
@@ -105,7 +105,7 @@ n_addr_t * nice_address_dup(const n_addr_t * addr);
   </para>
  </note>
  */
-void nice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4);
+void nice_address_set_ipv4(n_addr_t * addr, uint32_t addr_ipv4);
 
 
 /**
@@ -122,7 +122,7 @@ void nice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4);
   </para>
  </note>
  */
-void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6);
+void nice_address_set_ipv6(n_addr_t * addr, const unsigned char * addr_ipv6);
 
 
 /**
@@ -132,17 +132,17 @@ void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6);
  *
  * Set the port of @addr to @port
  */
-void nice_address_set_port(n_addr_t * addr, guint port);
+void nice_address_set_port(n_addr_t * addr, uint32_t port);
 
 /**
- * nice_address_get_port:
+ * n_addr_get_port:
  * @addr: The #n_addr_t to query
  *
  * Retreive the port of @addr
  *
  * Returns: The port of @addr
  */
-uint32_t nice_address_get_port(const n_addr_t * addr);
+uint32_t n_addr_get_port(const n_addr_t * addr);
 
 /**
  * nice_address_set_from_string:
@@ -153,7 +153,7 @@ uint32_t nice_address_get_port(const n_addr_t * addr);
  *
  * Returns: %TRUE if success, %FALSE on error
  */
-int nice_address_set_from_string(n_addr_t * addr, const gchar * str);
+int nice_address_set_from_string(n_addr_t * addr, const char * str);
 
 /**
  * n_addr_set_from_sock:
@@ -211,7 +211,7 @@ int nice_address_equal_no_port(const n_addr_t * a, const n_addr_t * b);
  * Transforms the address @addr into a human readable string
  *
  */
-void nice_address_to_string(const n_addr_t * addr, gchar * dst);
+void nice_address_to_string(const n_addr_t * addr, char * dst);
 
 /**
  * nice_address_is_private:

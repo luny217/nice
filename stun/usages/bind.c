@@ -337,8 +337,7 @@ static ssize_t stun_trans_recvfrom(StunTransport * tr, uint8_t * buf, size_t max
     ssize_t val;
 
     if (dstlen != NULL)
-        val = recvfrom(tr->fd, (void *)buf, maxlen, flags, (struct sockaddr *) dst,
-                       dstlen);
+        val = recvfrom(tr->fd, (void *)buf, maxlen, flags, (struct sockaddr *) dst, dstlen);
     else
         val = recv(tr->fd, (void *)buf, maxlen, flags);
 

@@ -42,8 +42,8 @@ static void nice_print_candpair(n_agent_t * agent, n_cand_chk_pair_t * pair)
 		nice_address_to_string(&pair->local->addr, tmpbuf1);
 		nice_address_to_string(&pair->remote->addr, tmpbuf2);
 		nice_debug("[%s]: local '%s:%u' -> remote '%s:%u'", G_STRFUNC,
-			tmpbuf1, nice_address_get_port(&pair->local->addr),
-			tmpbuf2, nice_address_get_port(&pair->remote->addr));
+			tmpbuf1, n_addr_get_port(&pair->local->addr),
+			tmpbuf2, n_addr_get_port(&pair->remote->addr));
 	}
 }
 
@@ -119,7 +119,7 @@ static int _cocheck_unfreeze_next(n_agent_t * agent)
     for (i = agent->streams_list; i; i = i->next)
     {
         n_stream_t * stream = i->data;
-        guint64 max_frozen_priority = 0;
+        uint64_t max_frozen_priority = 0;
 
 
         for (j = stream->conncheck_list; j ; j = j->next)
@@ -171,10 +171,10 @@ static void _cocheck_unfreeze_related(n_agent_t * agent, n_stream_t * stream, n_
     n_slist_t * i, *j;
     uint32_t unfrozen = 0;
 
-    g_assert(ok_check);
+    /*g_assert(ok_check);
     g_assert(ok_check->state == NCHK_SUCCEEDED);
     g_assert(stream);
-    g_assert(stream->id == ok_check->stream_id);
+    g_assert(stream->id == ok_check->stream_id);*/
 
     /* step: perform the step (1) of 'Updating Pair States' */
     for (i = stream->conncheck_list; i ; i = i->next)
@@ -673,15 +673,13 @@ static int _conn_keepalive_tick_unlocked(n_agent_t * agent)
                     if (nice_debug_is_enabled())
                     {
                         char tmpbuf[INET6_ADDRSTRLEN];
-						uv_os_fd_t fd;
-						uv_fileno((const uv_handle_t*)&((n_socket_t *)p->local->sockptr)->fileno, &fd);
-                        nice_address_to_string(&p->remote->addr, tmpbuf);
+						nice_address_to_string(&p->remote->addr, tmpbuf);
                         
 						nice_debug("[%s]: Keepalive STUN-CC REQ to '%s:%u', "
                                    "socket=%u (c-id:%u), username='%.*s' (%" G_GSIZE_FORMAT "), "
                                    "password='%.*s' (%" G_GSIZE_FORMAT "), priority=%u.", G_STRFUNC,
-                                   tmpbuf, nice_address_get_port(&p->remote->addr),
-                                   fd,
+                                   tmpbuf, n_addr_get_port(&p->remote->addr),
+                                   1,
                                    component->id, (int) uname_len, uname, uname_len,
                                    (int) password_len, password, password_len, priority);
 
@@ -1777,7 +1775,7 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
      *  - ICE-CONTROLLED/ICE-CONTROLLING (for role conflicts)
      *  - USE-CANDIDATE (if sent by the controlling agent)
      */
-    guint32 priority;
+    uint32_t priority;
 
     uint8_t uname[N_STREAM_MAX_UNAME];
     n_stream_t * stream;
@@ -1785,9 +1783,9 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
     uint32_t uname_len;
     uint8_t * password = NULL;
     uint32_t password_len;
-    bool controlling = agent->controlling_mode;
+    int controlling = agent->controlling_mode;
     /* XXX: add API to support different nomination modes: */
-    bool cand_use = controlling;
+	int cand_use = controlling;
     size_t buffer_len;
     unsigned int timeout;
 
@@ -1801,15 +1799,13 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
     if (nice_debug_is_enabled())
     {
         char tmpbuf[INET6_ADDRSTRLEN];
-		uv_os_fd_t fd;
-		uv_fileno((const uv_handle_t*)&pair->sockptr->fileno, &fd);
         nice_address_to_string(&pair->remote->addr, tmpbuf);
         nice_debug("[%s]: STUN-CC REQ to '%s:%u', socket=%u, "
                    "pair=%s (c-id:%u), tie=%llu, username='%.*s' (%" G_GSIZE_FORMAT "), "
                    "password='%.*s' (%" G_GSIZE_FORMAT "), priority=%u.", G_STRFUNC,
                    tmpbuf,
-                   nice_address_get_port(&pair->remote->addr),
-                   fd,
+                   n_addr_get_port(&pair->remote->addr),
+                   1,
                    pair->foundation, pair->component_id,
                    (unsigned long long)agent->tie_breaker,
                    (int) uname_len, uname, uname_len,
@@ -2055,21 +2051,20 @@ static int _schedule_triggered_check(n_agent_t * agent, n_stream_t * stream, n_c
  * @pre (rcand == NULL || nice_address_equal(rcand->addr, toaddr) == TRUE)
  */
 static void _reply_to_cocheck(n_agent_t * agent, n_stream_t * stream, n_comp_t * component, n_cand_t * rcand, 
-													const n_addr_t * toaddr, n_socket_t * sockptr, size_t  rbuf_len, uint8_t * rbuf, int use_candidate)
+													n_addr_t * toaddr, n_socket_t * sockptr, size_t  rbuf_len, uint8_t * rbuf, int use_candidate)
 {
-    g_assert(rcand == NULL || nice_address_equal(&rcand->addr, toaddr) == TRUE);
+    //g_assert(rcand == NULL || nice_address_equal(&rcand->addr, toaddr) == TRUE);
 
     if (nice_debug_is_enabled())
     {
         char tmpbuf[INET6_ADDRSTRLEN];
-		uv_os_fd_t fd;
-		uv_fileno((const uv_handle_t*)&sockptr->fileno, &fd);
+		
         nice_address_to_string(toaddr, tmpbuf);
         nice_debug("[%s]: stun-cc resp to '%s:%u', socket=%u, len=%u, cand=%p (c-id:%u), use-cand=%d.", G_STRFUNC,
-                   tmpbuf, nice_address_get_port(toaddr), fd, (unsigned)rbuf_len, rcand, component->id,  (int)use_candidate);
+                   tmpbuf, n_addr_get_port(toaddr), sockptr->sock_fd, (unsigned)rbuf_len, rcand, component->id,  (int)use_candidate);
     }
 
-    agent_socket_send(sockptr, toaddr, rbuf_len, (const char *)rbuf);
+    agent_socket_send(sockptr, toaddr, rbuf_len, (char *)rbuf);
 
     if (rcand)
     {
@@ -2330,8 +2325,8 @@ static int _map_reply_to_cocheck_request(n_agent_t * agent, n_stream_t * stream,
                             nice_address_to_string(&p->remote->addr, tmpbuf);
                             nice_address_to_string(from, tmpbuf2);
                             nice_debug("[%s]: '%s:%u' != '%s:%u'", G_STRFUNC,
-                                       tmpbuf, nice_address_get_port(&p->remote->addr),
-                                       tmpbuf2, nice_address_get_port(from));
+                                       tmpbuf, n_addr_get_port(&p->remote->addr),
+                                       tmpbuf2, n_addr_get_port(from));
                         }
                         trans_found = TRUE;
                         break;
@@ -2881,7 +2876,7 @@ static bool cocheck_stun_validater(stun_agent_t * agent,
  * @return XXX (what FALSE means exactly?)
  */
 int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
-                                        n_comp_t * comp, n_socket_t * nicesock, const n_addr_t * from,
+                                        n_comp_t * comp, n_socket_t * nicesock, n_addr_t * from,
                                         char * buf, uint32_t len)
 {
     union
@@ -2917,7 +2912,7 @@ int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
         char tmpbuf[INET6_ADDRSTRLEN];
         nice_address_to_string(from, tmpbuf);
         nice_debug("[%s]: inbound stun packet for %u/%u (stream/component) from [%s]:%u (%u octets) :",
-					G_STRFUNC, stream->id, comp->id, tmpbuf, nice_address_get_port(from), len);
+					G_STRFUNC, stream->id, comp->id, tmpbuf, n_addr_get_port(from), len);
     }
 
     /* note: ICE  7.2. "STUN Server Procedures" (ID-19) */
@@ -2976,7 +2971,7 @@ int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
 
         rbuf_len = stun_agent_build_unknown_attributes_error(&comp->stun_agent, &msg, rbuf, rbuf_len, &req);
         if (rbuf_len != 0)
-            agent_socket_send(nicesock, from, rbuf_len, (const char *)rbuf);
+            agent_socket_send(nicesock, from, rbuf_len, (char *)rbuf);
 
         return TRUE;
     }
@@ -2989,7 +2984,7 @@ int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
         {
             rbuf_len = stun_agent_finish_message(&comp->stun_agent, &msg, NULL, 0);
             if (rbuf_len > 0)
-                agent_socket_send(nicesock, from, rbuf_len, (const char *)rbuf);
+                agent_socket_send(nicesock, from, rbuf_len, (char *)rbuf);
         }
         return TRUE;
     }
@@ -3000,7 +2995,7 @@ int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
         {
             rbuf_len = stun_agent_finish_message(&comp->stun_agent, &msg, NULL, 0);
             if (rbuf_len > 0)
-                agent_socket_send(nicesock, from, rbuf_len, (const char *)rbuf);
+                agent_socket_send(nicesock, from, rbuf_len, (char *)rbuf);
         }
         return TRUE;
     }

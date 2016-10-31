@@ -17,13 +17,13 @@ static volatile unsigned int n_components_destroyed = 0;
 static void comp_sched_io_cb(n_comp_t * component);
 static void comp_desched_io_cb(n_comp_t * component);
 
-void incoming_check_free(n_inchk_t * icheck)1
+void incoming_check_free(n_inchk_t * icheck)
 {
     n_free(icheck->username);
     n_slice_free(n_inchk_t, icheck);
 }
 
-#if 1
+#if 0
 /* Must *not* take the agent lock, since its called from within
  * comp_set_io_context(), which holds the Components I/O lock. */
 static void socket_source_attach(n_socket_source_t * socket_source)
@@ -66,7 +66,7 @@ static void socket_source_detach(n_socket_source_t * source)
     source->source = NULL;
 }
 
-#else
+
 /* Must *not* take the agent lock, since its called from within
  * comp_set_io_context(), which holds the Components I/O lock. */
 static void socket_source_attach(n_socket_source_t * socket_source, GMainContext * context)
@@ -105,7 +105,7 @@ static void socket_source_detach(n_socket_source_t * source)
 #endif
 static void socket_source_free(n_socket_source_t * source)
 {
-    socket_source_detach(source);
+    //socket_source_detach(source);
     nice_socket_free(source->socket);
 
     n_slice_free(n_socket_source_t, source);
@@ -543,7 +543,7 @@ void comp_attach_socket(n_comp_t * comp, n_socket_t * nicesock)
     
     nice_debug("[%s]: n_comp_t %p: attach source (fd %d)", G_STRFUNC, comp, nicesock->sock_fd);
     
-    socket_source_attach(socket_source, comp->ctx);
+    //socket_source_attach(socket_source, comp->ctx);
 }
 
 /* Reattaches socket handles of @component to the main context.
@@ -557,9 +557,9 @@ static void component_reattach_all_sockets(n_comp_t * component)
     for (i = component->socket_srcs_slist; i != NULL; i = i->next)
     {
         n_socket_source_t * socket_source = i->data;
-        nice_debug("Reattach source %p.", socket_source->source);
-        socket_source_detach(socket_source);
-        socket_source_attach(socket_source, component->ctx);
+        //nice_debug("Reattach source %p.", socket_source->source);
+        //socket_source_detach(socket_source);
+        //socket_source_attach(socket_source, component->ctx);
     }
 }
 
@@ -606,7 +606,7 @@ void component_detach_socket(n_comp_t * component, n_socket_t * nicesock)
     component->socket_srcs_slist = n_slist_delete_link(component->socket_srcs_slist, l);
     component->socket_sources_age++;
 
-    socket_source_detach(socket_source);
+    //socket_source_detach(socket_source);
     socket_source_free(socket_source);
 }
 
@@ -624,8 +624,8 @@ void component_detach_all_sockets(n_comp_t * component)
     for (i = component->socket_srcs_slist; i != NULL; i = i->next)
     {
         n_socket_source_t * socket_source = i->data;
-        nice_debug("Detach source %p, socket %p.", socket_source->source,  socket_source->socket);
-        socket_source_detach(socket_source);
+        //nice_debug("Detach source %p, socket %p.", socket_source->source,  socket_source->socket);
+        //socket_source_detach(socket_source);
     }
 }
 

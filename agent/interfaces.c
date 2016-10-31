@@ -3,8 +3,14 @@
 #include "config.h"
 #include "interfaces.h"
 #include "agent-priv.h"
+#include "base.h"
 
-#ifdef G_OS_UNIX
+#ifdef _WIN32
+#include <winsock2.h>
+#include <iphlpapi.h>
+#include <ws2ipdef.h>
+#include <WS2tcpip.h>
+#else
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -18,11 +24,6 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <arpa/inet.h>
-#endif
-
-#ifdef G_OS_WIN32
-#include <winsock2.h>
-#include <iphlpapi.h>
 #endif
 
 static char * sockaddr_to_string(const struct sockaddr * addr)
@@ -47,7 +48,7 @@ static char * sockaddr_to_string(const struct sockaddr * addr)
         return NULL;
     }
 
-    return g_strdup(addr_as_string);
+    return n_strdup(addr_as_string);
 }
 
 #ifdef G_OS_UNIX
@@ -251,7 +252,7 @@ n_dlist_t  * n_get_local_interfaces(void)
         DWORD i;
         for (i = 0; i < if_table->dwNumEntries; i++)
         {
-            ret = n_dlist_prepend(ret, g_strdup((char *)if_table->table[i].bDescr));
+            ret = n_dlist_prepend(ret, n_strdup((char *)if_table->table[i].bDescr));
         }
     }
 
@@ -264,7 +265,7 @@ n_dlist_t  * n_get_local_ips(int include_loopback)
 {
     IP_ADAPTER_ADDRESSES * addresses = NULL, *a;
     ULONG status;
-    guint iterations;
+    uint32_t iterations;
     ULONG addresses_size;
     DWORD pref = 0;
     n_dlist_t  * ret = NULL;
@@ -277,7 +278,7 @@ n_dlist_t  * n_get_local_ips(int include_loopback)
 
     do
     {
-        g_free(addresses);
+        n_free(addresses);
         addresses = g_malloc0(addresses_size);
 
         status = GetAdaptersAddresses(AF_UNSPEC,
@@ -286,7 +287,7 @@ n_dlist_t  * n_get_local_ips(int include_loopback)
     }
     while ((status == ERROR_BUFFER_OVERFLOW) && (iterations++ < MAX_TRIES));
 
-    nice_debug("Queried addresses with status %lu.", status);
+    printf("queried addresses with status %lu.", status);
 
 #undef INITIAL_BUFFER_SIZE
 #undef MAX_TRIES

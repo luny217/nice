@@ -5,7 +5,7 @@
 
 #include "socket.h"
 
-n_socket_t * nice_udp_bsd_socket_new(n_addr_t * addr);
+n_socket_t * n_udp_socket_new(n_addr_t * addr);
 
 #endif /* _UDP_BSD_H */
 

@@ -168,7 +168,7 @@ n_socket_t * n_udp_turn_new(GMainContext * ctx, n_addr_t * addr,
                               priv_send_data_queue_destroy);
 
     sock->type = NICE_SOCKET_TYPE_UDP_TURN;
-    sock->fileno = base_socket->fileno;
+    //sock->fileno = base_socket->fileno;
     sock->addr = *addr;
     sock->send_messages = socket_send_messages;
     sock->send_messages_reliable = socket_send_messages_reliable;

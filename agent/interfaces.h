@@ -14,7 +14,7 @@
  * the address allocated to a network interface.
  */
 
-#include <glib.h>
+//#include <glib.h>
 #include "nlist.h"
 
 /**

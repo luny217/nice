@@ -19,6 +19,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+//#include <WinSock2.h>
 #else
 #include <unistd.h>
 #include <sys/time.h>
@@ -577,8 +578,8 @@ void * n_memdup(const void * mem, uint32_t  byte_size)
     return new_mem;
 }
 
-#ifdef _WIN32
-int poll(struct pollfd * fds, nfds_t numfds, int timeout)
+#if 0 //def _WIN32
+int _poll(struct pollfd * fds, nfds_t numfds, int timeout)
 {
     fd_set read_set;
     fd_set write_set;
@@ -648,3 +649,30 @@ int poll(struct pollfd * fds, nfds_t numfds, int timeout)
     return rc;
 }
 #endif /* !HAVE_POLL_H */
+
+#if 1
+int net_errno(void)
+{
+#ifdef _WIN32
+	int err = WSAGetLastError();
+	switch (err)
+	{
+	case WSAEWOULDBLOCK:
+		return -EAGAIN;
+	case WSAEINTR:
+		return -EINTR;
+	case WSAEPROTONOSUPPORT:
+		return -EPROTONOSUPPORT;
+	case WSAETIMEDOUT:
+		return -ETIMEDOUT;
+	case WSAECONNREFUSED:
+		return -ECONNREFUSED;
+	case WSAEINPROGRESS:
+		return -EINPROGRESS;
+	}
+	return -err;
+#else
+	return -errno;
+#endif
+}
+#endif

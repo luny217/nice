@@ -957,9 +957,10 @@ int pst_notify_packet(pst_socket_t * self, const char * buffer, uint32_t len)
 
 /* Assume there are two buffers in the given #n_input_msg_t: a 24-byte one
  * containing the header, and a bigger one for the data. */
-int pst_notify_message(pst_socket_t * self, n_input_msg_t * message)
+int pst_notify_message(pst_socket_t * self, char * buf, int len)
 {
     int retval;
+    n_input_msg_t * message;
 
     //g_assert_cmpuint(message->n_buffers, > , 0);
 
@@ -983,10 +984,10 @@ int pst_notify_message(pst_socket_t * self, n_input_msg_t * message)
 
     /* Hold a reference to the pst_socket_t during parsing, since it may be
      * closed from within a callback. */
-    g_object_ref(self);
+    //g_object_ref(self);
     retval = parse(self, message->buffers[0].buffer, message->buffers[0].size,
                    message->buffers[1].buffer, message->length - message->buffers[0].size);
-    g_object_unref(self);
+    //g_object_unref(self);
 
     return retval;
 }

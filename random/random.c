@@ -44,7 +44,7 @@ void nice_rng_free(NiceRNG * rng)
  * @param len number of octets to product
  * @param buf buffer to store the results
  */
-void nice_rng_generate_bytes(NiceRNG * rng, guint len, gchar * buf)
+void nice_rng_generate_bytes(NiceRNG * rng, uint32_t len, char * buf)
 {
     rng->generate_bytes(rng, len, buf);
 }
@@ -56,7 +56,7 @@ void nice_rng_generate_bytes(NiceRNG * rng, guint len, gchar * buf)
  * @param low closed lower bound
  * @param high open upper bound
  */
-uint32_t n_rng_gen_int(NiceRNG * rng, guint low, guint high)
+uint32_t n_rng_gen_int(NiceRNG * rng, uint32_t low, uint32_t high)
 {
     return rng->generate_int(rng, low, high);
 }
@@ -72,16 +72,16 @@ uint32_t n_rng_gen_int(NiceRNG * rng, guint low, guint high)
  * @param len number of octets to product
  * @param buf buffer to store the results
  */
-void nice_rng_generate_bytes_print(NiceRNG * rng, guint len, gchar * buf)
+void nice_rng_generate_bytes_print(NiceRNG * rng, uint32_t len, char * buf)
 {
-    guint i;
-    const gchar * chars =
+	uint32_t i;
+    const char * chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz"
         "0123456789"
         "+/";
 
     for (i = 0; i < len; i++)
-        buf[i] = chars[nice_rng_generate_int(rng, 0, strlen(chars))];
+        buf[i] = chars[n_rng_gen_int(rng, 0, strlen(chars))];
 }
 

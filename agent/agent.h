@@ -4,7 +4,7 @@
 #define __LIBNICE_AGENT_H__
 
 #include <stdint.h>
-#include <glib-object.h>
+//#include <glib-object.h>
 #include <gio/gio.h>
 
 /**
@@ -764,5 +764,9 @@ int n_agent_forget_relays(n_agent_t * agent, uint32_t stream_id, uint32_t compon
 n_comp_state_e n_agent_get_comp_state(n_agent_t * agent, uint32_t stream_id,  uint32_t component_id);
 
 void nice_print_cand(n_agent_t * agent, n_cand_t * l_cand, n_cand_t * r_cand);
+
+int32_t n_agent_dispatcher(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id);
+
+void n_networking_init(void);
 
 #endif /* __LIBNICE_AGENT_H__ */

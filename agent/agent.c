@@ -1,8 +1,8 @@
 /* This file is part of the Nice GLib ICE library. */
 
 #include <config.h>
-#include <glib.h>
-#include <gobject/gvaluecollector.h>
+//#include <glib.h>
+//#include <gobject/gvaluecollector.h>
 
 #include <string.h>
 #include <errno.h>
@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#else
+#include <WinSock2.h>
 #endif
 
 #include "debug.h"
@@ -22,10 +24,10 @@
 #include "discovery.h"
 #include "agent.h"
 #include "agent-priv.h"
-//#include "iostream.h"
 #include "stream.h"
 #include "interfaces.h"
 #include "pseudotcp.h"
+
 
 #include "base.h"
 #include "nlist.h"
@@ -52,34 +54,6 @@ static pthread_t worker_tid;
 //G_DEFINE_TYPE(n_agent_t, nice_agent, G_TYPE_OBJECT);
 
 static void n_agent_init(n_agent_t * self);
-static void nice_agent_class_init(NiceAgentClass * klass);
-static gpointer nice_agent_parent_class = ((void *)0);
-static int32_t NiceAgent_private_offset;
-static void nice_agent_class_intern_init(gpointer klass)
-{
-    nice_agent_parent_class = g_type_class_peek_parent(klass);
-    if (NiceAgent_private_offset != 0) g_type_class_adjust_private_offset(klass, &NiceAgent_private_offset);
-    nice_agent_class_init((NiceAgentClass *) klass);
-}
-static __inline gpointer nice_agent_get_instance_private(n_agent_t * self)
-{
-    return (((gpointer)((guint8 *)(self) + (glong)(NiceAgent_private_offset))));
-}
-GType nice_agent_get_type(void)
-{
-    static volatile gsize g_define_type_id__volatile = 0;
-    if ((g_once_init_enter((&g_define_type_id__volatile))))
-    {
-        GType g_define_type_id = g_type_register_static_simple(((GType)((20) << (2))), g_intern_static_string("n_agent_t"), sizeof(NiceAgentClass), (GClassInitFunc) nice_agent_class_intern_init, sizeof(n_agent_t), (GInstanceInitFunc) n_agent_init, (GTypeFlags) 0);
-        {
-            {
-                {
-                };
-            }
-        }(g_once_init_leave((&g_define_type_id__volatile), (gsize)(g_define_type_id)));
-    }
-    return g_define_type_id__volatile;
-};
 
 static pthread_mutex_t agent_mutex;    /* Mutex used for thread-safe lib */
 
@@ -87,9 +61,107 @@ static void pst_opened(pst_socket_t * sock, void * user_data);
 static void pst_readable(pst_socket_t * sock, void * user_data);
 static void pst_writable(pst_socket_t * sock, void * user_data);
 static void pst_closed(pst_socket_t * sock, uint32_t err, void * user_data);
-static pst_wret_e pst_write_packet(pst_socket_t * sock, const char * buffer, uint32_t len, void * user_data);
+static pst_wret_e pst_write_packet(pst_socket_t * sock, char * buffer, uint32_t len, void * user_data);
 static void adjust_tcp_clock(n_agent_t * agent, n_stream_t * stream, n_comp_t * component);
 static void n_agent_dispose(GObject * object);
+
+#if 0// _WIN32
+typedef struct _GWin32WinsockFuncs
+{
+	PFN_InetPton pInetPton;
+	PFN_InetNtop pInetNtop;
+	PFN_IfNameToIndex pIfNameToIndex;
+} GWin32WinsockFuncs;
+#endif
+
+void n_networking_init(void)
+{
+#ifdef _WIN32
+	//GWin32WinsockFuncs ws2funcs;
+	static volatile uint32_t inited = 0;
+
+	if (!inited)
+	{
+		WSADATA wsadata;
+		//HMODULE ws2dll, iphlpapidll;
+
+		if (WSAStartup(MAKEWORD(2, 0), &wsadata) != 0)
+			printf("Windows Sockets could not be initialized");
+		
+		inited = 1;
+	}
+#endif
+}
+
+int _poll(struct pollfd * fds, nfds_t numfds, int timeout)
+{
+	fd_set read_set;
+	fd_set write_set;
+	fd_set exception_set;
+	nfds_t i;
+	uint32_t n;
+	int rc;
+
+	if (numfds >= FD_SETSIZE)
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
+	FD_ZERO(&read_set);
+	FD_ZERO(&write_set);
+	FD_ZERO(&exception_set);
+
+	n = 0;
+	for (i = 0; i < numfds; i++)
+	{
+		if (fds[i].fd < 0)
+			continue;
+
+		if (fds[i].events & POLLIN)
+			FD_SET(fds[i].fd, &read_set);
+		if (fds[i].events & POLLOUT)
+			FD_SET(fds[i].fd, &write_set);
+		if (fds[i].events & POLLERR)
+			FD_SET(fds[i].fd, &exception_set);
+
+		if (fds[i].fd >= n)
+			n = fds[i].fd + 1;
+	}
+
+	if (n == 0)
+		/* Hey!? Nothing to poll, in fact!!! */
+		return 0;
+
+	if (timeout < 0)
+	{
+		rc = select(n, &read_set, &write_set, &exception_set, NULL);
+	}
+	else
+	{
+		struct timeval tv;
+		tv.tv_sec = timeout / 1000;
+		tv.tv_usec = 1000 * (timeout % 1000);
+		rc = select(n, &read_set, &write_set, &exception_set, &tv);
+	}
+
+	if (rc < 0)
+		return rc;
+
+	for (i = 0; i < numfds; i++)
+	{
+		fds[i].revents = 0;
+
+		if (FD_ISSET(fds[i].fd, &read_set))
+			fds[i].revents |= POLLIN;
+		if (FD_ISSET(fds[i].fd, &write_set))
+			fds[i].revents |= POLLOUT;
+		if (FD_ISSET(fds[i].fd, &exception_set))
+			fds[i].revents |= POLLERR;
+	}
+
+	return rc;
+}
 
 void agent_lock(void)
 {
@@ -100,12 +172,6 @@ void agent_unlock(void)
 {
     pthread_mutex_unlock(&agent_mutex);
 }
-
-static GType _nice_agent_stream_ids_get_type(void);
-
-G_DEFINE_POINTER_TYPE(_NiceAgentStreamIds, _nice_agent_stream_ids);
-
-#define NICE_TYPE_AGENT_STREAM_IDS _nice_agent_stream_ids_get_type ()
 
 void agent_unlock_and_emit(n_agent_t * agent)
 {
@@ -151,32 +217,6 @@ int32_t agent_find_comp(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id,
     return TRUE;
 }
 
-static void nice_agent_class_init(NiceAgentClass * klass)
-{
-    GObjectClass * gobject_class = G_OBJECT_CLASS(klass);
-
-    //gobject_class->get_property = n_agent_get_property;
-    //gobject_class->set_property = nice_agent_set_property;
-    //gobject_class->dispose = n_agent_dispose;
-
-    /* install properties */
-    /**
-     * n_agent_t:main-context:
-     *
-     * A GLib main context is needed for all timeouts used by libnice.
-     * This is a property being set by the n_agent_new() call.
-     */
-    /* g_object_class_install_property(gobject_class, PROP_MAIN_CONTEXT,
-                                     g_param_spec_pointer(
-                                         "main-context",
-                                         "The GMainContext to use for timeouts",
-                                         "The GMainContext to use for timeouts",
-                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));*/
-
-    /* Init debug options depending on env variables */
-    nice_debug_init();
-}
-
 static void _generate_tie_breaker(n_agent_t * agent)
 {
     nice_rng_generate_bytes(agent->rng, 8, (char *)&agent->tie_breaker);
@@ -184,7 +224,6 @@ static void _generate_tie_breaker(n_agent_t * agent)
 
 static void n_agent_init(n_agent_t * agent)
 {
-    //agent->main_context = NULL;
     agent->next_candidate_id = 1;
     agent->next_stream_id = 1;
 
@@ -218,7 +257,12 @@ static void n_agent_init(n_agent_t * agent)
 
 n_agent_t * n_agent_new()
 {
-    n_agent_t * agent = g_object_new(NICE_TYPE_AGENT, NULL);
+    //n_agent_t * agent = g_object_new(NICE_TYPE_AGENT, NULL);
+    n_agent_t * agent = n_slice_new0(n_agent_t);
+	if (agent)
+	{
+		n_agent_init(agent);
+	}
     return agent;
 }
 
@@ -627,7 +671,7 @@ static void pst_closed(pst_socket_t * sock, uint32_t err, void * user_data)
 }
 
 
-static pst_wret_e pst_write_packet(pst_socket_t * psocket, const char * buffer, uint32_t len, void * user_data)
+static pst_wret_e pst_write_packet(pst_socket_t * psocket, char * buffer, uint32_t len, void * user_data)
 {
     n_comp_t * comp = user_data;
 
@@ -646,7 +690,7 @@ static pst_wret_e pst_write_packet(pst_socket_t * psocket, const char * buffer, 
 
             nice_debug("[%s]: %d:%d: sending %d bytes on socket  (FD %d) to [%s]:%d",
                        G_STRFUNC, comp->stream->id, comp->id, len,
-                       &sock->sock_fd, tmpbuf, nice_address_get_port(addr));
+                       &sock->sock_fd, tmpbuf, n_addr_get_port(addr));
         }
 
         /* Send the segment. nice_socket_send() returns 0 on EWOULDBLOCK; in that
@@ -797,7 +841,7 @@ void agent_gathering_done(n_agent_t * agent)
                     char tmpbuf[INET6_ADDRSTRLEN];
                     nice_address_to_string(&local_candidate->addr, tmpbuf);
                     nice_debug("[%s]: gathered local candidate : [%s]:%u for s%d/c%d", G_STRFUNC,
-                               tmpbuf, nice_address_get_port(&local_candidate->addr),
+                               tmpbuf, n_addr_get_port(&local_candidate->addr),
                                local_candidate->stream_id, local_candidate->component_id);
                 }
                 for (l = component->remote_candidates; l; l = l->next)
@@ -927,7 +971,7 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
 
     if (((n_socket_t *)lcandidate->sockptr)->type == NICE_SOCKET_TYPE_UDP_TURN)
     {
-        nice_udp_turn_socket_set_peer(lcandidate->sockptr, &rcandidate->addr);
+        /*nice_udp_turn_socket_set_peer(lcandidate->sockptr, &rcandidate->addr);*/
     }
 
     if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr))
@@ -946,7 +990,7 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
         char ip[100];
         uint32_t port;
 
-        port = nice_address_get_port(&lcandidate->addr);
+        port = n_addr_get_port(&lcandidate->addr);
         nice_address_to_string(&lcandidate->addr, ip);
 
         nice_debug("[%s]: Local selected pair: %d:%d %s %s %s:%d %s", G_STRFUNC,
@@ -960,7 +1004,7 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
                    lcandidate->type == CAND_TYPE_PEER ?
                    "PEER-RFLX" : "???");
 
-        port = nice_address_get_port(&rcandidate->addr);
+        port = n_addr_get_port(&rcandidate->addr);
         nice_address_to_string(&rcandidate->addr, ip);
 
         nice_debug("[%s]: Remote selected pair: %d:%d %s %s %s:%d %s", G_STRFUNC,
@@ -1206,7 +1250,7 @@ uint32_t n_agent_add_stream(n_agent_t * agent, uint32_t n_comps)
 
     ret = stream->id;
 
-    agent_unlock(agent);
+    agent_unlock();
     return ret;
 }
 
@@ -1260,7 +1304,7 @@ int agent_set_relay_info(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id
     }
 
 done:
-    agent_unlock(agent);
+    agent_unlock();
     return ret;
 }
 
@@ -1276,14 +1320,14 @@ int n_agent_gather_cands(n_agent_t * agent, uint32_t stream_id)
     stream = agent_find_stream(agent, stream_id);
     if (stream == NULL)
     {
-        agent_unlock(agent);
+        agent_unlock();
         return FALSE;
     }
 
     if (stream->gathering_started)
     {
         /* n_stream_t is already gathering, ignore this call */
-        agent_unlock(agent);
+        agent_unlock();
         return TRUE;
     }
 
@@ -1464,10 +1508,7 @@ error:
         }
         disc_prune_stream(agent, stream_id);
     }
-
-out:
-    agent_unlock_and_emit(agent);
-
+    agent_unlock();
     return ret;
 }
 
@@ -1555,7 +1596,7 @@ void agent_set_port_range(n_agent_t * agent, uint32_t stream_id, uint32_t comp_i
         }
     }
 
-    agent_unlock(agent);
+    agent_unlock();
 }
 
 int32_t n_agent_add_local_addr(n_agent_t * agent, n_addr_t * addr)
@@ -1601,7 +1642,7 @@ static int32_t _add_remote_cand(
             nice_address_to_string(addr, tmpbuf);
             nice_debug("[%s]: Updating existing remote candidate with addr [%s]:%u"
                        " for s%d/c%d. U/P '%s'/'%s' prio: %u", G_STRFUNC, tmpbuf,
-                       nice_address_get_port(addr), stream_id, comp_id,
+                       n_addr_get_port(addr), stream_id, comp_id,
                        username, password, priority);
         }
         /* case 1: an existing candidate, update the attributes */
@@ -1658,7 +1699,7 @@ static int32_t _add_remote_cand(
                 nice_address_to_string(addr, tmpbuf);
             nice_debug("[%s]: adding remote candidate with addr [%s]:%u"
                        " for s%d/c%d. U/P '%s'/'%s' prio: %u", G_STRFUNC, tmpbuf,
-                       addr ? nice_address_get_port(addr) : 0, stream_id, comp_id,
+                       addr ? n_addr_get_port(addr) : 0, stream_id, comp_id,
                        username, password, priority);
         }
 
@@ -1843,187 +1884,6 @@ typedef enum
     RECV_OOB = 0,
     RECV_SUCCESS = 1,
 } n_recv_status_t;
-
-/*
- * agent_recv_msg_unlocked:
- * @agent: a #n_agent_t
- * @stream: the stream to receive from
- * @component: the component to receive from
- * @socket: the socket to receive on
- * @message: the message to write into (must have at least 65536 bytes of buffer
- * space)
- *
- * Receive a single message of data from the given @stream, @component and
- * @socket tuple, in a non-blocking fashion. The caller must ensure that
- * @message contains enough buffers to provide at least 65536 bytes of buffer
- * space, but the buffers may be split as the caller sees fit.
- *
- * This must be called with the agent's lock held.
- *
- * Returns: number of valid messages received on success (i.e. %RECV_SUCCESS or
- * 1), %RECV_OOB if data was successfully received but was handled out-of-band
- * (e.g. due to being a STUN control packet), %RECV_WOULD_BLOCK if no data is
- * available and the call would block, or %RECV_ERROR on error
- */
-static n_recv_status_t agent_recv_msg_unlocked(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp, n_socket_t * nicesock, n_input_msg_t * message)
-{
-    n_addr_t from;
-    n_dlist_t * item;
-    int32_t retval;
-
-    /* We need an address for packet parsing, below. */
-    if (message->from == NULL)
-    {
-        message->from = &from;
-    }
-
-    retval = n_socket_recv_msgs(nicesock, message, 1);
-
-    //nice_debug("%s: Received %d valid messages of length %" G_GSIZE_FORMAT  " from base socket %p.", G_STRFUNC, retval, message->length, nicesock);
-
-    if (retval == 0)
-    {
-        retval = RECV_WOULD_BLOCK;  /* EWOULDBLOCK */
-        goto done;
-    }
-    else if (retval < 0)
-    {
-        nice_debug("[%s]: %s returned %d, errno (%d) : %s", G_STRFUNC, G_STRFUNC, retval, errno, g_strerror(errno));
-        retval = RECV_ERROR;
-        goto done;
-    }
-
-    if (retval == RECV_OOB || message->length == 0)
-    {
-        retval = RECV_OOB;
-        goto done;
-    }
-
-    if (nice_debug_is_enabled())
-    {
-        char tmpbuf[INET6_ADDRSTRLEN];
-        nice_address_to_string(message->from, tmpbuf);
-        nice_debug("[%s]: Packet received on local socket %d from [%s]:%u (% G_GSSIZE_FORMAT octets).", G_STRFUNC,
-                   nicesock->sock_fd, tmpbuf, nice_address_get_port(message->from), message->length);
-    }
-
-    for (item = comp->turn_servers; item; item = n_dlist_next(item))
-    {
-        turn_server_t * turn = item->data;
-        n_slist_t * i = NULL;
-
-        if (!nice_address_equal(message->from, &turn->server))
-            continue;
-
-        nice_debug("[%s]: Packet received from TURN server candidate", G_STRFUNC);
-
-        for (i = comp->local_candidates; i; i = i->next)
-        {
-            n_cand_t * cand = i->data;
-
-            if (cand->type == CAND_TYPE_RELAYED && cand->stream_id == stream->id && cand->component_id == comp->id)
-            {
-                retval = n_udp_turn_socket_parse_recv_msg(cand->sockptr, &nicesock, message);
-                break;
-            }
-        }
-        break;
-    }
-
-    if (retval == RECV_OOB)
-        goto done;
-
-    agent->media_after_tick = TRUE;
-
-    /* If the messages stated length is equal to its actual length, its probably
-     * a STUN message; otherwise its probably data. */
-    if (stun_msg_valid_buflen_fast((StunInputVector *) message->buffers, message->n_buffers, message->length, 1) == (ssize_t) message->length)
-    {
-        /* Slow path: If this message isnt obviously *not* a STUN packet, compact
-         * its buffers  into a single monolithic one and parse the packet properly. */
-        uint8_t * big_buf;
-        uint32_t big_buf_len;
-        int32_t validated_len;
-
-        big_buf = compact_input_message(message, &big_buf_len);
-
-        validated_len = stun_msg_valid_buflen(big_buf, big_buf_len, 1);
-
-        if (validated_len == (int32_t) big_buf_len)
-        {
-            int32_t handled;
-
-            handled = cocheck_handle_in_stun(agent, stream, comp, nicesock, message->from, (char *) big_buf, big_buf_len);
-
-            if (handled)
-            {
-                /* Handled STUN message. */
-                nice_debug("[%s]: Valid STUN packet received.", G_STRFUNC);
-                retval = RECV_OOB;
-                n_free(big_buf);
-                goto done;
-            }
-        }
-
-        nice_debug("[%s]: Packet passed fast STUN validation but failed " "slow validation.", G_STRFUNC);
-
-        free(big_buf);
-    }
-
-    /* Unhandled STUN; try handling TCP data, then pass to the client. */
-    if (message->length > 0  && agent->reliable)
-    {
-        if (!nice_socket_is_reliable(nicesock) && !pst_is_closed(comp->tcp))
-        {
-            /* If we don't yet have an underlying selected socket, queue up the
-             * incoming data to handle later. This is because we can't send ACKs (or,
-             * more importantly for the first few packets, SYNACKs) without an
-             * underlying socket. We'd rather wait a little longer for a pair to be
-             * selected, then process the incoming packets and send out ACKs, than try
-             * to process them now, fail to send the ACKs, and incur a timeout in our
-             * pseudo-TCP state machine. */
-            if (comp->selected_pair.local == NULL)
-            {
-                n_outvector_t * vec = n_slice_new(n_outvector_t);
-                vec->buffer = compact_input_message(message, &vec->size);
-                n_queue_push_tail(&comp->queued_tcp_packets, vec);
-                nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, vec->size, agent);
-
-                return RECV_OOB;
-            }
-            else
-            {
-                process_queued_tcp_packets(agent, stream, comp);
-            }
-
-            /* Received data on a reliable connection. */
-
-            nice_debug("%s: notifying pseudo-TCP of packet, length %" G_GSIZE_FORMAT, G_STRFUNC, message->length);
-            pst_notify_message(comp->tcp, message);
-
-            adjust_tcp_clock(agent, stream, comp);
-
-            /* Success! Handled out-of-band. */
-            retval = RECV_OOB;
-            goto done;
-        }
-        else if (pst_is_closed(comp->tcp))
-        {
-            nice_debug("[%s]: Received data on a pseudo tcp FAILED component. Ignoring.", G_STRFUNC);
-
-            retval = RECV_OOB;
-            goto done;
-        }
-    }
-
-done:
-    /* Clear local modifications. */
-    if (message->from == &from)
-    {
-        message->from = NULL;
-    }
-    return retval;
-}
 
 /* Print the composition of an array of messages. No-op if debugging is
  * disabled. */
@@ -2267,7 +2127,7 @@ static int32_t n_send_msgs_nonblock_internal(n_agent_t * agent, uint32_t stream_
 
         //    nice_debug("[%s]: s%d:%d: sending %u messages to "
         //               "[%s]:%d", G_STRFUNC, stream_id, component_id, n_messages, tmpbuf,
-        //               nice_address_get_port(&component->selected_pair.remote->addr));
+        //               n_addr_get_port(&component->selected_pair.remote->addr));
         //}
 
         if (!nice_socket_is_reliable(component->selected_pair.local->sockptr))
@@ -2500,15 +2360,17 @@ static void n_agent_dispose(GObject * object)
 #if 1
 
 /**/
-int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf_vec, const struct sockaddr * addr, unsigned flags)
+int32_t agent_recv_packet(n_socket_source_t * s_source)
 {
-    n_socket_source_t * socket_source = (n_socket_source_t *)handle->data;
-    n_dlist_t * item;
-    n_input_msg_t * message;
+    int length;
+    int fd = s_source->socket->sock_fd;
+    //n_dlist_t * item;
+    //n_input_msg_t * message;
+    n_addr_t from;
     n_comp_t * comp;
     n_agent_t * agent;
     n_stream_t * stream;
-    int32_t has_io_callback;
+    int32_t has_io_callback = 1;
     int32_t remove_source = FALSE;
     uint8_t local_header_buf[TCP_HEADER_SIZE];
     uint8_t local_body_buf[MAX_BUFFER_SIZE];
@@ -2525,11 +2387,11 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
 
     agent_lock();
 
-    comp = socket_source->component;
+    comp = s_source->component;
     agent = comp->agent;
     stream = comp->stream;
 
-    if (nread == -1)
+    /*if (nread == -1)
     {
         nice_debug("[%s]: n_socket_t %p has received HUP", G_STRFUNC,  socket_source->socket);
         if (comp->selected_pair.local &&
@@ -2543,9 +2405,9 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
         component_detach_socket(comp, socket_source->socket);
         agent_unlock();
         return -1;
-    }
+    }*/
 
-    has_io_callback = component_has_io_callback(comp);
+    //has_io_callback = component_has_io_callback(comp);
 
     if (pst_is_closed(comp->tcp))
     {
@@ -2558,30 +2420,29 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
 
     while (has_io_callback)
     {
-        if (nice_debug_is_enabled())
-        {
-            char tmpbuf[INET6_ADDRSTRLEN];
-            uv_os_fd_t fd;
-            uv_fileno((const uv_handle_t *)handle, &fd);
-            nice_address_to_string(message->from, tmpbuf);
-            nice_debug("[%s]: Packet received on local socket %d from [%s]:%u (% G_GSSIZE_FORMAT octets).", G_STRFUNC,
-                       fd, tmpbuf, nice_address_get_port(message->from), message->length);
-        }
+		length = nice_socket_recv(fd, &from, MAX_BUFFER_SIZE, local_body_buf);
+
+		if (nice_debug_is_enabled())
+		{
+			char tmpbuf[INET6_ADDRSTRLEN];
+			nice_address_to_string(&from, tmpbuf);
+			nice_debug("[%s]: %d bytes received on [%d] from [%s:%u]", G_STRFUNC, length, fd, tmpbuf, n_addr_get_port(&from));
+		}
 
 #if 0
         for (item = comp->turn_servers; item; item = n_dlist_next(item))
         {
             turn_server_t * turn = item->data;
-            n_slist_t * i = NULL;
+            n_slist_t * l = NULL;
 
-            if (!nice_address_equal(message->from, &turn->server))
+            if (!nice_address_equal(&from, &turn->server))
                 continue;
 
             nice_debug("[%s]: Packet received from TURN server candidate", G_STRFUNC);
 
-            for (i = comp->local_candidates; i; i = i->next)
+            for (l = comp->local_candidates; l; l = l->next)
             {
-                n_cand_t * cand = i->data;
+                n_cand_t * cand = l->data;
 
                 if (cand->type == CAND_TYPE_RELAYED && cand->stream_id == stream->id && cand->component_id == comp->id)
                 {
@@ -2595,17 +2456,17 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
 
         agent->media_after_tick = TRUE;
 
-        if (stun_msg_valid_buflen_fast(buf, nread, 1) == nread)
+        if (stun_msg_valid_buflen_fast(local_body_buf, length, 1) == length)
         {
             int32_t validated_len;
 
-            validated_len = stun_msg_valid_buflen(buf, nread, 1);
+            validated_len = stun_msg_valid_buflen(local_body_buf, length, 1);
 
-            if (validated_len == (int32_t) nread)
+            if (validated_len == (int32_t) length)
             {
                 int32_t handled;
 
-                handled = cocheck_handle_in_stun(agent, stream, comp, nicesock, message->from, (char *)buf, validated_len);
+                handled = cocheck_handle_in_stun(agent, stream, comp, s_source->socket, &from, (char *)local_body_buf, validated_len);
 
                 if (handled)
                 {
@@ -2621,16 +2482,16 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
         }
 
         /* 不是stun数据包，尝试按照TCP数据包处理 */
-        if (nread > 0)
+        if (length > 0)
         {
             if (!pst_is_closed(comp->tcp))
             {
                 if (comp->selected_pair.local == NULL)
                 {
-                    n_outvector_t * vec = n_slice_new(n_outvector_t);
-                    vec->buffer = compact_input_message(message, &vec->size);
-                    n_queue_push_tail(&comp->queued_tcp_packets, vec);
-                    nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, vec->size, agent);
+                    //n_outvector_t * vec = n_slice_new(n_outvector_t);
+                    //vec->buffer = compact_input_message(message, &vec->size);
+                    //n_queue_push_tail(&comp->queued_tcp_packets, vec);
+                    nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, length, agent);
 
                     return RECV_OOB;
                 }
@@ -2641,8 +2502,8 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
 
                 /* Received data on a reliable connection. */
 
-                nice_debug("%s: notifying pseudo-TCP of packet, length %" G_GSIZE_FORMAT, G_STRFUNC, message->length);
-                pst_notify_message(comp->tcp, message);
+                nice_debug("%s: notifying pseudo-TCP of packet, length %" G_GSIZE_FORMAT, G_STRFUNC, length);
+                pst_notify_message(comp->tcp, local_body_buf, length);
 
                 adjust_tcp_clock(agent, stream, comp);
 
@@ -2657,40 +2518,12 @@ int32_t agent_recv_packet(uv_udp_t * handle, ssize_t nread, const uv_buf_t * buf
                 retval = RECV_OOB;
                 goto done;
             }
-        }
-
-done:
-        /* Clear local modifications. */
-        if (message->from == &from)
-        {
-            message->from = NULL;
-        }
-        return retval;
-
-        has_io_callback = component_has_io_callback(comp);
+        }		      
     }
 
 done:
-    /* If we're in the middle of a read, don't emit any signals, or we could cause
-     * re-entrancy by (e.g.) emitting component-state-changed and having the
-     * client perform a read. */
-    if (comp->n_recv_messages == 0 && comp->recv_messages == NULL)
-    {
-        agent_unlock(agent);
-    }
-    else
-    {
-        agent_unlock();
-    }
-
-    // g_object_unref(agent);
-
-    return !remove_source;
-
-//out:
-//    g_object_unref(agent);
-//    agent_unlock_and_emit(agent);
-//    return G_SOURCE_REMOVE;
+	agent_unlock();
+	return retval;
 }
 
 #define ANENT_MAX_FD 128
@@ -2698,10 +2531,10 @@ done:
 void _agent_worker(void * arg)
 {
     n_comp_t * comp = (n_comp_t *)arg;
-    int poll_delay = 100;
-    int len, n, i, fd_idx = 0;
+    int poll_delay = 10;
+    int n, i, fd_idx = 0;
     n_slist_t  * l;
-    n_socket_source_t * socket_source;
+    n_socket_source_t * s_source, * s_srcs[ANENT_MAX_FD] = {NULL};
     struct pollfd p[ANENT_MAX_FD] = {0};
 
 
@@ -2709,13 +2542,14 @@ void _agent_worker(void * arg)
     {
         for (l = comp->socket_srcs_slist; l != NULL; l = l->next)
         {
-            socket_source = i->data;
-            
-            if (socket_source->socket && socket_source->socket->sock_fd > 0)
+            s_source = l->data;
+
+            if (s_source->socket && s_source->socket->sock_fd > 0)
             {
-                p[fd_idx].fd = socket_source->socket->sock_fd;
+                p[fd_idx].fd = s_source->socket->sock_fd;
                 p[fd_idx].events = POLLIN;
-                if (fd_idx < ANENT_MAX_FD) 
+                s_srcs[fd_idx] = s_source;
+                if (fd_idx < ANENT_MAX_FD)
                 {
                     fd_idx++;
                 }
@@ -2726,31 +2560,28 @@ void _agent_worker(void * arg)
             }
         }
 
-        n = poll(p, fd_idx, poll_delay);
+        n = _poll(p, fd_idx, poll_delay);
         if (n > 0)
         {
-            for (i = 0; i < n; i++)
+            for (i = 0; i < fd_idx; i++)
             {
                 if (!(p[i].revents & POLLIN))
                     continue;
-                /**addr_lens[i] = sizeof(*addrs[i]);
-                len = recvfrom(p[i].fd, buf, size, 0, (struct sockaddr *)addrs[i], addr_lens[i]);
-                if (len < 0)
-                {                    
-                }*/
-
-                agent_recv_packet();
-
+				agent_recv_packet(s_srcs[i]);
             }
         }
         else if (n < 0)
         {
-            nice_debug("poll err = %d\n", n);
+            nice_debug("poll err = %d\n", net_errno());
             continue;
         }
+		else
+		{
+			sleep_ms(1);
+		}
+		fd_idx = 0;
     }
 }
-
 
 int32_t n_agent_dispatcher(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id)
 {
@@ -2765,55 +2596,9 @@ int32_t n_agent_dispatcher(n_agent_t * agent, uint32_t stream_id, uint32_t comp_
 
     ret = pthread_create(&worker_tid, 0, (void *)_agent_worker, (void *)comp);
 
-
-
-done:
     return ret;
 }
 
-
-int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, GMainContext * ctx, n_agent_recv_func func, void * data)
-{
-    n_comp_t * comp = NULL;
-    n_stream_t * stream = NULL;
-    int32_t ret = FALSE;
-
-    //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
-
-    /* attach candidates */
-
-    /* step: check that params specify an existing pair */
-    if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
-    {
-        nice_debug("Could not find component %u in stream %u", comp_id, stream_id);
-        goto done;
-    }
-
-    /*if (ctx == NULL)
-        ctx = g_main_context_default();*/
-
-    /* Set the component's I/O context. */
-    /*comp_set_io_context(component, ctx);*/
-    comp_set_io_callback(comp, func, data);
-    ret = TRUE;
-
-    if (func)
-    {
-        /* If we got detached, maybe our readable callback didn't finish reading
-         * all available data in the pseudotcp, so we need to make sure we free
-         * our recv window, so the readable callback can be triggered again on the
-         * next incoming data.
-         * but only do this if we know we're already readable, otherwise we might
-         * trigger an error in the initial, pre-connection attach. */
-        if (agent->reliable && !pst_is_closed(comp->tcp) && comp->tcp_readable)
-            pst_readable(comp->tcp, comp);
-    }
-
-done:
-    agent_unlock_and_emit(agent);
-    return ret;
-}
 #endif
 
 int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, const char * lfoundation, const char * rfoundation)
@@ -2829,7 +2614,7 @@ int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     //g_return_val_if_fail(lfoundation, FALSE);
     //g_return_val_if_fail(rfoundation, FALSE);
 
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+    //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     /* step: check that params specify an existing pair */
@@ -2864,7 +2649,7 @@ int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     ret = TRUE;
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock();
     return ret;
 }
 
@@ -2895,7 +2680,7 @@ int32_t n_agent_get_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     }
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock();
 
     return ret;
 }
@@ -2907,7 +2692,7 @@ int32_t n_agent_set_selected_rcand(n_agent_t * agent, uint32_t stream_id, uint32
     n_cand_t * lcandidate = NULL;
     int32_t ret = FALSE;
     n_cand_t * local = NULL, *remote = NULL;
-    guint64 priority;
+    uint64_t priority;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
     //g_return_val_if_fail(stream_id != 0, FALSE);
@@ -2955,17 +2740,13 @@ int32_t n_agent_set_selected_rcand(n_agent_t * agent, uint32_t stream_id, uint32
     ret = TRUE;
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock();
     return ret;
 }
 
 void _set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos)
 {
-    uv_os_fd_t fd;
-
-    uv_fileno((const uv_handle_t *)&sock->fileno, &fd);
-
-    if (setsockopt(fd, IPPROTO_IP, IP_TOS, (const char *) &tos, sizeof(tos)) < 0)
+    if (setsockopt(sock->sock_fd, IPPROTO_IP, IP_TOS, (const char *) &tos, sizeof(tos)) < 0)
     {
         nice_debug("[%s]: Could not set socket ToS: %s", G_STRFUNC, g_strerror(errno));
     }
@@ -3001,81 +2782,7 @@ void n_agent_set_stream_tos(n_agent_t * agent, uint32_t stream_id, int32_t tos)
     }
 
 done:
-    agent_unlock_and_emit(agent);
-}
-
-int32_t n_agent_set_stream_name(n_agent_t * agent, uint32_t stream_id, const char * name)
-{
-    n_stream_t * stream_to_name = NULL;
-    n_slist_t * i;
-    int32_t ret = FALSE;
-
-    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    //g_return_val_if_fail(stream_id >= 1, FALSE);
-    //g_return_val_if_fail(name, FALSE);
-
-    if (strcmp(name, "audio") &&
-            strcmp(name, "video") &&
-            strcmp(name, "text") &&
-            strcmp(name, "application") &&
-            strcmp(name, "message") &&
-            strcmp(name, "image"))
-    {
-        g_critical("n_stream_t name %s will produce invalid SDP, only \"audio\","
-                   " \"video\", \"text\", \"application\", \"image\" and \"message\""
-                   " are valid", name);
-    }
-
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
-
-    if (name != NULL)
-    {
-        for (i = agent->streams_list; i; i = i->next)
-        {
-            n_stream_t * stream = i->data;
-
-            if (stream->id != stream_id && g_strcmp0(stream->name, name) == 0)
-                goto done;
-            else if (stream->id == stream_id)
-                stream_to_name = stream;
-        }
-    }
-
-    if (stream_to_name == NULL)
-        goto done;
-
-    if (stream_to_name->name)
-        n_free(stream_to_name->name);
-    stream_to_name->name = g_strdup(name);
-    ret = TRUE;
-
-done:
-    agent_unlock_and_emit(agent);
-
-    return ret;
-}
-
-const char * n_agent_get_stream_name(n_agent_t * agent, uint32_t stream_id)
-{
-    n_stream_t * stream;
-    char * name = NULL;
-
-    //g_return_val_if_fail(NICE_IS_AGENT(agent), NULL);
-    //g_return_val_if_fail(stream_id >= 1, NULL);
-
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
-
-    stream = agent_find_stream(agent, stream_id);
-    if (stream == NULL)
-        goto done;
-
-    name = stream->name;
-
-done:
-    agent_unlock_and_emit(agent);
-    return name;
+    agent_unlock();
 }
 
 int32_t n_agent_forget_relays(n_agent_t * agent, uint32_t stream_id, uint32_t component_id)
@@ -3083,11 +2790,6 @@ int32_t n_agent_forget_relays(n_agent_t * agent, uint32_t stream_id, uint32_t co
     n_comp_t * component;
     int32_t ret = TRUE;
 
-    //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    //g_return_val_if_fail(stream_id >= 1, FALSE);
-    //g_return_val_if_fail(component_id >= 1, FALSE);
-
-    nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
 
     if (!agent_find_comp(agent, stream_id, component_id, NULL, &component))
@@ -3099,24 +2801,12 @@ int32_t n_agent_forget_relays(n_agent_t * agent, uint32_t stream_id, uint32_t co
     component_clean_turn_servers(component);
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock();
 
     return ret;
 }
 
-/* Helper function to allow us to send connchecks reliably.
- * If the transport is reliable, then we request a reliable send, which will
- * either send the data, or queue it in the case of unestablished http/socks5
- * proxies or tcp-turn. If the transport is not reliable, then it could be an
- * unreliable tcp-bsd, so we still try a reliable send to see if it can succeed
- * meaning the message was queued, or if it failed, then it was either udp-bsd
- * or turn and so we retry with a non reliable send and let the retransmissions
- * take care of the rest.
- * This is in order to avoid having to retransmit something if the underlying
- * socket layer can queue the message and send it once a connection is
- * established.
- */
-int32_t agent_socket_send(n_socket_t * sock, const n_addr_t * addr, uint32_t len, const char * buf)
+int32_t agent_socket_send(n_socket_t * sock, n_addr_t * addr, uint32_t len, char * buf)
 {
     int32_t ret;
     ret = nice_socket_send(sock, addr, len, buf);
@@ -3149,7 +2839,7 @@ void nice_print_cand(n_agent_t * agent, n_cand_t * l_cand, n_cand_t * r_cand)
         nice_address_to_string(&l_cand->addr, tmpbuf1);
         nice_address_to_string(&r_cand->addr, tmpbuf2);
         nice_debug("[%s]: '%s:%u' -> '%s:%u'", G_STRFUNC,
-                   tmpbuf1, nice_address_get_port(&l_cand->addr),
-                   tmpbuf2, nice_address_get_port(&r_cand->addr));
+                   tmpbuf1, n_addr_get_port(&l_cand->addr),
+                   tmpbuf2, n_addr_get_port(&r_cand->addr));
     }
 }

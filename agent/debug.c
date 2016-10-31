@@ -34,10 +34,10 @@ static void stun_handler(const char * format, va_list ap)
 
 void nice_debug_init(void)
 {
-    static gboolean debug_initialized = FALSE;
-    const gchar * flags_string;
-    const gchar * gflags_string;
-    guint flags = 0;
+    static int debug_initialized = FALSE;
+    const char * flags_string;
+    const char * gflags_string;
+    uint32_t flags = 0;
 
     if (!debug_initialized)
     {

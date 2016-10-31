@@ -1,8 +1,6 @@
 /* This file is part of the Nice GLib ICE library */
 #ifdef HAVE_CONFIG_H
 # include "config.h"
-#else
-#define
 #endif
 
 #include <string.h>
@@ -70,14 +68,12 @@ static int inet_pton_win32(int af, const char * src, void * dst)
     {
         if (res->ai_addr->sa_family == AF_INET)
         {
-            memcpy(dst, &((struct sockaddr_in *) res->ai_addr)->sin_addr,
-                   sizeof(struct in_addr));
+            memcpy(dst, &((struct sockaddr_in *) res->ai_addr)->sin_addr, sizeof(struct in_addr));
             res = res->ai_next;
         }
         else if (res->ai_addr->sa_family == AF_INET6)
         {
-            memcpy(dst, &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr,
-                   sizeof(struct in_addr6));
+            memcpy(dst, &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr, sizeof(struct in_addr6));
             res = res->ai_next;
         }
     }
@@ -87,8 +83,6 @@ static int inet_pton_win32(int af, const char * src, void * dst)
 }
 
 #endif
-
-
 
 void nice_address_init(n_addr_t * addr)
 {
@@ -103,8 +97,7 @@ n_addr_t * nice_address_new(void)
     return addr;
 }
 
-
-void nice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4)
+void nice_address_set_ipv4(n_addr_t * addr, uint32_t addr_ipv4)
 {
     addr->s.ip4.sin_family = AF_INET;
 #ifdef HAVE_SA_LEN
@@ -115,7 +108,7 @@ void nice_address_set_ipv4(n_addr_t * addr, guint32 addr_ipv4)
 }
 
 
-void nice_address_set_ipv6(n_addr_t * addr, const guchar * addr_ipv6)
+void nice_address_set_ipv6(n_addr_t * addr, const unsigned char * addr_ipv6)
 {
     addr->s.ip6.sin6_family = AF_INET6;
 #ifdef HAVE_SA_LEN
@@ -143,7 +136,7 @@ void nice_address_set_port(n_addr_t * addr, uint32_t port)
 }
 
 
-uint32_t nice_address_get_port(const n_addr_t * addr)
+uint32_t n_addr_get_port(const n_addr_t * addr)
 {
     if (!addr)
         return 0;
@@ -194,10 +187,9 @@ void n_addr_set_from_sock(n_addr_t * addr, const struct sockaddr * sa)
             memcpy(&addr->s.ip6, sa, sizeof(addr->s.ip6));
             break;
         default:
-            g_return_if_reached();
+			break;
     }
 }
-
 
 void nice_address_copy_to_sockaddr(const n_addr_t * addr, struct sockaddr * _sa)
 {
@@ -296,7 +288,7 @@ static int ipv4_address_is_private(uint32_t addr)
 }
 
 
-static int ipv6_address_is_private(const guchar * addr)
+static int ipv6_address_is_private(const unsigned char * addr)
 {
     return (
                /* fe80::/10 */

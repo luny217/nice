@@ -124,12 +124,12 @@ uint64_t agent_candidate_pair_priority(n_agent_t * agent, n_cand_t * local, n_ca
 void agent_remove_local_candidate(n_agent_t * agent, n_cand_t * candidate);
 void n_agent_init_stun_agent(n_agent_t * agent, stun_agent_t * stun_agent);
 void _set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos);
-int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
+//int32_t comp_io_cb(GSocket * gsocket, GIOCondition condition, void * data);
 uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t * buffer, uint32_t buffer_length);
 uint8_t * compact_input_message(const n_input_msg_t * message, uint32_t * buffer_length);
 uint8_t * compact_output_message(const n_output_msg_t * message, uint32_t * buffer_length);
 uint32_t output_message_get_size(const n_output_msg_t * message);
-int32_t agent_socket_send(n_socket_t * sock, const n_addr_t * addr, uint32_t len,  const gchar * buf);
+int32_t agent_socket_send(n_socket_t * sock, n_addr_t * addr, uint32_t len,  char * buf);
 
 uint32_t nice_candidate_ice_priority_full(uint32_t type_pref, uint32_t local_pref, uint32_t component_id);
 uint32_t n_cand_ice_priority(const n_cand_t * candidate);

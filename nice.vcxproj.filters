@@ -56,12 +56,6 @@
     <ClCompile Include="agent\discovery.c">
       <Filter>agent</Filter>
     </ClCompile>
-    <ClCompile Include="socket\udp-bsd.c">
-      <Filter>socket</Filter>
-    </ClCompile>
-    <ClCompile Include="socket\udp-turn.c">
-      <Filter>socket</Filter>
-    </ClCompile>
     <ClCompile Include="socket\socket.c">
       <Filter>socket</Filter>
     </ClCompile>
@@ -104,9 +98,6 @@
     <ClCompile Include="test\nice_agent.c">
       <Filter>test</Filter>
     </ClCompile>
-    <ClCompile Include="random\random.c">
-      <Filter>random</Filter>
-    </ClCompile>
     <ClCompile Include="stun\stundebug.c">
       <Filter>stun</Filter>
     </ClCompile>
@@ -130,6 +121,9 @@
     </ClCompile>
     <ClCompile Include="stun\usages\stun_timer.c">
       <Filter>stun\usages</Filter>
+    </ClCompile>
+    <ClCompile Include="random\random.c">
+      <Filter>random</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -170,12 +164,6 @@
       <Filter>socket</Filter>
     </ClInclude>
     <ClInclude Include="socket\socket-priv.h">
-      <Filter>socket</Filter>
-    </ClInclude>
-    <ClInclude Include="socket\udp-bsd.h">
-      <Filter>socket</Filter>
-    </ClInclude>
-    <ClInclude Include="socket\udp-turn.h">
       <Filter>socket</Filter>
     </ClInclude>
     <ClInclude Include="stun\usages\ice.h">

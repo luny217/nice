@@ -10,12 +10,10 @@
 #include <fcntl.h>
 
 #include "udp-bsd.h"
-
-#ifndef G_OS_WIN32
+#include "base.h"
+#ifndef _WIN32
 #include <unistd.h>
 #endif
-
-//#include "uv.h"
 
 static void socket_close(n_socket_t * sock);
 static int32_t socket_recv_messages(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
@@ -28,7 +26,7 @@ static void socket_set_writable_callback(n_socket_t * sock, NiceSocketWritableCb
 struct udp_socket_private_st
 {
     n_addr_t niceaddr;
-    uv_udp_t * gaddr;
+    //uv_udp_t * gaddr;
 };
 
 n_socket_t * n_udp_socket_new(n_addr_t * addr)
@@ -40,10 +38,8 @@ n_socket_t * n_udp_socket_new(n_addr_t * addr)
     } name;
     
     n_socket_t * sock = n_slice_new0(n_socket_t);
-    //GSocket * gsock = NULL;
     int gsock;
     int gret = FALSE;
-    //GSocketAddress * gaddr;
     struct udp_socket_private_st * priv;
     int ret;
 
@@ -59,9 +55,7 @@ n_socket_t * n_udp_socket_new(n_addr_t * addr)
 
     if (name.storage.ss_family == AF_UNSPEC || name.storage.ss_family == AF_INET)
     {
-        //gsock = g_socket_new(G_SOCKET_FAMILY_IPV4, G_SOCKET_TYPE_DATAGRAM, G_SOCKET_PROTOCOL_UDP, NULL);
-        //ret = uv_udp_init_ex(uv_default_loop(), &sock->fileno, AF_INET);
-        gsock = socket(AF_INET, SOCK_DGRAM, 0);
+        gsock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         name.storage.ss_family = AF_INET;
     }
 
@@ -80,27 +74,15 @@ n_socket_t * n_udp_socket_new(n_addr_t * addr)
         g_object_unref(gaddr);
     }*/
 
-    ret = bind(gsock, (struct sockaddr *)&name.addr, 0);
+    ret = bind(gsock, (struct sockaddr *)&name.addr, sizeof(struct sockaddr));
 
     if (ret < 0)
     {
+		printf("%d\n", net_errno());
         n_slice_free(n_socket_t, sock);
-        //g_socket_close(gsock, NULL);
-        //g_object_unref(gsock);
+		closesocket(gsock);
         return NULL;
     }
-
-    /*
-        gaddr = g_socket_get_local_address(gsock, NULL);
-        if (gaddr == NULL || !g_socket_address_to_native(gaddr, &name.addr, sizeof(name), NULL))
-        {
-            n_slice_free(n_socket_t, sock);
-            g_socket_close(gsock, NULL);
-            g_object_unref(gsock);
-            return NULL;
-        }
-
-        g_object_unref(gaddr);*/
 
     n_addr_set_from_sock(&sock->addr, &name.addr);
 

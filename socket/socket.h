@@ -3,10 +3,10 @@
 #ifndef _SOCKET_H
 #define _SOCKET_H
 
-#include <uv.h>
+//#include <uv.h>
 #include "agent.h"
 #include "address.h"
-#include <gio/gio.h>
+//#include <gio/gio.h>
 
 
 /*
@@ -59,10 +59,11 @@ struct _socket_st
     void * priv;
 };
 
+n_socket_t * n_socket_new(n_addr_t * addr);
 int32_t n_socket_recv_msgs(n_socket_t * sock, n_input_msg_t * recv_messages, uint32_t n_recv_messages);
 int32_t nice_socket_send_messages(n_socket_t * sock, const n_addr_t * addr, const n_output_msg_t * messages, uint32_t n_messages);
 int32_t nice_socket_send_messages_reliable(n_socket_t * sock, const n_addr_t * addr, const n_output_msg_t * messages, uint32_t n_messages);
-int32_t nice_socket_recv(n_socket_t * sock, n_addr_t * from, uint32_t len, char * buf);
+int32_t nice_socket_recv(int fd, n_addr_t * from, uint32_t len, char * buf);
 int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * buf);
 //int32_t nice_socket_send_reliable(n_socket_t * sock, const n_addr_t * addr, uint32_t len, const char * buf);
 int nice_socket_is_reliable(n_socket_t * sock);

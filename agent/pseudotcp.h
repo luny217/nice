@@ -197,8 +197,8 @@ typedef struct
     void (*PseudoTcpOpened)(pst_socket_t * tcp, void * data);
     void (*PseudoTcpReadable)(pst_socket_t * tcp, void * data);
     void (*PseudoTcpWritable)(pst_socket_t * tcp, void * data);
-    void (*PseudoTcpClosed)(pst_socket_t * tcp, guint32 error, void * data);
-    pst_wret_e(*WritePacket)(pst_socket_t * tcp, const char * buffer, uint32_t len, void * data);
+    void (*PseudoTcpClosed)(pst_socket_t * tcp, uint32_t error, void * data);
+    pst_wret_e(*WritePacket)(pst_socket_t * tcp, char * buffer, uint32_t len, void * data);
 } pst_callback_t;
 
 /**
@@ -450,8 +450,7 @@ gboolean pst_notify_packet(pst_socket_t * self,
  *
  * Since: 0.1.5
  */
-gboolean pst_notify_message(pst_socket_t * self,
-                            n_input_msg_t * message);
+int pst_notify_message(pst_socket_t * self, char * buf, int len);
 
 
 /**

@@ -6,7 +6,7 @@
  */
 
 #include <config.h>
-#include <glib.h>
+//#include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -37,7 +37,7 @@ static void disc_free_item(n_cand_disc_t * cand)
     if (cand->turn)
         turn_server_unref(cand->turn);
 
-    g_slice_free(n_cand_disc_t, cand);
+    n_slice_free(n_cand_disc_t, cand);
 }
 
 /*
@@ -273,7 +273,7 @@ static int _add_local_cand_pruned(n_agent_t * agent, uint32_t stream_id, n_comp_
 {
     n_slist_t  * i;
 
-    g_assert(candidate != NULL);
+    //g_assert(candidate != NULL);
 
     for (i = component->local_candidates; i ; i = i->next)
     {
@@ -305,7 +305,7 @@ static uint32_t _highest_remote_foundation(n_comp_t * component)
     {
         int taken = FALSE;
 
-        g_snprintf(foundation, CAND_MAX_FOUNDATION, "remote-%u",  highest);
+        snprintf(foundation, CAND_MAX_FOUNDATION, "remote-%u",  highest);
         for (i = component->remote_candidates; i; i = i->next)
         {
             n_cand_t * cand = i->data;
@@ -319,7 +319,7 @@ static uint32_t _highest_remote_foundation(n_comp_t * component)
             return highest;
     }
 
-    g_return_val_if_reached(highest);
+    //g_return_val_if_reached(highest);
 }
 
 /* From RFC 5245 section 4.1.3:
@@ -409,7 +409,7 @@ static void _assign_remote_foundation(n_agent_t * agent, n_cand_t * candidate)
                 n_cand_t * n = k->data;
 
                 /* note: candidate must not on the remote candidate list */
-                g_assert(candidate != n);
+                //g_assert(candidate != n);
 
                 if (candidate->type == n->type &&
                         candidate->transport == n->transport &&
@@ -419,16 +419,16 @@ static void _assign_remote_foundation(n_agent_t * agent, n_cand_t * candidate)
                     /* note: No need to check for STUN/TURN servers, as these candidate
                          * will always be peer reflexive, never relayed or serve reflexive.
                          */
-                    g_strlcpy(candidate->foundation, n->foundation, CAND_MAX_FOUNDATION);
+                    strncpy(candidate->foundation, n->foundation, CAND_MAX_FOUNDATION);
                     if (n->username)
                     {
                         n_free(candidate->username);
-                        candidate->username = g_strdup(n->username);
+                        candidate->username = n_strdup(n->username);
                     }
                     if (n->password)
                     {
                         n_free(candidate->password);
-                        candidate->password = g_strdup(n->password);
+                        candidate->password = n_strdup(n->password);
                     }
                     return;
                 }
@@ -439,7 +439,7 @@ static void _assign_remote_foundation(n_agent_t * agent, n_cand_t * candidate)
     if (component)
     {
         next_remote_id = _highest_remote_foundation(component);
-        g_snprintf(candidate->foundation, CAND_MAX_FOUNDATION, "remote-%u", next_remote_id);
+        snprintf(candidate->foundation, CAND_MAX_FOUNDATION, "remote-%u", next_remote_id);
     }
 }
 
@@ -468,7 +468,7 @@ HostCandidateResult disc_add_local_host_cand(n_agent_t * agent, uint32_t stream_
     //_generate_cand_cred(agent, candidate);
     _assign_foundation(agent, candidate);
 
-    nicesock = n_udp_socket_new(address);
+    nicesock = n_socket_new(address);
     if (!nicesock)
     {
         res = CANDIDATE_CANT_CREATE_SOCKET;
@@ -568,7 +568,7 @@ n_cand_t * disc_add_relay_cand(n_agent_t * agent, uint32_t stream_id, uint32_t c
     candidate->priority =  n_cand_ice_priority(candidate);
 
     /* step: link to the base candidate+socket */
-    relay_socket = n_udp_turn_new(NULL, address, base_socket, &turn->server, turn->username, turn->password);
+    /*relay_socket = n_udp_turn_new(NULL, address, base_socket, &turn->server, turn->username, turn->password);*/
     if (!relay_socket)
         goto errors;
 

@@ -39,7 +39,7 @@ struct _stream_st
     int tos;
 };
 
-n_stream_t * stream_new(uint32_t n_components, n_agent_t * agent);
+n_stream_t * stream_new(n_agent_t * agent, uint32_t n_comps);
 void stream_close(n_stream_t * stream);
 void stream_free(n_stream_t * stream);
 int stream_all_components_ready(const n_stream_t * stream);

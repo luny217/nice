@@ -102,8 +102,6 @@
     <ClCompile Include="random\random-glib.c" />
     <ClCompile Include="random\random.c" />
     <ClCompile Include="socket\socket.c" />
-    <ClCompile Include="socket\udp-bsd.c" />
-    <ClCompile Include="socket\udp-turn.c" />
     <ClCompile Include="stun\stundebug.c" />
     <ClCompile Include="stun\md5.c" />
     <ClCompile Include="stun\rand.c" />
@@ -141,8 +139,6 @@
     <ClInclude Include="random\random.h" />
     <ClInclude Include="socket\socket-priv.h" />
     <ClInclude Include="socket\socket.h" />
-    <ClInclude Include="socket\udp-bsd.h" />
-    <ClInclude Include="socket\udp-turn.h" />
     <ClInclude Include="stun\constants.h" />
     <ClInclude Include="stun\stundebug.h" />
     <ClInclude Include="stun\md5.h" />

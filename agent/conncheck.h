@@ -65,7 +65,7 @@ void cocheck_free(n_agent_t * agent);
 int cocheck_schedule_next(n_agent_t * agent);
 int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair);
 void cocheck_prune_stream(n_agent_t * agent, n_stream_t * stream);
-int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream, n_comp_t * component, n_socket_t * udp_socket, const n_addr_t * from, char * buf, uint32_t len);
+int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream, n_comp_t * component, n_socket_t * udp_socket, n_addr_t * from, char * buf, uint32_t len);
 int32_t cocheck_compare(const n_cand_chk_pair_t * a, const n_cand_chk_pair_t * b);
 void cocheck_remote_cands_set(n_agent_t * agent);
 n_cand_trans_e cocheck_match_trans(n_cand_trans_e transport);
