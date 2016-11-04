@@ -24,8 +24,8 @@
 #include "pthread.h"
 #include "timer.h"
 
-static GMainLoop * gloop;
-static char * stun_addr = "107.191.106.104";
+//static GMainLoop * gloop;
+static char * stun_addr = "118.178.231.92";
 static uint32_t stun_port = 3478;
 static int controlling = 1;
 static int exit_thread, candidate_gathering_done, negotiation_done;
@@ -306,7 +306,7 @@ end:
 	fclose(file_fp);
     g_io_channel_unref(io_stdin);
    //g_object_unref(agent);
-    g_main_loop_quit(gloop);
+    //g_main_loop_quit(gloop);
 
     return ;
 }
@@ -336,7 +336,7 @@ static void cb_comp_state_changed(n_agent_t * agent, uint32_t stream_id, uint32_
     }
     else if (state == COMP_STATE_FAILED)
     {
-        g_main_loop_quit(gloop);
+        //g_main_loop_quit(gloop);
     }
 	nice_debug("signal: state changed %d %d %s[%d]\n", stream_id, comp_id, state_name[state], state);
 }
@@ -355,7 +355,11 @@ static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t compone
 	if (agent->controlling_mode)
 	{
 		if (len == 1 && buf[0] == '\0')
-			g_main_loop_quit(gloop);
+		{
+			//g_main_loop_quit(gloop);
+			exit_thread = TRUE;
+		}
+			
 		printf("%.*s", len, buf);
 		fflush(stdout);
 	}
@@ -544,7 +548,7 @@ int main(int argc, char * argv[])
 	clock_win32_init();
 	nice_debug_init();
 
-	g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
+	//g_log_set_handler(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, g_log_default_handler, NULL);
 
 	if ((wfile_fp = fopen(write_file, "wb+")) == NULL)
 	{

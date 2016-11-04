@@ -947,10 +947,10 @@ int pst_notify_packet(pst_socket_t * self, const char * buffer, uint32_t len)
 
     /* Hold a reference to the pst_socket_t during parsing, since it may be
      * closed from within a callback. */
-    g_object_ref(self);
+    //g_object_ref(self);
     retval = parse(self, (uint8_t *) buffer, HEADER_SIZE,
                    (uint8_t *) buffer + HEADER_SIZE, len - HEADER_SIZE);
-    g_object_unref(self);
+    //g_object_unref(self);
 
     return retval;
 }

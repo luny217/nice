@@ -1828,11 +1828,11 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
 
         if (buffer_len > 0)
         {
-            if (nice_socket_is_reliable(pair->sockptr))
+            /*if (nice_socket_is_reliable(pair->sockptr))
             {
                 stun_timer_start_reliable(&pair->timer, STUN_TIMER_RELIABLE_TIMEOUT);
             }
-            else
+            else*/
             {
                 stun_timer_start(&pair->timer, _compute_cocheck_timer(agent, stream), STUN_TIMER_MAX_RETRANS);
             }

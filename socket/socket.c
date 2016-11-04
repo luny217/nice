@@ -27,7 +27,7 @@ n_socket_t * n_socket_new(n_addr_t * addr)
 	} name;
 
 	n_socket_t * sock = n_slice_new0(n_socket_t);
-	int gsock;
+	int gsock = -1;
 	int gret = FALSE;
 	struct udp_socket_private_st * priv;
 	int ret;
@@ -150,7 +150,7 @@ int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * 
 
 int nice_socket_is_reliable(n_socket_t * sock)
 {
-    return sock->is_reliable(sock);
+    return FALSE;
 }
 
 int nice_socket_can_send(n_socket_t * sock, n_addr_t * addr)
