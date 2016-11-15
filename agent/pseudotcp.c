@@ -153,7 +153,7 @@ typedef enum
 //////////////////////////////////////////////////////////////////////
 // Helper Functions
 //////////////////////////////////////////////////////////////////////
-#ifndef G_OS_WIN32
+#ifndef _WIN32
 #  define min(first, second) ((first) < (second) ? (first) : (second))
 #  define max(first, second) ((first) > (second) ? (first) : (second))
 #endif
@@ -259,7 +259,7 @@ static int pst_fifo_set_capacity(PseudoTcpFifo * b, uint32_t size)
 
 static void pst_fifo_consume_read_data(PseudoTcpFifo * b, uint32_t size)
 {
-    g_assert(size <= b->data_length);
+    //g_assert(size <= b->data_length);
 
     b->read_position = (b->read_position + size) % b->buffer_length;
     b->data_length -= size;
@@ -267,7 +267,7 @@ static void pst_fifo_consume_read_data(PseudoTcpFifo * b, uint32_t size)
 
 static void pst_fifo_consume_write_buffer(PseudoTcpFifo * b, uint32_t size)
 {
-    g_assert(size <= b->buffer_length - b->data_length);
+    //g_assert(size <= b->buffer_length - b->data_length);
 
     b->data_length += size;
 }
@@ -359,7 +359,7 @@ typedef struct
 {
     uint32_t conv, seq, ack;
     TcpFlags flags;
-    guint16 wnd;
+    uint16_t wnd;
     const char * data;
     uint32_t len;
     uint32_t tsval, tsecr;
@@ -519,7 +519,7 @@ static uint32_t pseudo_tcp_get_current_time(pst_socket_t * socket)
     if (socket->priv->current_time != 0)
         return socket->priv->current_time;
 
-    return (uint32_t)(g_get_monotonic_time() / 1000);
+    return (uint32_t)(get_monotonic_time() / 1000);
 }
 
 void pst_set_time(pst_socket_t * self, uint32_t current_time)
@@ -762,8 +762,7 @@ static void pst_init(pst_socket_t * obj)
 }
 
 pst_socket_t * pst_new(uint32_t conversation, pst_callback_t * callbacks)
-{
-
+{	
     return g_object_new(PSEUDO_TCP_SOCKET_TYPE,  "conversation", conversation, "callbacks", callbacks, NULL);
 }
 
@@ -796,7 +795,7 @@ static void queue_connect_message(pst_socket_t * self)
 
 static void queue_fin_message(pst_socket_t * self)
 {
-    g_assert(self->priv->support_fin_ack);
+    //g_assert(self->priv->support_fin_ack);
 
     /* FIN segments are always zero-length. */
     queue(self, "", 0, FLAG_FIN);
@@ -804,7 +803,7 @@ static void queue_fin_message(pst_socket_t * self)
 
 static void queue_rst_message(pst_socket_t * self)
 {
-    g_assert(self->priv->support_fin_ack);
+    //g_assert(self->priv->support_fin_ack);
 
     /* RST segments are always zero-length. */
     queue(self, "", 0, FLAG_RST);
@@ -821,7 +820,7 @@ int pst_connect(pst_socket_t * self)
     }
 
     set_state(self, TCP_SYN_SENT);
-
+	nice_debug("pst_connect\n");
     queue_connect_message(self);
     attempt_send(self, sfNone);
 
@@ -852,7 +851,7 @@ void pst_notify_clock(pst_socket_t * self)
      * operating. */
     if (priv->support_fin_ack && priv->state == TCP_TIME_WAIT)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Notified clock in TIME-WAIT state; closing connection.");
+        nice_debug("Notified clock in TIME-WAIT state; closing connection.");
         set_state_closed(self, 0);
     }
 
@@ -861,8 +860,7 @@ void pst_notify_clock(pst_socket_t * self)
      * operating. */
     if (priv->support_fin_ack && priv->state == TCP_LAST_ACK)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-              "Notified clock in LAST-ACK state; resending FIN segment.");
+		nice_debug("Notified clock in LAST-ACK state; resending FIN segment.");
         queue_fin_message(self);
         attempt_send(self, sfFin);
     }
@@ -882,7 +880,7 @@ void pst_notify_clock(pst_socket_t * self)
             uint32_t nInFlight;
             uint32_t rto_limit;
 
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "timeout retransmit (rto: %u) "
+            nice_debug("timeout retransmit (rto: %u) "
                   "(rto_base: %u) (now: %u) (dup_acks: %u)",
                   priv->rx_rto, priv->rto_base, now, (uint32_t) priv->dup_acks);
 
@@ -948,45 +946,7 @@ int pst_notify_packet(pst_socket_t * self, const char * buffer, uint32_t len)
     /* Hold a reference to the pst_socket_t during parsing, since it may be
      * closed from within a callback. */
     //g_object_ref(self);
-    retval = parse(self, (uint8_t *) buffer, HEADER_SIZE,
-                   (uint8_t *) buffer + HEADER_SIZE, len - HEADER_SIZE);
-    //g_object_unref(self);
-
-    return retval;
-}
-
-/* Assume there are two buffers in the given #n_input_msg_t: a 24-byte one
- * containing the header, and a bigger one for the data. */
-int pst_notify_message(pst_socket_t * self, char * buf, int len)
-{
-    int retval;
-    n_input_msg_t * message;
-
-    //g_assert_cmpuint(message->n_buffers, > , 0);
-
-    if (message->n_buffers == 1)
-        return pst_notify_packet(self, message->buffers[0].buffer,
-                                               message->buffers[0].size);
-
-    //g_assert_cmpuint(message->n_buffers, == , 2);
-    //g_assert_cmpuint(message->buffers[0].size, == , HEADER_SIZE);
-
-    if (message->length > MAX_PACKET)
-    {
-        //LOG_F(WARNING) << "packet too large";
-        return FALSE;
-    }
-    else if (message->length < HEADER_SIZE)
-    {
-        //LOG_F(WARNING) << "packet too small";
-        return FALSE;
-    }
-
-    /* Hold a reference to the pst_socket_t during parsing, since it may be
-     * closed from within a callback. */
-    //g_object_ref(self);
-    retval = parse(self, message->buffers[0].buffer, message->buffers[0].size,
-                   message->buffers[1].buffer, message->length - message->buffers[0].size);
+    retval = parse(self, (uint8_t *) buffer, HEADER_SIZE, (uint8_t *) buffer + HEADER_SIZE, len - HEADER_SIZE);
     //g_object_unref(self);
 
     return retval;
@@ -1003,8 +963,7 @@ int pst_get_next_clock(pst_socket_t * self, guint64 * timeout)
     {
         if (priv->support_fin_ack)
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-                  "?Forceful? shutdown used when FIN-ACK support is enabled");
+			nice_debug("Forceful shutdown used when FIN-ACK support is enabled");
         }
 
         /* Transition to the CLOSED state. */
@@ -1020,8 +979,7 @@ int pst_get_next_clock(pst_socket_t * self, guint64 * timeout)
     {
         if (priv->support_fin_ack)
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-                  "?Graceful? shutdown used when FIN-ACK support is enabled");
+			nice_debug("Graceful shutdown used when FIN-ACK support is enabled");
         }
 
         /* Transition to the CLOSED state. */
@@ -1175,7 +1133,7 @@ void pst_close(pst_socket_t * self, int force)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
-    DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Closing socket %p %s", self,
+    nice_debug("Closing socket %p %s", self,
           force ? "forcefully" : "gracefully");
 
     /* Forced closure by sending an RST segment. RFC 1122, ?4.2.2.13. */
@@ -1193,7 +1151,7 @@ void pst_shutdown(pst_socket_t * self, PseudoTcpShutdown how)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
-    DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Shutting down socket %p: %u", self, how);
+    nice_debug("Shutting down socket %p: %u", self, how);
 
     /* FIN-ACK--only stuff below here. */
     if (!priv->support_fin_ack)
@@ -1214,7 +1172,7 @@ void pst_shutdown(pst_socket_t * self, PseudoTcpShutdown how)
             /* Handled below. */
             break;
         default:
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Invalid shutdown method: %u.", how);
+            nice_debug("Invalid shutdown method: %u.", how);
             break;
     }
 
@@ -1356,12 +1314,11 @@ static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags,
     {
         uint32_t bytes_read;
 
-        bytes_read = pst_fifo_read_offset(&priv->sbuf, buffer.u8 + HEADER_SIZE,
-                     len, offset);
-        g_assert(bytes_read == len);
+        bytes_read = pst_fifo_read_offset(&priv->sbuf, buffer.u8 + HEADER_SIZE, len, offset);
+        //g_assert(bytes_read == len);
     }
 
-    DEBUG(PSEUDO_TCP_DEBUG_VERBOSE, "<-- <CONV=%u><FLG=%u><SEQ=%u:%u><ACK=%u>"
+	nice_debug("<-- <CONV=%u><FLG=%u><SEQ=%u:%u><ACK=%u>"
           "<WND=%u><TS=%u><TSR=%u><LEN=%u>",
           priv->conv, (unsigned)flags, seq, seq + len, priv->rcv_nxt, priv->rcv_wnd,
           now % 10000, priv->ts_recent % 10000, len);
@@ -1385,15 +1342,14 @@ static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags,
     return WR_SUCCESS;
 }
 
-static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t header_buf_len,
-      const uint8_t * data_buf, uint32_t data_buf_len)
+static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t header_buf_len, const uint8_t * data_buf, uint32_t data_buf_len)
 {
     Segment seg;
 
     union
     {
         const uint8_t * u8;
-        const guint16 * u16;
+        const uint16_t * u16;
         const uint32_t * u32;
     } header_buf;
 
@@ -1414,7 +1370,7 @@ static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t head
     seg.data = (const char *) data_buf;
     seg.len = data_buf_len;
 
-    DEBUG(PSEUDO_TCP_DEBUG_VERBOSE, "--> <CONV=%u><FLG=%u><SEQ=%u:%u><ACK=%u>"
+	nice_debug("--> <CONV=%u><FLG=%u><SEQ=%u:%u><ACK=%u>"
           "<WND=%u><TS=%u><TSR=%u><LEN=%u>",
           seg.conv, (unsigned)seg.flags, seg.seq, seg.seq + seg.len, seg.ack,
           seg.wnd, seg.tsval % 10000, seg.tsecr % 10000, seg.len);
@@ -1490,7 +1446,7 @@ static int process(pst_socket_t * self, Segment * seg)
         //if ((seg->flags & FLAG_RST) == 0) {
         //  packet(sock, tcb, seg->ack, 0, FLAG_RST, 0, 0);
         //}
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "wrong conversation");
+        nice_debug("wrong conversation");
         return FALSE;
     }
 
@@ -1505,7 +1461,7 @@ static int process(pst_socket_t * self, Segment * seg)
         {
             closedown(self, 0, CLOSEDOWN_LOCAL);
         }
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Segment received while closed; sent RST.");
+        nice_debug("Segment received while closed; sent RST.");
         return FALSE;
     }
 
@@ -1522,7 +1478,7 @@ static int process(pst_socket_t * self, Segment * seg)
     {
         if (seg->len == 0)
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Missing control code");
+            nice_debug("Missing control code");
             return FALSE;
         }
         else if (seg->data[0] == CTL_CONNECT)
@@ -1543,7 +1499,7 @@ static int process(pst_socket_t * self, Segment * seg)
         }
         else
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Unknown control code: %u", seg->data[0]);
+            nice_debug("Unknown control code: %u", seg->data[0]);
             return FALSE;
         }
     }
@@ -1556,8 +1512,7 @@ static int process(pst_socket_t * self, Segment * seg)
     }
 
     // Check if this is a valuable ack
-    is_valuable_ack = (LARGER(seg->ack, priv->snd_una) &&
-                       SMALLER_OR_EQUAL(seg->ack, priv->snd_nxt));
+    is_valuable_ack = (LARGER(seg->ack, priv->snd_una) && SMALLER_OR_EQUAL(seg->ack, priv->snd_nxt));
     is_duplicate_ack = (seg->ack == priv->snd_una);
 
     if (is_valuable_ack)
@@ -1578,19 +1533,16 @@ static int process(pst_socket_t * self, Segment * seg)
                 }
                 else
                 {
-                    priv->rx_rttvar = (3 * priv->rx_rttvar +
-                                       abs((long)(rtt - priv->rx_srtt))) / 4;
+                    priv->rx_rttvar = (3 * priv->rx_rttvar + abs((long)(rtt - priv->rx_srtt))) / 4;
                     priv->rx_srtt = (7 * priv->rx_srtt + rtt) / 8;
                 }
-                priv->rx_rto = bound(MIN_RTO,
-                                     priv->rx_srtt + max(1LU, 4 * priv->rx_rttvar), MAX_RTO);
+                priv->rx_rto = bound(MIN_RTO, priv->rx_srtt + max(1LU, 4 * priv->rx_rttvar), MAX_RTO);
 
-                DEBUG(PSEUDO_TCP_DEBUG_VERBOSE, "rtt: %ld   srtt: %u  rto: %u",
-                      rtt, priv->rx_srtt, priv->rx_rto);
+				nice_debug("rtt: %ld   srtt: %u  rto: %u",  rtt, priv->rx_srtt, priv->rx_rto);
             }
             else
             {
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Invalid RTT: %ld", rtt);
+                nice_debug("Invalid RTT: %ld", rtt);
                 return FALSE;
             }
         }
@@ -1605,8 +1557,7 @@ static int process(pst_socket_t * self, Segment * seg)
         /* ACKs for FIN segments give an increment on nAcked, but there is no
          * corresponding byte to read because the FIN segment is empty (it just has
          * a sequence number). */
-        if (nAcked == priv->sbuf.data_length + 1 &&
-                pseudo_tcp_state_has_sent_fin(priv->state))
+        if (nAcked == priv->sbuf.data_length + 1 && pseudo_tcp_state_has_sent_fin(priv->state))
         {
             is_fin_ack = TRUE;
             nAcked--;
@@ -1618,7 +1569,7 @@ static int process(pst_socket_t * self, Segment * seg)
         {
             SSegment * data;
 
-            g_assert(n_queue_get_length(&priv->slist) != 0);
+            //g_assert(n_queue_get_length(&priv->slist) != 0);
             data = (SSegment *) n_queue_peek_head(&priv->slist);
 
             if (nFree < data->len)
@@ -1634,7 +1585,7 @@ static int process(pst_socket_t * self, Segment * seg)
                     priv->largest = data->len;
                 }
                 nFree -= data->len;
-                g_slice_free(SSegment, data);
+                n_slice_free(SSegment, data);
                 n_queue_pop_head(&priv->slist);
             }
         }
@@ -1646,12 +1597,12 @@ static int process(pst_socket_t * self, Segment * seg)
                 uint32_t nInFlight = priv->snd_nxt - priv->snd_una;
                 // (Fast Retransmit)
                 priv->cwnd = min(priv->ssthresh, nInFlight + priv->mss);
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "exit recovery");
+                nice_debug("exit recovery");
                 priv->dup_acks = 0;
             }
             else
             {
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "recovery retransmit");
+                nice_debug("recovery retransmit");
                 if (!transmit(self, n_queue_peek_head(&priv->slist), now))
                 {
                     closedown(self, ECONNABORTED, CLOSEDOWN_LOCAL);
@@ -1692,8 +1643,8 @@ static int process(pst_socket_t * self, Segment * seg)
             priv->dup_acks += 1;
             if (priv->dup_acks == 3)   // (Fast Retransmit)
             {
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "enter recovery");
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "recovery retransmit");
+                nice_debug("enter recovery");
+                nice_debug("recovery retransmit");
                 if (!transmit(self, n_queue_peek_head(&priv->slist), now))
                 {
                     closedown(self, ECONNABORTED, CLOSEDOWN_LOCAL);
@@ -1728,7 +1679,7 @@ static int process(pst_socket_t * self, Segment * seg)
         /* For the moment, FIN segments must not contain data. */
         if (seg->flags & FLAG_FIN && seg->len != 0)
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "FIN segment contained data; ignored");
+            nice_debug("FIN segment contained data; ignored");
             return FALSE;
         }
 
@@ -1792,30 +1743,25 @@ static int process(pst_socket_t * self, Segment * seg)
                 /* Shouldn?t ever hit these cases. */
                 if (seg->flags & FLAG_FIN)
                 {
-                    DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-                          "Unexpected state %u when FIN received", priv->state);
+					nice_debug("Unexpected state %u when FIN received", priv->state);
                 }
                 else if (is_fin_ack)
                 {
-                    DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-                          "Unexpected state %u when FIN-ACK received", priv->state);
+					nice_debug("Unexpected state %u when FIN-ACK received", priv->state);
                 }
                 break;
             default:
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Invalid state %u when FIN received",
-                      priv->state);
+                nice_debug("Invalid state %u when FIN received", priv->state);
                 return FALSE;
         }
     }
     else if (seg->flags & FLAG_FIN)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-              "Invalid FIN received when FIN-ACK support is disabled");
+		nice_debug("Invalid FIN received when FIN-ACK support is disabled");
     }
     else if (is_fin_ack)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-              "Invalid FIN-ACK received when FIN-ACK support is disabled");
+		nice_debug("Invalid FIN-ACK received when FIN-ACK support is disabled");
     }
 
     // If we make room in the send queue, notify the user
@@ -1866,11 +1812,11 @@ static int process(pst_socket_t * self, Segment * seg)
     {
         if (seg->seq > priv->rcv_nxt)
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "too new");
+            nice_debug("too new");
         }
         else if (SMALLER_OR_EQUAL(seg->seq + seg->len, priv->rcv_nxt))
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "too old");
+            nice_debug("too old");
         }
     }
 
@@ -1953,7 +1899,7 @@ static int process(pst_socket_t * self, Segment * seg)
                     {
                         uint32_t nAdjust = (data->seq + data->len) - priv->rcv_nxt;
                         sflags = sfImmediateAck; // (Fast Recovery)
-                        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Recovered %u bytes (%u -> %u)",
+                        nice_debug("Recovered %u bytes (%u -> %u)",
                               nAdjust, priv->rcv_nxt, priv->rcv_nxt + nAdjust);
                         pst_fifo_consume_write_buffer(&priv->rbuf, nAdjust);
                         priv->rcv_nxt += nAdjust;
@@ -1969,7 +1915,7 @@ static int process(pst_socket_t * self, Segment * seg)
                 n_dlist_t * iter = NULL;
                 RSegment * rseg = g_slice_new0(RSegment);
 
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Saving %u bytes (%u -> %u)",
+                nice_debug("Saving %u bytes (%u -> %u)",
                       seg->len, seg->seq, seg->seq + seg->len);
                 rseg->seq = seg->seq;
                 rseg->len = seg->len;
@@ -2006,7 +1952,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
 
     if (segment->xmit >= ((priv->state == TCP_ESTABLISHED) ? 15 : 30))
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "too many retransmits");
+        nice_debug("too many retransmits");
         return FALSE;
     }
 
@@ -2027,7 +1973,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
 
         if (wres == WR_FAIL)
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "packet failed");
+            nice_debug("packet failed");
             return FALSE;
         }
 
@@ -2037,7 +1983,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
         {
             if (PACKET_MAXIMUMS[priv->msslevel + 1] == 0)
             {
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "MTU too small");
+                nice_debug("MTU too small");
                 return FALSE;
             }
             /* !?! We need to break up all outstanding and pending packets
@@ -2053,7 +1999,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
                 break;
             }
         }
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Adjusting mss to %u bytes ", priv->mss);
+        nice_debug("Adjusting mss to %u bytes ", priv->mss);
     }
 
     if (nTransmit < segment->len)
@@ -2064,7 +2010,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
         subseg->flags = segment->flags;
         subseg->xmit = segment->xmit;
 
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "mss reduced to %u", priv->mss);
+        nice_debug("mss reduced to %u", priv->mss);
 
         segment->len = nTransmit;
         n_queue_insert_after(&priv->slist, n_queue_find(&priv->slist, segment), subseg);
@@ -2146,7 +2092,7 @@ static void attempt_send(pst_socket_t * self, SendFlags sflags)
         {
             uint32_t available_space = pst_fifo_get_write_remaining(&priv->sbuf);
             bFirst = FALSE;
-            DEBUG(PSEUDO_TCP_DEBUG_VERBOSE, "[cwnd: %u  nWindow: %u  nInFlight: %u "
+			nice_debug("[cwnd: %u  nWindow: %u  nInFlight: %u "
                   "nAvailable: %u nQueued: %" G_GSIZE_FORMAT " nEmpty: %" G_GSIZE_FORMAT
                   "  ssthresh: %u]",
                   priv->cwnd, nWindow, nInFlight, nAvailable, snd_buffered,
@@ -2202,7 +2148,7 @@ static void attempt_send(pst_socket_t * self, SendFlags sflags)
 
         if (!transmit(self, sseg, now))
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "transmit failed");
+            nice_debug("transmit failed");
             // TODO: consider closing socket
             return;
         }
@@ -2276,7 +2222,7 @@ static void adjustMTU(pst_socket_t * self)
     }
     priv->mss = priv->mtu_advise - PACKET_OVERHEAD;
     // !?! Should we reset priv->largest here?
-    DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Adjusting mss to %u bytes", priv->mss);
+    nice_debug("Adjusting mss to %u bytes", priv->mss);
     // Enforce minimums on ssthresh and cwnd
     priv->ssthresh = max(priv->ssthresh, 2 * priv->mss);
     priv->cwnd = max(priv->cwnd, priv->mss);
@@ -2302,8 +2248,7 @@ static void apply_option(pst_socket_t * self, uint8_t kind, const uint8_t * data
     switch (kind)
     {
         case TCP_OPT_MSS:
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL,
-                  "Peer specified MSS option which is not supported.");
+			nice_debug("Peer specified MSS option which is not supported.");
             // TODO: Implement.
             break;
         case TCP_OPT_WND_SCALE:
@@ -2311,14 +2256,14 @@ static void apply_option(pst_socket_t * self, uint8_t kind, const uint8_t * data
             // http://www.ietf.org/rfc/rfc1323.txt
             if (len != 1)
             {
-                DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Invalid window scale option received.");
+                nice_debug("Invalid window scale option received.");
                 return;
             }
             apply_window_scale_option(self, data[0]);
             break;
         case TCP_OPT_FIN_ACK:
             // FIN-ACK support.
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "FIN-ACK support enabled.");
+            nice_debug("FIN-ACK support enabled.");
             apply_fin_ack_option(self);
             break;
         case TCP_OPT_EOL:
@@ -2326,7 +2271,7 @@ static void apply_option(pst_socket_t * self, uint8_t kind, const uint8_t * data
             /* Nothing to do. */
             break;
         default:
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Invalid TCP option %u", kind);
+            nice_debug("Invalid TCP option %u", kind);
             break;
     }
 }
@@ -2381,7 +2326,7 @@ static void parse_options(pst_socket_t * self, const uint8_t * data, uint32_t le
         }
         else
         {
-            DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Invalid option length received.");
+            nice_debug("Invalid option length received.");
             return;
         }
 
@@ -2393,7 +2338,7 @@ static void parse_options(pst_socket_t * self, const uint8_t * data, uint32_t le
 
     if (!has_window_scaling_option)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Peer doesn't support window scaling");
+        nice_debug("Peer doesn't support window scaling");
         if (priv->rwnd_scale > 0)
         {
             // Peer doesn't support TCP options and window scaling.
@@ -2405,7 +2350,7 @@ static void parse_options(pst_socket_t * self, const uint8_t * data, uint32_t le
 
     if (!has_fin_ack_option)
     {
-        DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "Peer doesn't support FIN-ACK");
+        nice_debug("Peer doesn't support FIN-ACK");
         priv->support_fin_ack = FALSE;
     }
 }
@@ -2528,7 +2473,7 @@ static void set_state(pst_socket_t * self, PseudoTcpState new_state)
     if (new_state == old_state)
         return;
 
-    DEBUG(PSEUDO_TCP_DEBUG_NORMAL, "State %s ? %s.",
+    nice_debug("State %s ? %s.",
           pseudo_tcp_state_get_name(old_state),
           pseudo_tcp_state_get_name(new_state));
 

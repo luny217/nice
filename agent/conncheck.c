@@ -499,7 +499,7 @@ static int _cocheck_tick(void * pointer)
     }*/
 
     ret = _cocheck_tick_unlocked(agent);
-    agent_unlock_and_emit(agent);
+	agent_unlock();
 
     return ret;
 }
@@ -609,7 +609,7 @@ static int _conn_keepalive_retrans_tick(void * pointer)
     }
 
 
-    agent_unlock_and_emit(pair->keepalive.agent);
+    agent_unlock();
     return FALSE;
 }
 
@@ -836,7 +836,7 @@ static int _conn_keepalive_tick(void * pointer)
 			agent->keepalive_timer = 0;
 		}
     }
-    agent_unlock_and_emit(agent);
+	agent_unlock();
     return ret;
 }
 
@@ -868,7 +868,7 @@ static int _turn_alloc_refresh_retrans_tick(void * pointer)
 	timer_destroy(cand->tick_clock);
 	cand->tick_clock = 0;
 
-    agent = g_object_ref(cand->agent);
+    //agent = g_object_ref(cand->agent);
 
     switch (stun_timer_refresh(&cand->timer))
     {
@@ -919,9 +919,9 @@ static int _turn_alloc_refresh_retrans_tick(void * pointer)
     }
 
 
-    agent_unlock_and_emit(agent);
+	agent_unlock();
 
-    g_object_unref(agent);
+    //g_object_unref(agent);
 
     return FALSE;
 }
@@ -994,7 +994,7 @@ static int _turn_allocate_refresh_tick(void * pointer)
     }*/
 
     _turn_alloc_refresh_tick_unlocked(cand);
-    agent_unlock_and_emit(cand->agent);
+	agent_unlock();
 
     return FALSE;
 }

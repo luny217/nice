@@ -912,7 +912,7 @@ static int _disc_tick(void * pointer)
 		agent->disc_timer = 0;
     }
 	//nice_debug("[%s]: agent_unlock+++++++++++", G_STRFUNC);
-    agent_unlock_and_emit(agent);
+	agent_unlock();
 
     return ret;
 }

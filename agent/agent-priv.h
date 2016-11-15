@@ -113,7 +113,7 @@ void agent_gathering_done(n_agent_t * agent);
 void agent_sig_gathering_done(n_agent_t * agent);
 void agent_lock(void);
 void agent_unlock(void);
-void agent_unlock_and_emit(n_agent_t * agent);
+//void agent_unlock_and_emit(n_agent_t * agent);
 
 void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t * lcandidate, n_cand_t * rcandidate);
 void agent_sig_comp_state_change(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_comp_state_e state);

@@ -165,17 +165,14 @@ int _poll(struct pollfd * fds, nfds_t numfds, int timeout)
 
 void agent_lock(void)
 {
-    pthread_mutex_lock(&agent_mutex);
+	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+    //pthread_mutex_lock(&agent_mutex);
 }
 
 void agent_unlock(void)
 {
-    pthread_mutex_unlock(&agent_mutex);
-}
-
-void agent_unlock_and_emit(n_agent_t * agent)
-{
-    agent_unlock();
+	nice_debug("[%s]: agent_unlock-------------------", G_STRFUNC);
+    //pthread_mutex_unlock(&agent_mutex);
 }
 
 n_stream_t * agent_find_stream(n_agent_t * agent, uint32_t stream_id)
@@ -525,7 +522,7 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
 
 //    g_object_ref(agent);
 
-    //nice_debug("[%s]: s%d:%d pseudo Tcp socket readable", G_STRFUNC, stream->id, comp->id);
+    nice_debug("[%s]: s%d:%d pseudo Tcp socket readable", G_STRFUNC, stream->id, comp->id);
 
     comp->tcp_readable = TRUE;
 
@@ -533,7 +530,7 @@ static void pst_readable(pst_socket_t * sock, void * user_data)
 
     /* Only dequeue pseudo-TCP data if we can reliably inform the client. The
      * agent lock is held here, so has_io_callback can only change during
-     * comp_emit_io_cb(), after which it??s re-queried. This ensures
+     * comp_emit_io_cb(), after which it's re-queried. This ensures
      * no data loss of packets already received and dequeued. */
     if (has_io_callback)
     {
@@ -740,7 +737,7 @@ static int notify_pst_clock(void * user_data)
     pst_notify_clock(component->tcp);
     adjust_tcp_clock(agent, stream, component);
 
-    agent_unlock_and_emit(agent);
+    agent_unlock();
 
     return TRUE;
 }
@@ -806,7 +803,7 @@ static void _tcp_sock_is_writable(n_socket_t * sock, void * user_data)
     nice_debug("[%s]: s%d:%d Tcp socket writable", G_STRFUNC, stream->id, component->id);
     agent_signal_socket_writable(agent, component);
 
-    agent_unlock_and_emit(agent);
+    agent_unlock();
 }
 
 static const char * _transport_to_string(n_cand_trans_e type)
@@ -1552,7 +1549,7 @@ void n_agent_remove_stream(n_agent_t * agent, uint32_t stream_id)
 
     if (!stream)
     {
-        agent_unlock_and_emit(agent);
+        agent_unlock();
         return;
     }
 
@@ -1737,25 +1734,26 @@ int32_t n_agent_set_remote_credentials(n_agent_t * agent, uint32_t stream_id, co
     int32_t ret = FALSE;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
 
     nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
+    //agent_lock();
 
     stream = agent_find_stream(agent, stream_id);
     /* note: oddly enough, ufrag and pwd can be empty strings */
     if (stream && ufrag && pwd)
     {
 
-        g_strlcpy(stream->remote_ufrag, ufrag, N_STREAM_MAX_UFRAG);
-        g_strlcpy(stream->remote_password, pwd, N_STREAM_MAX_PWD);
+        strncpy(stream->remote_ufrag, ufrag, N_STREAM_MAX_UFRAG);
+        strncpy(stream->remote_password, pwd, N_STREAM_MAX_PWD);
 
         ret = TRUE;
         goto done;
     }
 
 done:
-    agent_unlock_and_emit(agent);
+    //agent_unlock();
+    nice_debug("[%s]: agent_unlock+++++++++++", G_STRFUNC);
     return ret;
 }
 
@@ -1765,7 +1763,7 @@ int32_t n_agent_set_local_credentials(n_agent_t * agent, uint32_t stream_id, con
     int32_t ret = FALSE;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
 
     nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
@@ -1775,15 +1773,15 @@ int32_t n_agent_set_local_credentials(n_agent_t * agent, uint32_t stream_id, con
     /* note: oddly enough, ufrag and pwd can be empty strings */
     if (stream && ufrag && pwd)
     {
-        g_strlcpy(stream->local_ufrag, ufrag, N_STREAM_MAX_UFRAG);
-        g_strlcpy(stream->local_password, pwd, N_STREAM_MAX_PWD);
+        strncpy(stream->local_ufrag, ufrag, N_STREAM_MAX_UFRAG);
+        strncpy(stream->local_password, pwd, N_STREAM_MAX_PWD);
 
         ret = TRUE;
         goto done;
     }
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock();
     return ret;
 }
 
@@ -1793,7 +1791,7 @@ int32_t n_agent_get_local_credentials(n_agent_t * agent, uint32_t stream_id, cha
     int32_t ret = TRUE;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), FALSE);
-    g_return_val_if_fail(stream_id >= 1, FALSE);
+    //g_return_val_if_fail(stream_id >= 1, FALSE);
 
     //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     agent_lock();
@@ -1809,12 +1807,12 @@ int32_t n_agent_get_local_credentials(n_agent_t * agent, uint32_t stream_id, cha
         goto done;
     }
 
-    *ufrag = g_strdup(stream->local_ufrag);
-    *pwd = g_strdup(stream->local_password);
+    *ufrag = n_strdup(stream->local_ufrag);
+    *pwd = n_strdup(stream->local_password);
     ret = TRUE;
 
 done:
-    agent_unlock_and_emit(agent);
+    agent_unlock();
     return ret;
 }
 
@@ -1856,13 +1854,13 @@ int32_t n_agent_set_remote_cands(n_agent_t * agent, uint32_t stream_id, uint32_t
     n_comp_t * component;
 
     //g_return_val_if_fail(NICE_IS_AGENT(agent), 0);
-    g_return_val_if_fail(stream_id >= 1, 0);
-    g_return_val_if_fail(component_id >= 1, 0);
+    //g_return_val_if_fail(stream_id >= 1, 0);
+    //g_return_val_if_fail(component_id >= 1, 0);
 
     nice_debug("[%s]: set_remote_candidates %d %d", G_STRFUNC, stream_id, component_id);
 
     //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
+    /*agent_lock();*/
 
     if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
     {
@@ -1874,7 +1872,7 @@ int32_t n_agent_set_remote_cands(n_agent_t * agent, uint32_t stream_id, uint32_t
     added = _set_remote_cands_locked(agent, stream, component, candidates);
 
 done:
-    agent_unlock_and_emit(agent);
+    /*agent_unlock();*/
 
     return added;
 }
@@ -2095,6 +2093,7 @@ uint32_t n_input_msg_iter_get_n_valid_msgs(n_input_msg_iter_t * iter)
         return iter->message + 1;
 }
 
+#if 0
 /* n_send_msgs_nonblock_internal:
  *
  * Returns: number of bytes sent if allow_partial is %TRUE, the number
@@ -2179,19 +2178,21 @@ done:
              (allow_partial && n_messages == 1 &&
               (uint32_t) n_sent <= output_message_get_size(&messages[0])));*/
 
-    if (child_error != NULL)
-        g_propagate_error(error, child_error);
+    /*if (child_error != NULL)
+        g_propagate_error(error, child_error);*/
 
-    agent_unlock_and_emit(agent);
+    agent_unlock();
 
     return n_sent;
 }
+
 
 int32_t n_agent_send_msgs_nonblocking(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,
                                       const n_output_msg_t * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
 {
     return n_send_msgs_nonblock_internal(agent, stream_id, component_id, messages, n_messages, FALSE, error);
 }
+#endif
 
 int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t len, const char * buf)
 {
@@ -2553,9 +2554,11 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
             {
                 if (comp->selected_pair.local == NULL)
                 {
-                    //n_outvector_t * vec = n_slice_new(n_outvector_t);
+                    n_outvector_t * vec = n_slice_new(n_outvector_t);
                     //vec->buffer = compact_input_message(message, &vec->size);
-                    //n_queue_push_tail(&comp->queued_tcp_packets, vec);
+					vec->buffer = n_slice_copy(length, local_body_buf);
+					vec->size = length;
+                    n_queue_push_tail(&comp->queued_tcp_packets, vec);
                     nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, length, agent);
 
                     return RECV_OOB;

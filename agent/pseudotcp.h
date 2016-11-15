@@ -24,7 +24,7 @@
 
 #include <glib-object.h>
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 #include <winsock2.h>
 //#  define ECONNABORTED WSAECONNABORTED
 //#  define ENOTCONN WSAENOTCONN
@@ -224,8 +224,7 @@ typedef struct
  *
  * Since: 0.0.11
  */
-pst_socket_t * pst_new(guint32 conversation,
-                       pst_callback_t * callbacks);
+pst_socket_t * pst_new(uint32_t conversation, pst_callback_t * callbacks);
 
 
 /**
@@ -292,8 +291,7 @@ int32_t  pst_recv(pst_socket_t * self, char * buffer, size_t len);
  *
  * Since: 0.0.11
  */
-int32_t pst_send(pst_socket_t * self, const char * buffer,
-                 guint32 len);
+int32_t pst_send(pst_socket_t * self, const char * buffer, uint32_t len);
 
 
 /**
@@ -390,8 +388,7 @@ int pst_get_error(pst_socket_t * self);
  *
  * Since: 0.0.11
  */
-gboolean pst_get_next_clock(pst_socket_t * self,
-                            guint64 * timeout);
+int pst_get_next_clock(pst_socket_t * self, uint64_t * timeout);
 
 
 /**
@@ -419,7 +416,7 @@ void pst_notify_clock(pst_socket_t * self);
  *
  * Since: 0.0.11
  */
-void pst_notify_mtu(pst_socket_t * self, guint16 mtu);
+void pst_notify_mtu(pst_socket_t * self, uint16_t mtu);
 
 
 /**
@@ -434,8 +431,7 @@ void pst_notify_mtu(pst_socket_t * self, guint16 mtu);
  *
  * Since: 0.0.11
  */
-gboolean pst_notify_packet(pst_socket_t * self,
-                           const gchar * buffer, guint32 len);
+int pst_notify_packet(pst_socket_t * self, const char * buffer, uint32_t len);
 
 
 /**
@@ -520,7 +516,7 @@ gsize pst_get_available_send_space(pst_socket_t * self);
  *
  * Since: 0.1.8
  */
-void pst_set_time(pst_socket_t * self, guint32 current_time);
+void pst_set_time(pst_socket_t * self, uint32_t current_time);
 
 /**
  * pst_is_closed:
@@ -548,7 +544,7 @@ gboolean pst_is_closed(pst_socket_t * self);
  * %FALSE otherwise
  * Since: 0.1.8
  */
-gboolean pst_is_closed_remotely(pst_socket_t * self);
+int pst_is_closed_remotely(pst_socket_t * self);
 
 #endif /* __LIBNICE_PSEUDOTCP_H__ */
 

@@ -820,7 +820,7 @@ void comp_emit_io_cb(n_comp_t * comp, const uint8_t * buf, uint32_t buf_len)
     if (g_main_context_is_owner(comp->ctx))
     {
         /* Thread owns the main context, so invoke the callback directly. */
-        agent_unlock_and_emit(agent);
+        agent_unlock();
         io_callback(agent, stream_id, comp_id, buf_len, (gchar *) buf, io_user_data);
         //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
         agent_lock();

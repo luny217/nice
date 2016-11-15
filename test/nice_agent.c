@@ -27,7 +27,7 @@
 //static GMainLoop * gloop;
 static char * stun_addr = "118.178.231.92";
 static uint32_t stun_port = 3478;
-static int controlling = 1;
+static int controlling = 0;
 static int exit_thread, candidate_gathering_done, negotiation_done;
 //static GMutex gather_mutex, negotiate_mutex;
 static  pthread_mutex_t gather_mutex, negotiate_mutex;

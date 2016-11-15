@@ -57,10 +57,9 @@ void nice_debug_init(void)
         /* Set verbose before normal so that if we use 'all', then only
            normal debug is enabled, we'd need to set pseudotcp-verbose without the
            pseudotcp flag in order to actually enable verbose pseudotcp */
-        if (flags & NICE_DEBUG_PSEUDOTCP_VERBOSE)
-            pseudo_tcp_set_debug_level(PSEUDO_TCP_DEBUG_VERBOSE);
-        else
-            pseudo_tcp_set_debug_level(PSEUDO_TCP_DEBUG_NORMAL);
+        
+        pseudo_tcp_set_debug_level(PSEUDO_TCP_DEBUG_VERBOSE);
+        
     }
 }
 
