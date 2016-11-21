@@ -2318,6 +2318,51 @@ static void n_agent_dispose(GObject * object)
 
 #if 1
 
+int32_t n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_agent_recv_func func, void * data)
+{
+	n_comp_t * comp = NULL;
+	n_stream_t * stream = NULL;
+	int32_t ret = FALSE;
+
+
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	agent_lock();
+
+	/* attach candidates */
+
+	/* step: check that params specify an existing pair */
+	if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
+	{
+		nice_debug("Could not find component %u in stream %u", comp_id, stream_id);
+		goto done;
+	}
+
+/*
+	if (ctx == NULL)
+		ctx = g_main_context_default();*/
+
+	/* Set the component's I/O context. */
+	//comp_set_io_context(component, ctx);
+	comp_set_io_callback(comp, func, data);
+	ret = TRUE;
+
+	if (func)
+	{
+		/* If we got detached, maybe our readable callback didn't finish reading
+		* all available data in the pseudotcp, so we need to make sure we free
+		* our recv window, so the readable callback can be triggered again on the
+		* next incoming data.
+		* but only do this if we know we're already readable, otherwise we might
+		* trigger an error in the initial, pre-connection attach. */
+		if (agent->reliable && !pst_is_closed(comp->tcp) && comp->tcp_readable)
+			pst_readable(comp->tcp, comp);
+	}
+
+done:
+	agent_unlock();
+	return ret;
+}
+
 /**/
 int32_t agent_recv_packet(n_socket_source_t * s_source)
 {

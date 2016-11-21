@@ -132,12 +132,12 @@ n_comp_t * comp_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
     n_queue_init(&comp->pend_io_msgs);
     comp->io_callback_id = 0;
 
-    comp->own_ctx = g_main_context_new();
+   /* comp->own_ctx = g_main_context_new();
     comp->stop_cancellable = g_cancellable_new();
     comp->stop_cancellable_source = g_cancellable_source_new(comp->stop_cancellable);
     g_source_set_dummy_callback(comp->stop_cancellable_source);
     g_source_attach(comp->stop_cancellable_source, comp->own_ctx);
-    comp->ctx = g_main_context_ref(comp->own_ctx);
+    comp->ctx = g_main_context_ref(comp->own_ctx);*/
 
     /* Start off with a fresh main context and all I/O paused. This
      * will be updated when n_agent_attach_recv() or nice_agent_recv_messages()
@@ -817,7 +817,7 @@ void comp_emit_io_cb(n_comp_t * comp, const uint8_t * buf, uint32_t buf_len)
 
     /* Only allocate a closure if the callback is being deferred to an idle
      * handler. */
-    if (g_main_context_is_owner(comp->ctx))
+    //if (g_main_context_is_owner(comp->ctx))
     {
         /* Thread owns the main context, so invoke the callback directly. */
         agent_unlock();
@@ -825,21 +825,21 @@ void comp_emit_io_cb(n_comp_t * comp, const uint8_t * buf, uint32_t buf_len)
         //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
         agent_lock();
     }
-    else
+    /*else
     {
         IOCallbackData * data;
 
         pthread_mutex_lock(&comp->io_mutex);
 
-        /* Slow path: Current thread doesn?t own the n_comp_t?s context at the
-         * moment, so schedule the callback in an idle handler. */
+        / * Slow path: Current thread doesn?t own the n_comp_t?s context at the
+         * moment, so schedule the callback in an idle handler. * /
         data = io_callback_data_new(buf, buf_len);
-        n_queue_push_tail(&comp->pend_io_msgs, data);  /* transfer ownership */
+        n_queue_push_tail(&comp->pend_io_msgs, data);  / * transfer ownership * /
 
         nice_debug("[%s]:: **WARNING: SLOW PATH**", G_STRFUNC);
         comp_sched_io_cb(comp);
         pthread_mutex_unlock(&comp->io_mutex);
-    }
+    }*/
 }
 
 #if 0

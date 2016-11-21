@@ -159,7 +159,7 @@ void nice_thread(void * data)
     
 	agent_set_port_range(agent, stream_id, 1, 1024, 4096);
 
-	//n_agent_attach_recv(agent, stream_id, 1, NULL, cb_nice_recv, NULL);
+	n_agent_attach_recv(agent, stream_id, 1, cb_nice_recv, NULL);	
 
 	n_agent_dispatcher(agent, stream_id, 1);
 

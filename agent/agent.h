@@ -591,8 +591,8 @@ int n_agent_restart_stream(n_agent_t * agent, uint32_t stream_id);
  *
  * Returns: %TRUE on success, %FALSE if the stream or component IDs are invalid.
  */
-int n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,
-                        GMainContext * ctx,  n_agent_recv_func func,  void * data);
+int n_agent_attach_recv(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id,
+                        n_agent_recv_func func,  void * data);
 
 /**
  * n_agent_set_selected_pair:
