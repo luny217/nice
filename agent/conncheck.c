@@ -735,8 +735,8 @@ static int _conn_keepalive_tick_unlocked(n_agent_t * agent)
                         agent_socket_send(p->local->sockptr, &p->remote->addr, buf_len,
                                           (char *)p->keepalive.stun_buffer);
 
-                        nice_debug("[%s]: stun_bind_keepalive for pair %p res %d.", G_STRFUNC, p, (int) buf_len);
-						nice_print_cand(agent, p->local, p->remote);
+                        //nice_debug("[%s]: stun_bind_keepalive for pair %p res %d.", G_STRFUNC, p, (int) buf_len);
+						//nice_print_cand(agent, p->local, p->remote);
                     }
                     else
                     {
@@ -2911,8 +2911,8 @@ int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
     {
         char tmpbuf[INET6_ADDRSTRLEN];
         nice_address_to_string(from, tmpbuf);
-        nice_debug("[%s]: inbound stun packet for %u/%u (stream/component) from [%s]:%u (%u octets) :",
-					G_STRFUNC, stream->id, comp->id, tmpbuf, n_addr_get_port(from), len);
+        /*nice_debug("[%s]: inbound stun packet for %u/%u (stream/component) from [%s]:%u (%u octets) :",
+					G_STRFUNC, stream->id, comp->id, tmpbuf, n_addr_get_port(from), len);*/
     }
 
     /* note: ICE  7.2. "STUN Server Procedures" (ID-19) */
@@ -3109,8 +3109,8 @@ int cocheck_handle_in_stun(n_agent_t * agent, n_stream_t * stream,
         if (trans_found != TRUE)
             trans_found = _map_reply_to_keepalive_cocheck(agent, comp, &req);
 
-        if (trans_found != TRUE)
-            nice_debug("[%s]: unable to match to an existing transaction, " "probably a keepalive", G_STRFUNC);
+        /*if (trans_found != TRUE)
+            nice_debug("[%s]: unable to match to an existing transaction, " "probably a keepalive", G_STRFUNC);*/
     }
 
     return TRUE;

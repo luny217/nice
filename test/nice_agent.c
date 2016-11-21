@@ -540,7 +540,7 @@ end:
 int main(int argc, char * argv[])
 {
 	char write_file[] = "wtest.dat";
-	uv_loop_t  * loop = uv_default_loop();
+	//uv_loop_t  * loop = uv_default_loop();
 	pthread_t tid;
 	int ret;
 

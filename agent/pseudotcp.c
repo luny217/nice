@@ -1070,6 +1070,8 @@ int32_t pst_recv(pst_socket_t * self, char * buffer, size_t len)
 
     bytesread = pst_fifo_read(&priv->rbuf, (uint8_t *) buffer, len);
 
+	nice_debug("pst_fifo_read %d", bytesread);
+
 // If there's no data in |m_rbuf|.
     if (bytesread == 0)
     {
@@ -1080,8 +1082,7 @@ int32_t pst_recv(pst_socket_t * self, char * buffer, size_t len)
 
     available_space = pst_fifo_get_write_remaining(&priv->rbuf);
 
-    if (available_space - priv->rcv_wnd >=
-            min(priv->rbuf_len / 2, priv->mss))
+    if (available_space - priv->rcv_wnd >= min(priv->rbuf_len / 2, priv->mss))
     {
         // !?! Not sure about this was closed business
         int bWasClosed = (priv->rcv_wnd == 0);
@@ -1133,8 +1134,7 @@ void pst_close(pst_socket_t * self, int force)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
-    nice_debug("Closing socket %p %s", self,
-          force ? "forcefully" : "gracefully");
+    nice_debug("closing socket %p %s", self, force ? "forcefully" : "gracefully");
 
     /* Forced closure by sending an RST segment. RFC 1122, ?4.2.2.13. */
     if (force && priv->state != TCP_CLOSED)
@@ -1151,7 +1151,7 @@ void pst_shutdown(pst_socket_t * self, PseudoTcpShutdown how)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
 
-    nice_debug("Shutting down socket %p: %u", self, how);
+    nice_debug("shutting down socket %p: %u", self, how);
 
     /* FIN-ACK--only stuff below here. */
     if (!priv->support_fin_ack)
@@ -1172,7 +1172,7 @@ void pst_shutdown(pst_socket_t * self, PseudoTcpShutdown how)
             /* Handled below. */
             break;
         default:
-            nice_debug("Invalid shutdown method: %u.", how);
+            nice_debug("invalid shutdown method: %u.", how);
             break;
     }
 
@@ -1261,7 +1261,7 @@ static uint32_t queue(pst_socket_t * self, const char * data, uint32_t len, TcpF
     }
     else
     {
-        SSegment * sseg = g_slice_new0(SSegment);
+        SSegment * sseg = n_slice_new0(SSegment);
         uint32_t snd_buffered = pst_fifo_get_buffered(&priv->sbuf);
 
         sseg->seq = priv->snd_una + snd_buffered;
@@ -1284,26 +1284,25 @@ static uint32_t queue(pst_socket_t * self, const char * data, uint32_t len, TcpF
 // |len| is the number of bytes to read from |m_sbuf| as payload. If this
 // value is 0 then this is an ACK packet, otherwise this packet has payload.
 
-static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags,
-       uint32_t offset, uint32_t len, uint32_t now)
+static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     union
     {
         uint8_t u8[MAX_PACKET];
-        guint16 u16[MAX_PACKET / 2];
+        uint16_t u16[MAX_PACKET / 2];
         uint32_t u32[MAX_PACKET / 4];
     } buffer;
     pst_wret_e wres = WR_SUCCESS;
 
-    g_assert(HEADER_SIZE + len <= MAX_PACKET);
+    //g_assert(HEADER_SIZE + len <= MAX_PACKET);
 
     *buffer.u32 = htonl(priv->conv);
     *(buffer.u32 + 1) = htonl(seq);
     *(buffer.u32 + 2) = htonl(priv->rcv_nxt);
     buffer.u8[12] = 0;
     buffer.u8[13] = flags;
-    *(buffer.u16 + 7) = htons((guint16)(priv->rcv_wnd >> priv->rwnd_scale));
+    *(buffer.u16 + 7) = htons((uint16_t)(priv->rcv_wnd >> priv->rwnd_scale));
 
     // Timestamp computations
     *(buffer.u32 + 4) = htonl(now);
@@ -1318,8 +1317,8 @@ static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags,
         //g_assert(bytes_read == len);
     }
 
-	nice_debug("<-- <CONV=%u><FLG=%u><SEQ=%u:%u><ACK=%u>"
-          "<WND=%u><TS=%u><TSR=%u><LEN=%u>",
+	nice_debug("[send]: <conv=%u><flg=%u><seq=%u:%u><ack=%u>"
+			"<wnd=%u><ts=%u><tsr=%u><len=%u>",
           priv->conv, (unsigned)flags, seq, seq + len, priv->rcv_nxt, priv->rcv_wnd,
           now % 10000, priv->ts_recent % 10000, len);
 
@@ -1370,8 +1369,8 @@ static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t head
     seg.data = (const char *) data_buf;
     seg.len = data_buf_len;
 
-	nice_debug("--> <CONV=%u><FLG=%u><SEQ=%u:%u><ACK=%u>"
-          "<WND=%u><TS=%u><TSR=%u><LEN=%u>",
+	nice_debug("[recv]: <conv=%u><flag=%u><seq=%u:%u><ack=%u>"
+          "<wnd=%u><ts=%u><tsr=%u><len=%u>",
           seg.conv, (unsigned)seg.flags, seg.seq, seg.seq + seg.len, seg.ack,
           seg.wnd, seg.tsval % 10000, seg.tsecr % 10000, seg.len);
 
@@ -1499,7 +1498,7 @@ static int process(pst_socket_t * self, Segment * seg)
         }
         else
         {
-            nice_debug("Unknown control code: %u", seg->data[0]);
+            nice_debug("unknown control code: %u", seg->data[0]);
             return FALSE;
         }
     }
@@ -2473,7 +2472,7 @@ static void set_state(pst_socket_t * self, PseudoTcpState new_state)
     if (new_state == old_state)
         return;
 
-    nice_debug("State %s ? %s.",
+    nice_debug("state change from [%s] to [%s]",
           pseudo_tcp_state_get_name(old_state),
           pseudo_tcp_state_get_name(new_state));
 

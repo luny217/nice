@@ -76,13 +76,13 @@ int32_t event_wait(int32_t handle, int32_t want, int32_t *events, void ** n_data
 		return -1;
 	}
 	//if (count == 1) sleep_ms(1000000);
-	printf("\n[event_wait]: lock want(0x%x) mutex(%p)\n", want, &fd->mutex);
+	//printf("\n[event_wait]: lock want(0x%x) mutex(%p)\n", want, &fd->mutex);
 	pthread_mutex_lock(&fd->mutex);
 	while (0 == (fd->n_event & want) )
 	{
-		printf("\n[cond wait]\n");
+		//printf("\n[cond wait]\n");
 		ret = pthread_cond_wait(&fd->cond, &fd->mutex);
-		printf("[cond wait] ret = %d\n", ret);
+		//printf("[cond wait] ret = %d\n", ret);
 	}	
 	
 	tmp_events = fd->n_event;
@@ -98,7 +98,7 @@ int32_t event_wait(int32_t handle, int32_t want, int32_t *events, void ** n_data
 	*events = (fd->n_event & want), fd->n_event &= ~want;
 	pthread_mutex_unlock(&fd->mutex);
 
-	printf("\n[event_wait]: unlock events(0x%x) idx(%d) data(%p)\n", *events, idx, *n_data);
+	//printf("\n[event_wait]: unlock events(0x%x) idx(%d) data(%p)\n", *events, idx, *n_data);
 
 	return 0;
 }
@@ -115,14 +115,14 @@ int32_t event_post(int32_t handle, int32_t events, void * n_data)
 	{
 		//runtime_get_msec(&pst_tm_cur[0], &pst_tm_cur[1], &pst_tm_cur[2]);
 	}
-	printf("\n[event_post]: prelock  fd->event(0x%x) events(0x%x) mutex(%p)\n", fd->n_event, events, &fd->mutex);
+	//printf("\n[event_post]: prelock  fd->event(0x%x) events(0x%x) mutex(%p)\n", fd->n_event, events, &fd->mutex);
 
 	get_current_time(&func_start);
 	pthread_mutex_lock(&fd->mutex);
 	get_current_time(&func_stop);
 
 	usec_time = ((func_stop.tv_sec - func_start.tv_sec) * 1000 * 1000) + (func_stop.tv_usec - func_start.tv_usec);
-	printf("\n[event_post]: locked usec_time(%d us)\n", usec_time);
+	//printf("\n[event_post]: locked usec_time(%d us)\n", usec_time);
 	fd->n_event |= events;
 	tmp_events = events;
 	for (i = 0; i < 32; i++)
@@ -139,8 +139,8 @@ int32_t event_post(int32_t handle, int32_t events, void * n_data)
 
 	get_current_time(&func_start);
 	usec_time = ((func_start.tv_sec - func_stop.tv_sec) * 1000 * 1000) + (func_start.tv_usec - func_stop.tv_usec);
-	printf("[event_post]: unlock usec_time(%d us)\n", usec_time);
-	printf("[event_post]: leave event(0x%x) events(0x%x) idx(%d) data(%p)\n", fd->n_event, events, idx, n_data);
+	//printf("[event_post]: unlock usec_time(%d us)\n", usec_time);
+	//printf("[event_post]: leave event(0x%x) events(0x%x) idx(%d) data(%p)\n", fd->n_event, events, idx, n_data);
 
 	/*if (event_param.post_cost_threshold)
 	{

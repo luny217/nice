@@ -245,7 +245,7 @@ int32_t timer_set_mono(int32_t handle, int64_t ticks)
 
 	if (n_timer != NULL && n_timer->enable == TRUE)
 	{
-		printf("[%s] timer set monotonic_time %lld\n", n_timer->identify, ticks);
+		//printf("[%s] timer set monotonic_time %lld\n", n_timer->identify, ticks);
 		n_timer->mono_ticks = ticks;
 		return 0;
 	}

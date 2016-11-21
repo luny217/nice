@@ -124,12 +124,25 @@ int32_t nice_socket_recv(int fd, n_addr_t * from, uint32_t len, char * buf)
 int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * buf)
 {
     struct udp_socket_private_st * priv = sock->priv;
+	int ret = -1;
 
     /* Socket has been closed: */
     if (priv == NULL)
         return -1;
 
-    if (!nice_address_equal(&priv->niceaddr, to))
+	if (nice_debug_is_enabled())
+	{
+		char tmpbuf1[INET6_ADDRSTRLEN] = {0};
+		char tmpbuf2[INET6_ADDRSTRLEN] = {0};
+
+		nice_address_to_string(&priv->niceaddr, tmpbuf1);
+		nice_address_to_string(to, tmpbuf2);
+		nice_debug("[%s]: '%s:%u' -> '%s:%u'", G_STRFUNC,
+			tmpbuf1, n_addr_get_port(&priv->niceaddr),
+			tmpbuf2, n_addr_get_port(to));
+	}
+
+    //if (!n_addr_is_valid(&priv->niceaddr) /*|| !nice_address_equal(&priv->niceaddr, to)*/)
     {
         union
         {
@@ -139,13 +152,13 @@ int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * 
 
         nice_address_copy_to_sockaddr(to, &sa.addr);
         priv->niceaddr = *to;
-        len = sendto(sock->sock_fd, buf, len, 0, (struct sockaddr *)&sa.addr, sizeof(sa.addr));
-        if (len < 0)
+        ret = sendto(sock->sock_fd, buf, len, 0, (struct sockaddr *)&sa.addr, sizeof(sa.addr));
+        if (ret < 0)
         {
 
         }
     }
-    return len;
+    return ret;
 }
 
 int nice_socket_is_reliable(n_socket_t * sock)

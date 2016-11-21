@@ -165,13 +165,13 @@ int _poll(struct pollfd * fds, nfds_t numfds, int timeout)
 
 void agent_lock(void)
 {
-	nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
+	//nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
     //pthread_mutex_lock(&agent_mutex);
 }
 
 void agent_unlock(void)
 {
-	nice_debug("[%s]: agent_unlock-------------------", G_STRFUNC);
+	//nice_debug("[%s]: agent_unlock-------------------", G_STRFUNC);
     //pthread_mutex_unlock(&agent_mutex);
 }
 
@@ -912,42 +912,43 @@ void agent_sig_initial_binding_request_received(n_agent_t * agent, n_stream_t * 
  * SYNACKs, for the initial SYN packet), handle them now.
  *
  * Must be called with the agent lock held. */
-static void process_queued_tcp_packets(n_agent_t * agent, n_stream_t * stream, n_comp_t * component)
+static void process_queued_tcp_packets(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp)
 {
     n_outvector_t * vec;
     uint32_t stream_id = stream->id;
-    uint32_t component_id = component->id;
+    uint32_t comp_id = comp->id;
 
-    g_assert(agent->reliable);
+    //g_assert(agent->reliable);
 
-    if (component->selected_pair.local == NULL ||
-            pst_is_closed(component->tcp) ||
-            nice_socket_is_reliable(component->selected_pair.local->sockptr))
+    if (comp->selected_pair.local == NULL ||
+            pst_is_closed(comp->tcp) ||
+            nice_socket_is_reliable(comp->selected_pair.local->sockptr))
     {
         return;
     }
 
-    nice_debug("%s: Sending outstanding packets for agent %p.", G_STRFUNC);
+    //nice_debug("[%s]: sending outstanding packets", G_STRFUNC);
 
-    while ((vec = n_queue_peek_head(&component->queued_tcp_packets)) != NULL)
+    while ((vec = n_queue_peek_head(&comp->queued_tcp_packets)) != NULL)
     {
         int32_t retval;
 
-        nice_debug("%s: Sending %" G_GSIZE_FORMAT " bytes.", G_STRFUNC, vec->size);
-        retval =  pst_notify_packet(component->tcp, vec->buffer, vec->size);
+        nice_debug("[%s]: sending queued %u bytes", G_STRFUNC, vec->size);
+        retval =  pst_notify_packet(comp->tcp, vec->buffer, vec->size);
 
-        if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
+        if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
         {
-            nice_debug("n_stream_t or n_comp_t disappeared during " "pst_notify_packet()");
-            return;
-        }
-        if (pst_is_closed(component->tcp))
-        {
-            nice_debug("PseudoTCP socket got destroyed in" " pst_notify_packet()!");
+            nice_debug("n_stream_t or n_comp_t disappeared during pst_notify_packet");
             return;
         }
 
-        adjust_tcp_clock(agent, stream, component);
+        if (pst_is_closed(comp->tcp))
+        {
+            nice_debug("PseudoTCP socket got destroyed in pst_notify_packet!");
+            return;
+        }
+
+        adjust_tcp_clock(agent, stream, comp);
 
         if (!retval)
         {
@@ -955,35 +956,34 @@ static void process_queued_tcp_packets(n_agent_t * agent, n_stream_t * stream, n
             break;
         }
 
-        n_queue_pop_head(&component->queued_tcp_packets);
+        n_queue_pop_head(&comp->queued_tcp_packets);
         n_free((void *) vec->buffer);
         n_slice_free(n_outvector_t, vec);
     }
 }
 
-void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
-                                 uint32_t component_id, n_cand_t * lcandidate, n_cand_t * rcandidate)
+void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, n_cand_t * lcand, n_cand_t * rcand)
 {
-    n_comp_t * component;
+    n_comp_t * comp;
     n_stream_t * stream;
 
-    if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
+    if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
         return;
 
-    if (((n_socket_t *)lcandidate->sockptr)->type == NICE_SOCKET_TYPE_UDP_TURN)
+    if (((n_socket_t *)lcand->sockptr)->type == NICE_SOCKET_TYPE_UDP_TURN)
     {
         /*nice_udp_turn_socket_set_peer(lcandidate->sockptr, &rcandidate->addr);*/
     }
 
-    if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr))
+    if (agent->reliable && !nice_socket_is_reliable(lcand->sockptr))
     {
-        if (!component->tcp)
-            pst_create(agent, stream, component);
-        process_queued_tcp_packets(agent, stream, component);
+        if (!comp->tcp)
+            pst_create(agent, stream, comp);
+        process_queued_tcp_packets(agent, stream, comp);
 
-        pst_connect(component->tcp);
-        pst_notify_mtu(component->tcp, MAX_TCP_MTU);
-        adjust_tcp_clock(agent, stream, component);
+        pst_connect(comp->tcp);
+        pst_notify_mtu(comp->tcp, MAX_TCP_MTU);
+        adjust_tcp_clock(agent, stream, comp);
     }
 
     if (nice_debug_is_enabled())
@@ -991,34 +991,32 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
         char ip[100];
         uint32_t port;
 
-        port = n_addr_get_port(&lcandidate->addr);
-        nice_address_to_string(&lcandidate->addr, ip);
+        port = n_addr_get_port(&lcand->addr);
+        nice_address_to_string(&lcand->addr, ip);
 
-        nice_debug("[%s]: Local selected pair: %d:%d %s %s %s:%d %s", G_STRFUNC,
-                   stream_id, component_id, lcandidate->foundation,
-                   lcandidate->transport == CAND_TRANS_UDP ? "UDP" : "???",
-                   ip, port, lcandidate->type == CAND_TYPE_HOST ? "HOST" :
-                   lcandidate->type == CAND_TYPE_SERVER ?
+        nice_debug("[%s]: local selected pair: %d:%d %s %s:%d %s", G_STRFUNC,
+                   stream_id, comp_id, lcand->foundation,
+                   ip, port, lcand->type == CAND_TYPE_HOST ? "HOST" :
+                   lcand->type == CAND_TYPE_SERVER ?
                    "SRV-RFLX" :
-                   lcandidate->type == CAND_TYPE_RELAYED ?
+                   lcand->type == CAND_TYPE_RELAYED ?
                    "RELAYED" :
-                   lcandidate->type == CAND_TYPE_PEER ?
+                   lcand->type == CAND_TYPE_PEER ?
                    "PEER-RFLX" : "???");
 
-        port = n_addr_get_port(&rcandidate->addr);
-        nice_address_to_string(&rcandidate->addr, ip);
+        port = n_addr_get_port(&rcand->addr);
+        nice_address_to_string(&rcand->addr, ip);
 
-        nice_debug("[%s]: Remote selected pair: %d:%d %s %s %s:%d %s", G_STRFUNC,
-                   stream_id, component_id, rcandidate->foundation,
-                   rcandidate->transport == CAND_TRANS_UDP ? "UDP" : "???",
-                   ip, port, rcandidate->type == CAND_TYPE_HOST ? "HOST" :
-                   rcandidate->type == CAND_TYPE_SERVER ?
+        nice_debug("[%s]: Remote selected pair: %d:%d %s %s:%d %s", G_STRFUNC,
+                   stream_id, comp_id, rcand->foundation,
+                   ip, port, rcand->type == CAND_TYPE_HOST ? "HOST" :
+                   rcand->type == CAND_TYPE_SERVER ?
                    "SRV-RFLX" :
-                   rcandidate->type == CAND_TYPE_RELAYED ?
+                   rcand->type == CAND_TYPE_RELAYED ?
                    "RELAYED" :
-                   rcandidate->type == CAND_TYPE_PEER ?
+                   rcand->type == CAND_TYPE_PEER ?
                    "PEER-RFLX" : "???");
-        nice_print_cand(agent, lcandidate, rcandidate);
+        nice_print_cand(agent, lcand, rcand);
     }
 
     /*agent_queue_signal(agent, signals[SIGNAL_NEW_SELECTED_PAIR_FULL],
@@ -1026,12 +1024,12 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
     if (agent->n_event)
     {
         ev_new_pair_full_t * ev_new_pair_full = n_slice_new0(ev_new_pair_full_t);
-        ev_new_pair_full->component_id = component_id;
+        ev_new_pair_full->component_id = comp_id;
         ev_new_pair_full->stream_id = stream_id;
-        ev_new_pair_full->lcandidate = lcandidate;
-        ev_new_pair_full->rcandidate = rcandidate;
+        ev_new_pair_full->lcandidate = lcand;
+        ev_new_pair_full->rcandidate = rcand;
 
-        nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_pair_full->stream_id);
+        //nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_pair_full->stream_id);
         event_post(agent->n_event, N_EVENT_NEW_SELECTED_PAIR_FULL, ev_new_pair_full);
     }
 
@@ -1040,18 +1038,18 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
     if (agent->n_event)
     {
         ev_new_pair_t * ev_new_pair = n_slice_new0(ev_new_pair_t);
-        ev_new_pair->component_id = component_id;
+        ev_new_pair->component_id = comp_id;
         ev_new_pair->stream_id = stream_id;
-        strncpy(ev_new_pair->lfoundation, lcandidate->foundation, CAND_MAX_FOUNDATION);
-        strncpy(ev_new_pair->rfoundation, rcandidate->foundation, CAND_MAX_FOUNDATION);
+        strncpy(ev_new_pair->lfoundation, lcand->foundation, CAND_MAX_FOUNDATION);
+        strncpy(ev_new_pair->rfoundation, rcand->foundation, CAND_MAX_FOUNDATION);
 
-        nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_pair->stream_id);
+        //nice_debug("[%s] event_post stream_id [%d]", G_STRFUNC, ev_new_pair->stream_id);
         event_post(agent->n_event, N_EVENT_NEW_SELECTED_PAIR, ev_new_pair);
     }
 
-    if (agent->reliable && nice_socket_is_reliable(lcandidate->sockptr))
+    if (agent->reliable && nice_socket_is_reliable(lcand->sockptr))
     {
-        agent_signal_socket_writable(agent, component);
+        agent_signal_socket_writable(agent, comp);
     }
 }
 
@@ -2093,107 +2091,6 @@ uint32_t n_input_msg_iter_get_n_valid_msgs(n_input_msg_iter_t * iter)
         return iter->message + 1;
 }
 
-#if 0
-/* n_send_msgs_nonblock_internal:
- *
- * Returns: number of bytes sent if allow_partial is %TRUE, the number
- * of messages otherwise.
- */
-
-static int32_t n_send_msgs_nonblock_internal(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, const n_output_msg_t * messages,
-        uint32_t n_messages, int32_t allow_partial, GError ** error)
-{
-    n_stream_t * stream;
-    n_comp_t * component;
-    int32_t n_sent = -1; /* is in bytes if allow_partial is TRUE, otherwise in messages */
-    GError * child_error = NULL;
-
-    g_assert(n_messages == 1 || !allow_partial);
-
-    //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
-    agent_lock();
-
-    if (!agent_find_comp(agent, stream_id, component_id, &stream, &component))
-    {
-        g_set_error(&child_error, G_IO_ERROR, G_IO_ERROR_BROKEN_PIPE,  "Invalid stream/component.");
-        goto done;
-    }
-
-    /* FIXME: Cancellation isnt yet supported, but it doesnt matter because
-     * we only deal with non-blocking writes. */
-    if (component->selected_pair.local != NULL)
-    {
-        //if (nice_debug_is_enabled())
-        //{
-        //    char tmpbuf[INET6_ADDRSTRLEN];
-        //    nice_address_to_string(&component->selected_pair.remote->addr, tmpbuf);
-
-        //    nice_debug("[%s]: s%d:%d: sending %u messages to "
-        //               "[%s]:%d", G_STRFUNC, stream_id, component_id, n_messages, tmpbuf,
-        //               n_addr_get_port(&component->selected_pair.remote->addr));
-        //}
-
-        if (!nice_socket_is_reliable(component->selected_pair.local->sockptr))
-        {
-            if (!pst_is_closed(component->tcp))
-            {
-                /* Send on the pseudo-TCP socket. */
-                n_sent = pst_send_messages(component->tcp, messages, n_messages, allow_partial, &child_error);
-                adjust_tcp_clock(agent, stream, component);
-
-                if (!pst_can_send(component->tcp))
-                    g_cancellable_reset(component->tcp_writable_cancellable);
-                if (n_sent < 0 && !g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
-                {
-                    /* Signal errors */
-                    _pseudo_tcp_error(agent, stream, component);
-                }
-            }
-            else
-            {
-                g_set_error(&child_error, G_IO_ERROR, G_IO_ERROR_FAILED, "Pseudo-TCP socket not connected.");
-            }
-        }
-    }
-    else
-    {
-        /* Socket isn't properly open yet. */
-        n_sent = 0;  /* EWOULDBLOCK */
-    }
-
-    /* Handle errors and cancellations. */
-    if (n_sent == 0)
-    {
-        g_set_error_literal(&child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK, g_strerror(EAGAIN));
-        n_sent = -1;
-    }
-
-    //nice_debug("[%s]: n_sent: %d, n_messages: %u", G_STRFUNC,  n_sent, n_messages);
-
-done:
-    /*g_assert((child_error != NULL) == (n_sent == -1));
-    g_assert(n_sent != 0);
-    g_assert(n_sent < 0 ||
-             (!allow_partial && (uint32_t) n_sent <= n_messages) ||
-             (allow_partial && n_messages == 1 &&
-              (uint32_t) n_sent <= output_message_get_size(&messages[0])));*/
-
-    /*if (child_error != NULL)
-        g_propagate_error(error, child_error);*/
-
-    agent_unlock();
-
-    return n_sent;
-}
-
-
-int32_t n_agent_send_msgs_nonblocking(n_agent_t * agent, uint32_t stream_id, uint32_t component_id,
-                                      const n_output_msg_t * messages, uint32_t n_messages, GCancellable * cancellable, GError ** error)
-{
-    return n_send_msgs_nonblock_internal(agent, stream_id, component_id, messages, n_messages, FALSE, error);
-}
-#endif
-
 int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t len, const char * buf)
 {
     //n_outvector_t local_buf = { buf, len };
@@ -2492,7 +2389,7 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
         {
             char tmpbuf[INET6_ADDRSTRLEN];
             nice_address_to_string(&from, tmpbuf);
-            nice_debug("[%s]: %d bytes received on [%d] from [%s:%u]", G_STRFUNC, length, fd, tmpbuf, n_addr_get_port(&from));
+            //nice_debug("[%s]: %d bytes received on [%d] from [%s:%u]", G_STRFUNC, length, fd, tmpbuf, n_addr_get_port(&from));
         }
 
 #if 0
@@ -2537,7 +2434,7 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
                 if (handled)
                 {
                     /* Handled STUN message. */
-                    nice_debug("[%s]: Valid STUN packet received.", G_STRFUNC);
+                    //nice_debug("[%s]: Valid STUN packet received.", G_STRFUNC);
                     retval = RECV_OOB;
                     goto done;
                 }
