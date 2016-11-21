@@ -1975,7 +1975,7 @@ static int _schedule_triggered_check(n_agent_t * agent, n_stream_t * stream, n_c
                 nice_debug("[%s]: check already in progress, "
                            "restarting the timer again?: %s ..", G_STRFUNC,
                            p->timer_restarted ? "no" : "yes");
-                if (!nice_socket_is_reliable(p->sockptr) && !p->timer_restarted)
+                if (!p->timer_restarted)
                 {
                     stun_timer_start(&p->timer, _compute_cocheck_timer(agent, stream), STUN_TIMER_MAX_RETRANS);
                     p->timer_restarted = TRUE;

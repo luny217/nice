@@ -15,7 +15,7 @@
 struct udp_socket_private_st
 {
     n_addr_t niceaddr;
-    //uv_udp_t * gaddr;
+	struct sockaddr  * gaddr;
 };
 
 n_socket_t * n_socket_new(n_addr_t * addr)
@@ -142,7 +142,7 @@ int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * 
 			tmpbuf2, n_addr_get_port(to));
 	}
 
-    //if (!n_addr_is_valid(&priv->niceaddr) /*|| !nice_address_equal(&priv->niceaddr, to)*/)
+    if (!n_addr_is_valid(&priv->niceaddr) || !nice_address_equal(&priv->niceaddr, to))
     {
         union
         {
@@ -151,20 +151,22 @@ int32_t nice_socket_send(n_socket_t * sock, n_addr_t * to, uint32_t len, char * 
         } sa;
 
         nice_address_copy_to_sockaddr(to, &sa.addr);
-        priv->niceaddr = *to;
-        ret = sendto(sock->sock_fd, buf, len, 0, (struct sockaddr *)&sa.addr, sizeof(sa.addr));
-        if (ret < 0)
-        {
-
-        }
+		priv->niceaddr = *to;
     }
+
+	ret = sendto(sock->sock_fd, buf, len, 0, &to->s.addr, sizeof(struct sockaddr));
+	if (ret < 0)
+	{
+
+	}
     return ret;
 }
 
+/*
 int nice_socket_is_reliable(n_socket_t * sock)
 {
     return FALSE;
-}
+}*/
 
 int nice_socket_can_send(n_socket_t * sock, n_addr_t * addr)
 {

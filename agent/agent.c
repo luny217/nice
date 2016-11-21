@@ -920,9 +920,7 @@ static void process_queued_tcp_packets(n_agent_t * agent, n_stream_t * stream, n
 
     //g_assert(agent->reliable);
 
-    if (comp->selected_pair.local == NULL ||
-            pst_is_closed(comp->tcp) ||
-            nice_socket_is_reliable(comp->selected_pair.local->sockptr))
+    if (comp->selected_pair.local == NULL || pst_is_closed(comp->tcp))
     {
         return;
     }
@@ -975,7 +973,7 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t
         /*nice_udp_turn_socket_set_peer(lcandidate->sockptr, &rcandidate->addr);*/
     }
 
-    if (agent->reliable && !nice_socket_is_reliable(lcand->sockptr))
+    if (agent->reliable)
     {
         if (!comp->tcp)
             pst_create(agent, stream, comp);
@@ -1047,10 +1045,11 @@ void agent_sig_new_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t
         event_post(agent->n_event, N_EVENT_NEW_SELECTED_PAIR, ev_new_pair);
     }
 
+	/*????
     if (agent->reliable && nice_socket_is_reliable(lcand->sockptr))
     {
         agent_signal_socket_writable(agent, comp);
-    }
+    }*/
 }
 
 void agent_sig_new_cand(n_agent_t * agent, n_cand_t * candidate)
@@ -2123,32 +2122,29 @@ int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, ui
             nice_debug("[%s]: s%d:%d: sending %d bytes to [%s]:%d\n", G_STRFUNC, stream_id, comp_id, len, tmpbuf,
                        n_addr_get_port(&comp->selected_pair.remote->addr));
         }
-
-        if (!nice_socket_is_reliable(comp->selected_pair.local->sockptr))
+        
+        if (!pst_is_closed(comp->tcp))
         {
-            if (!pst_is_closed(comp->tcp))
+            /* Send on the pseudo-TCP socket. */
+            //n_sent = pst_send_messages(comp->tcp, messages, n_messages, allow_partial, &child_error);
+            n_sent = pst_send(comp->tcp, buf, len);
+            adjust_tcp_clock(agent, stream, comp);
+
+            if (!pst_can_send(comp->tcp))
             {
-                /* Send on the pseudo-TCP socket. */
-                //n_sent = pst_send_messages(comp->tcp, messages, n_messages, allow_partial, &child_error);
-                n_sent = pst_send(comp->tcp, buf, len);
-                adjust_tcp_clock(agent, stream, comp);
+                //g_cancellable_reset(component->tcp_writable_cancellable);
 
-                if (!pst_can_send(comp->tcp))
-                {
-                    //g_cancellable_reset(component->tcp_writable_cancellable);
-
-                }
-
-                if (n_sent < 0 /*&& !g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK)*/)
-                {
-                    /* Signal errors */
-                    _pseudo_tcp_error(agent, stream, comp);
-                }
             }
-            else
+
+            if (n_sent < 0 /*&& !g_error_matches(child_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK)*/)
             {
-                nice_debug("[%s]: Pseudo-TCP socket not connected", G_STRFUNC);
+                /* Signal errors */
+                _pseudo_tcp_error(agent, stream, comp);
             }
+        }
+        else
+        {
+            nice_debug("[%s]: Pseudo-TCP socket not connected", G_STRFUNC);
         }
     }
     else
@@ -2597,7 +2593,7 @@ int32_t n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_
     /* step: stop connectivity checks (note: for the whole stream) */
     cocheck_prune_stream(agent, stream);
 
-    if (agent->reliable && !nice_socket_is_reliable(pair.local->sockptr) &&  pst_is_closed(component->tcp))
+    if  (pst_is_closed(component->tcp))
     {
         nice_debug("[%s]: not setting selected pair for s%d:%d because "
                    "pseudo tcp socket does not exist in reliable mode", G_STRFUNC,
@@ -2687,7 +2683,7 @@ int32_t n_agent_set_selected_rcand(n_agent_t * agent, uint32_t stream_id, uint32
     if (!lcandidate)
         goto done;
 
-    if (agent->reliable && !nice_socket_is_reliable(lcandidate->sockptr) &&  pst_is_closed(component->tcp))
+    if (agent->reliable && pst_is_closed(component->tcp))
     {
         nice_debug("[%s]: not setting selected remote candidate s%d:%d because"
                    " pseudo tcp socket does not exist in reliable mode", G_STRFUNC,  stream->id, component->id);

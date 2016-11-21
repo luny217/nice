@@ -172,10 +172,9 @@ static void refresh_free_item(n_cand_refresh_t * cand)
 
         /* send the refresh twice since we won't do retransmissions */
         agent_socket_send(cand->nicesock, &cand->server, buffer_len, (gchar *)cand->stun_buffer);
-        if (!nice_socket_is_reliable(cand->nicesock))
-        {
-            agent_socket_send(cand->nicesock, &cand->server, buffer_len, (gchar *)cand->stun_buffer);
-        }
+        
+        agent_socket_send(cand->nicesock, &cand->server, buffer_len, (gchar *)cand->stun_buffer);
+        
 
     }
 
