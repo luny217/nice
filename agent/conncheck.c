@@ -1226,8 +1226,8 @@ static int _update_selected_pair(n_agent_t * agent, n_comp_t * component, n_cand
 {
     n_cand_pair_t cpair;
 
-    g_assert(component);
-    g_assert(pair);
+    //g_assert(component);
+    //g_assert(pair);
     if (pair->priority > component->selected_pair.priority &&
             comp_find_pair(component, agent, pair->local->foundation,
                                 pair->remote->foundation, &cpair))
@@ -1290,8 +1290,8 @@ static void _update_chk_list_failed_comps(n_agent_t * agent, n_stream_t * stream
         {
             n_cand_chk_pair_t * p = i->data;
 
-            g_assert(p->agent == agent);
-            g_assert(p->stream_id == stream->id);
+            //g_assert(p->agent == agent);
+            //g_assert(p->stream_id == stream->id);
 
             if (p->component_id == (c + 1))
             {
@@ -1324,7 +1324,7 @@ static void _update_chk_list_state_for_ready(n_agent_t * agent, n_stream_t * str
     n_slist_t * i;
     uint32_t succeeded = 0, nominated = 0;
 
-    g_assert(component);
+    //g_assert(component);
 
     /* step: search for at least one nominated pair */
     for (i = stream->conncheck_list; i; i = i->next)
@@ -1366,7 +1366,7 @@ static void _mark_pair_nominated(n_agent_t * agent, n_stream_t * stream, n_comp_
 {
     n_slist_t * i;
 
-    g_assert(component);
+    //g_assert(component);
 
     /* step: search for at least one nominated pair */
     for (i = stream->conncheck_list; i; i = i->next)
@@ -1397,8 +1397,8 @@ static void _add_new_chk_pair(n_agent_t * agent, uint32_t stream_id, n_comp_t * 
     n_stream_t * stream;
     n_cand_chk_pair_t * pair;
 
-    g_assert(local != NULL);
-    g_assert(remote != NULL);
+    //g_assert(local != NULL);
+    //g_assert(remote != NULL);
 
     stream = agent_find_stream(agent, stream_id);
     pair = g_slice_new0(n_cand_chk_pair_t);
@@ -1467,8 +1467,8 @@ int cocheck_add_cand_pair(n_agent_t * agent, uint32_t stream_id, n_comp_t * comp
 {
     int ret = FALSE;
 
-    g_assert(local != NULL);
-    g_assert(remote != NULL);
+    //g_assert(local != NULL);
+    //g_assert(remote != NULL);
 
     /* note: do not create pairs where the local candidate is
      *       a srv-reflexive (ICE 5.7.3. "Pruning the pairs" ID-9) */
@@ -1505,7 +1505,7 @@ int cocheck_add_cand(n_agent_t * agent, uint32_t stream_id, n_comp_t * component
     int added = 0;
     int ret = 0;
 
-    g_assert(remote != NULL);
+    //g_assert(remote != NULL);
 
     for (i = component->local_candidates; i ; i = i->next)
     {
@@ -1538,7 +1538,7 @@ int cocheck_add_local_cand(n_agent_t * agent, uint32_t stream_id, n_comp_t * com
     int added = 0;
     int ret = 0;
 
-    g_assert(local != NULL);
+    //g_assert(local != NULL);
 
     for (i = comp->remote_candidates; i ; i = i->next)
     {
@@ -1951,7 +1951,7 @@ static int _schedule_triggered_check(n_agent_t * agent, n_stream_t * stream, n_c
     n_slist_t * i;
     n_cand_t * local = NULL;
 
-    g_assert(remote_cand != NULL);
+    //g_assert(remote_cand != NULL);
 
     for (i = stream->conncheck_list; i ; i = i->next)
     {

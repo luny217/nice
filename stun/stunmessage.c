@@ -445,7 +445,7 @@ stun_msg_ret_e stun_msg_append_error(stun_msg_t * msg, stun_err_e code)
  * incoming packets, filtering packets for closer inspection as to whether
  * they?re STUN packets. If they look like they might be, their buffers are
  * compacted to allow a more thorough check. */
-ssize_t stun_msg_valid_buflen_fast(char * buf, size_t len, int has_padding)
+int stun_msg_valid_buflen_fast(const char * buf, uint32_t len, int has_padding)
 {
     size_t mlen;
 
@@ -520,7 +520,7 @@ ssize_t stun_msg_valid_buflen_fast(char * buf, size_t len, int has_padding)
     return mlen;
 }
 
-int stun_msg_valid_buflen(const uint8_t * buf, size_t length,  bool has_padding)
+int stun_msg_valid_buflen(const uint8_t * buf, uint32_t length,  int has_padding)
 {
     ssize_t fast_retval;
     size_t mlen;

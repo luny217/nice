@@ -276,18 +276,18 @@ void component_close(n_comp_t * comp)
         timer_destroy(comp->tcp_clock);
         comp->tcp_clock = 0;
     }
-    if (comp->tcp_writable_cancellable)
+    /*if (comp->tcp_writable_cancellable)
     {
         g_cancellable_cancel(comp->tcp_writable_cancellable);
         g_clear_object(&comp->tcp_writable_cancellable);
-    }
+    }*/
 
     while ((data = n_queue_pop_head(&comp->pend_io_msgs)) != NULL)
         io_callback_data_free(data);
 
     comp_desched_io_cb(comp);
 
-    g_cancellable_cancel(comp->stop_cancellable);
+    //g_cancellable_cancel(comp->stop_cancellable);
 
     while ((vec = n_queue_pop_head(&comp->queued_tcp_packets)) != NULL)
     {
@@ -305,29 +305,30 @@ void component_free(n_comp_t * cmp)
     //g_warn_if_fail(cmp->remote_candidates == NULL);
     //g_warn_if_fail(cmp->incoming_checks == NULL);
 
-    g_clear_object(&cmp->tcp);
-    g_clear_object(&cmp->stop_cancellable);
+    //g_clear_object(&cmp->tcp);
+    //g_clear_object(&cmp->stop_cancellable);
     //g_clear_object(&cmp->iostream);
     pthread_mutex_destroy(&cmp->io_mutex);
 
+/*
     if (cmp->stop_cancellable_source != NULL)
     {
         g_source_destroy(cmp->stop_cancellable_source);
         g_source_unref(cmp->stop_cancellable_source);
-    }
+    }*/
 
     if (cmp->ctx != NULL)
     {
-        g_main_context_unref(cmp->ctx);
+        //g_main_context_unref(cmp->ctx);
         cmp->ctx = NULL;
     }
 
-    g_main_context_unref(cmp->own_ctx);
+    //g_main_context_unref(cmp->own_ctx);
 
     n_slice_free(n_comp_t, cmp);
 
-    atomic_int_inc(&n_components_destroyed);
-    nice_debug("Destroyed NiceComponent (%u created, %u destroyed)", n_components_created, n_components_destroyed);
+    //atomic_int_inc(&n_components_destroyed);
+    //nice_debug("Destroyed NiceComponent (%u created, %u destroyed)", n_components_created, n_components_destroyed);
 }
 
 /*

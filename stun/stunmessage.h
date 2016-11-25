@@ -813,7 +813,7 @@ stun_msg_ret_e stun_msg_append_error(stun_msg_t * msg,
  * <para> See also: #STUN_MSG_BUFFER_INCOMPLETE </para>
  * <para> See also: #STUN_MSG_BUFFER_INVALID </para>
  */
-int stun_msg_valid_buflen(const uint8_t * msg, size_t length,  bool has_padding);
+int stun_msg_valid_buflen(const uint8_t * msg, uint32_t length,  int has_padding);
 
 /**
  * StunInputVector:
@@ -861,7 +861,7 @@ typedef struct
  *
  * Since: 0.1.5
  */
-ssize_t stun_msg_valid_buflen_fast(char * buf, size_t len, int has_padding);
+int stun_msg_valid_buflen_fast(const char * buf, uint32_t len, int has_padding);
 /**
  * stun_msg_id:
  * @msg: The #stun_msg_t

@@ -8,6 +8,7 @@
 
 //G_DEFINE_BOXED_TYPE(n_cand_t, nice_candidate, nice_candidate_copy, n_cand_free);
 
+/*
 GType nice_candidate_get_type(void)
 {
     static volatile gsize g_define_type_id__volatile = 0;
@@ -22,7 +23,7 @@ GType nice_candidate_get_type(void)
         }(g_once_init_leave((&g_define_type_id__volatile), (gsize)(g_define_type_id)));
     }
     return g_define_type_id__volatile;
-};
+};*/
 
 /* (ICE 4.1.1 "Gathering Candidates") ""Every candidate is a transport
  * address. It also has a type and a base. Three types are defined and
@@ -33,7 +34,7 @@ n_cand_t * n_cand_new(n_cand_type_e type)
 {
     n_cand_t * candidate;
 
-    candidate = g_slice_new0(n_cand_t);
+    candidate = n_slice_new0(n_cand_t);
     candidate->type = type;
     return candidate;
 }
@@ -51,7 +52,7 @@ void n_cand_free(n_cand_t * candidate)
     if (candidate->turn)
         turn_server_unref(candidate->turn);
 
-    g_slice_free(n_cand_t, candidate);
+    n_slice_free(n_cand_t, candidate);
 }
 
 /*
@@ -174,7 +175,7 @@ n_cand_t * nice_candidate_copy(const n_cand_t * candidate)
 {
     n_cand_t * copy;
 
-    g_return_val_if_fail(candidate != NULL, NULL);
+    //g_return_val_if_fail(candidate != NULL, NULL);
 
     copy = n_cand_new(candidate->type);
     memcpy(copy, candidate, sizeof(n_cand_t));

@@ -924,7 +924,7 @@ static int _disc_tick(void * pointer)
  */
 void disc_schedule(n_agent_t * agent)
 {
-    g_assert(agent->discovery_list != NULL);
+    //g_assert(agent->discovery_list != NULL);
 
     if (agent->disc_unsched_items > 0)
     {

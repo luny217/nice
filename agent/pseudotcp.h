@@ -528,7 +528,7 @@ void pst_set_time(pst_socket_t * self, uint32_t current_time);
  * Returns: %TRUE if the socket is closed in both directions, %FALSE otherwise
  * Since: 0.1.8
  */
-gboolean pst_is_closed(pst_socket_t * self);
+int pst_is_closed(pst_socket_t * self);
 
 /**
  * pst_is_closed_remotely:
@@ -545,6 +545,9 @@ gboolean pst_is_closed(pst_socket_t * self);
  * Since: 0.1.8
  */
 int pst_is_closed_remotely(pst_socket_t * self);
+
+void pst_get_property(pst_socket_t * self, uint32_t property_id, void * value);
+void pst_set_property(pst_socket_t * self, uint32_t property_id, void * value);
 
 #endif /* __LIBNICE_PSEUDOTCP_H__ */
 

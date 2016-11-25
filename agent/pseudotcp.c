@@ -13,7 +13,7 @@
 #include "pseudotcp.h"
 #include "agent-priv.h"
 
-G_DEFINE_TYPE(pst_socket_t, pst, G_TYPE_OBJECT);
+//G_DEFINE_TYPE(pst_socket_t, pst, G_TYPE_OBJECT);
 
 
 //////////////////////////////////////////////////////////////////////
@@ -476,11 +476,7 @@ enum
 };
 
 
-static void pst_get_property(GObject * object, uint32_t property_id, GValue * value,  GParamSpec * pspec);
-static void pst_set_property(GObject * object, uint32_t property_id, const GValue * value, GParamSpec * pspec);
-static void pst_finalize(GObject * object);
-
-
+static void pst_finalize(pst_socket_t * self);
 static void queue_connect_message(pst_socket_t * self);
 static uint32_t queue(pst_socket_t * self, const char * data, uint32_t len, TcpFlags flags);
 static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags, uint32_t offset, uint32_t len, uint32_t now);
@@ -504,10 +500,11 @@ static int pseudo_tcp_state_has_received_fin(PseudoTcpState state);
 // The following logging is for detailed (packet-level) pseudotcp analysis only.
 static PseudoTcpDebugLevel debug_level = PSEUDO_TCP_DEBUG_VERBOSE;
 
+/*
 #define DEBUG(level, fmt, ...)                                          \
   if (debug_level >= level)                                             \
     g_log (level == PSEUDO_TCP_DEBUG_NORMAL ? "libnice-pseudotcp" : "libnice-pseudotcp-verbose", G_LOG_LEVEL_DEBUG, "pst_socket_t %p %s: " fmt, \
-        self, pseudo_tcp_state_get_name (self->priv->state), ## __VA_ARGS__)
+        self, pseudo_tcp_state_get_name (self->priv->state), ## __VA_ARGS__)*/
 
 void pseudo_tcp_set_debug_level(PseudoTcpDebugLevel level)
 {
@@ -527,154 +524,96 @@ void pst_set_time(pst_socket_t * self, uint32_t current_time)
     self->priv->current_time = current_time;
 }
 
-static void pst_class_init(pst_socket_tClass * cls)
+void pst_get_property(pst_socket_t * self,  uint32_t property_id, void * value)
 {
-    GObjectClass * object_class = G_OBJECT_CLASS(cls);
-
-    object_class->get_property = pst_get_property;
-    object_class->set_property = pst_set_property;
-    object_class->finalize = pst_finalize;
-
-    g_object_class_install_property(object_class, PROP_CONVERSATION,
-                                    g_param_spec_uint("conversation", "TCP Conversation ID",
-                                            "The TCP Conversation ID",
-                                            0, G_MAXUINT32, 0,
-                                            G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    g_object_class_install_property(object_class, PROP_CALLBACKS,
-                                    g_param_spec_pointer("callbacks", "PseudoTcp socket callbacks",
-                                            "Structure with the callbacks to call when PseudoTcp events happen",
-                                            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    g_object_class_install_property(object_class, PROP_STATE,
-                                    g_param_spec_uint("state", "PseudoTcp State",
-                                            "The current state (enum PseudoTcpState) of the PseudoTcp socket",
-                                            TCP_LISTEN, TCP_CLOSED, TCP_LISTEN,
-                                            G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
-    g_object_class_install_property(object_class, PROP_ACK_DELAY,
-                                    g_param_spec_uint("ack-delay", "ACK Delay",
-                                            "Delayed ACK timeout (in milliseconds)",
-                                            0, G_MAXUINT, DEFAULT_ACK_DELAY,
-                                            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    g_object_class_install_property(object_class, PROP_NO_DELAY,
-                                    g_param_spec_boolean("no-delay", "No Delay",
-                                            "Disable the Nagle algorithm (like the TCP_NODELAY option)",
-                                            DEFAULT_NO_DELAY,
-                                            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    g_object_class_install_property(object_class, PROP_RCV_BUF,
-                                    g_param_spec_uint("rcv-buf", "Receive Buffer",
-                                            "Receive Buffer size",
-                                            1, G_MAXUINT, DEFAULT_RCV_BUF_SIZE,
-                                            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    g_object_class_install_property(object_class, PROP_SND_BUF,
-                                    g_param_spec_uint("snd-buf", "Send Buffer",
-                                            "Send Buffer size",
-                                            1, G_MAXUINT, DEFAULT_SND_BUF_SIZE,
-                                            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-    /**
-     * pst_socket_t:support-fin-ack:
-     *
-     * Whether to support the FIN?ACK extension to the pseudo-TCP protocol for
-     * this socket. The extension is only compatible with other libnice pseudo-TCP
-     * stacks, and not with Jingle pseudo-TCP stacks. If enabled, support is
-     * negotiatied on connection setup, so it is safe for a #pst_socket_t with
-     * support enabled to be used with one with it disabled, or with a Jingle
-     * pseudo-TCP socket which doesn?t support it at all.
-     *
-     * Support is enabled by default.
-     *
-     * Since: 0.1.8
-     */
-    g_object_class_install_property(object_class, PROP_SUPPORT_FIN_ACK,
-                                    g_param_spec_boolean("support-fin-ack", "Support FIN?ACK",
-                                            "Whether to enable the optional FIN?ACK support.",
-                                            TRUE,
-                                            G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-}
-
-
-static void pst_get_property(GObject * object,  uint32_t property_id, GValue * value, GParamSpec * pspec)
-{
-    pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
+    //pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
 
     switch (property_id)
     {
         case PROP_CONVERSATION:
-            g_value_set_uint(value, self->priv->conv);
+            *(uint32_t *)value = self->priv->conv;
+            //g_value_set_uint(value, self->priv->conv);
             break;
         case PROP_CALLBACKS:
-            g_value_set_pointer(value, (void *) &self->priv->callbacks);
+            value = (void *)&self->priv->callbacks;
+            //g_value_set_pointer(value, (void *) &self->priv->callbacks);
             break;
         case PROP_STATE:
-            g_value_set_uint(value, self->priv->state);
+            *(PseudoTcpState *)value = self->priv->state;
+            //g_value_set_uint(value, self->priv->state);
             break;
         case PROP_ACK_DELAY:
-            g_value_set_uint(value, self->priv->ack_delay);
+			*(uint32_t *)value = self->priv->ack_delay;
+            //g_value_set_uint(value, self->priv->ack_delay);
             break;
         case PROP_NO_DELAY:
-            g_value_set_boolean(value, !self->priv->use_nagling);
+            *(int *)value = !self->priv->use_nagling;
+            //g_value_set_boolean(value, !self->priv->use_nagling);
             break;
         case PROP_RCV_BUF:
-            g_value_set_uint(value, self->priv->rbuf_len);
+            *(uint32_t *)value = self->priv->rbuf_len;
+            //g_value_set_uint(value, self->priv->rbuf_len);
             break;
         case PROP_SND_BUF:
-            g_value_set_uint(value, self->priv->sbuf_len);
+            *(uint32_t *)value = self->priv->sbuf_len;
+            //g_value_set_uint(value, self->priv->sbuf_len);
             break;
         case PROP_SUPPORT_FIN_ACK:
-            g_value_set_boolean(value, self->priv->support_fin_ack);
+            *(int *)value = self->priv->support_fin_ack;
+            //g_value_set_boolean(value, self->priv->support_fin_ack);
             break;
         default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            //G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
     }
 }
 
-static void pst_set_property(GObject * object,  uint32_t property_id,  const GValue * value, GParamSpec * pspec)
+void pst_set_property(pst_socket_t * self,  uint32_t property_id,  void * value)
 {
-    pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
+    //pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
 
     switch (property_id)
     {
         case PROP_CONVERSATION:
-            self->priv->conv = g_value_get_uint(value);
+            //self->priv->conv = g_value_get_uint(value);
+            self->priv->conv = *(int *)value;
             break;
         case PROP_CALLBACKS:
         {
-            pst_callback_t * c = g_value_get_pointer(value);
-            self->priv->callbacks = *c;
+            //pst_callback_t * c = g_value_get_pointer(value);
+            self->priv->callbacks = *(pst_callback_t *)value;
         }
         break;
         case PROP_ACK_DELAY:
-            self->priv->ack_delay = g_value_get_uint(value);
+            //self->priv->ack_delay = g_value_get_uint(value);
+            self->priv->ack_delay = *(uint32_t  *)value;
             break;
         case PROP_NO_DELAY:
-            self->priv->use_nagling = !g_value_get_boolean(value);
+            //self->priv->use_nagling = !g_value_get_boolean(value);
+            self->priv->use_nagling = *(int *)value;
             break;
         case PROP_RCV_BUF:
-            g_return_if_fail(self->priv->state == TCP_LISTEN);
-            resize_receive_buffer(self, g_value_get_uint(value));
+            //g_return_if_fail(self->priv->state == TCP_LISTEN);
+            resize_receive_buffer(self, *(int *)value);
             break;
         case PROP_SND_BUF:
-            g_return_if_fail(self->priv->state == TCP_LISTEN);
-            resize_send_buffer(self, g_value_get_uint(value));
+            //g_return_if_fail(self->priv->state == TCP_LISTEN);
+            //resize_send_buffer(self, g_value_get_uint(value));
+            resize_send_buffer(self, *(int *)value);
             break;
         case PROP_SUPPORT_FIN_ACK:
-            self->priv->support_fin_ack = g_value_get_boolean(value);
+            //self->priv->support_fin_ack = g_value_get_boolean(value);
+            self->priv->support_fin_ack = *(int *)value;
             break;
         default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            //G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
     }
 }
 
-static void pst_finalize(GObject * object)
+static void pst_finalize(pst_socket_t * self)
 {
-    pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
+    //pst_socket_t * self = PSEUDO_TCP_SOCKET(object);
     PseudoTcpSocketPrivate * priv = self->priv;
     n_dlist_t * i;
     SSegment * sseg;
@@ -699,10 +638,9 @@ static void pst_finalize(GObject * object)
     free(priv);
     self->priv = NULL;
 
-    if (G_OBJECT_CLASS(pst_parent_class)->finalize)
-        G_OBJECT_CLASS(pst_parent_class)->finalize(object);
+    /*if (G_OBJECT_CLASS(pst_parent_class)->finalize)
+        G_OBJECT_CLASS(pst_parent_class)->finalize(object);*/
 }
-
 
 static void pst_init(pst_socket_t * obj)
 {
@@ -762,8 +700,21 @@ static void pst_init(pst_socket_t * obj)
 }
 
 pst_socket_t * pst_new(uint32_t conversation, pst_callback_t * callbacks)
-{	
-    return g_object_new(PSEUDO_TCP_SOCKET_TYPE,  "conversation", conversation, "callbacks", callbacks, NULL);
+{
+    //return g_object_new(PSEUDO_TCP_SOCKET_TYPE,  "conversation", conversation, "callbacks", callbacks, NULL);
+
+    int conv = 0;
+
+    pst_socket_t * pst = n_slice_new0(pst_socket_t);
+    if (pst)
+    {
+
+        pst_init(pst);
+        pst_set_property(pst, PROP_CONVERSATION, (void *)&conv);
+        pst_set_property(pst, PROP_CALLBACKS, (void *)callbacks);
+
+    }
+    return pst;
 }
 
 static void queue_connect_message(pst_socket_t * self)
@@ -820,7 +771,7 @@ int pst_connect(pst_socket_t * self)
     }
 
     set_state(self, TCP_SYN_SENT);
-	nice_debug("pst_connect\n");
+    nice_debug("pst_connect\n");
     queue_connect_message(self);
     attempt_send(self, sfNone);
 
@@ -860,7 +811,7 @@ void pst_notify_clock(pst_socket_t * self)
      * operating. */
     if (priv->support_fin_ack && priv->state == TCP_LAST_ACK)
     {
-		nice_debug("Notified clock in LAST-ACK state; resending FIN segment.");
+        nice_debug("Notified clock in LAST-ACK state; resending FIN segment.");
         queue_fin_message(self);
         attempt_send(self, sfFin);
     }
@@ -881,8 +832,8 @@ void pst_notify_clock(pst_socket_t * self)
             uint32_t rto_limit;
 
             nice_debug("timeout retransmit (rto: %u) "
-                  "(rto_base: %u) (now: %u) (dup_acks: %u)",
-                  priv->rx_rto, priv->rto_base, now, (uint32_t) priv->dup_acks);
+                       "(rto_base: %u) (now: %u) (dup_acks: %u)",
+                       priv->rx_rto, priv->rto_base, now, (uint32_t) priv->dup_acks);
 
             if (!transmit(self, n_queue_peek_head(&priv->slist), now))
             {
@@ -963,7 +914,7 @@ int pst_get_next_clock(pst_socket_t * self, guint64 * timeout)
     {
         if (priv->support_fin_ack)
         {
-			nice_debug("Forceful shutdown used when FIN-ACK support is enabled");
+            nice_debug("Forceful shutdown used when FIN-ACK support is enabled");
         }
 
         /* Transition to the CLOSED state. */
@@ -979,7 +930,7 @@ int pst_get_next_clock(pst_socket_t * self, guint64 * timeout)
     {
         if (priv->support_fin_ack)
         {
-			nice_debug("Graceful shutdown used when FIN-ACK support is enabled");
+            nice_debug("Graceful shutdown used when FIN-ACK support is enabled");
         }
 
         /* Transition to the CLOSED state. */
@@ -1070,7 +1021,7 @@ int32_t pst_recv(pst_socket_t * self, char * buffer, size_t len)
 
     bytesread = pst_fifo_read(&priv->rbuf, (uint8_t *) buffer, len);
 
-	nice_debug("pst_fifo_read %d", bytesread);
+    nice_debug("pst_fifo_read %d", bytesread);
 
 // If there's no data in |m_rbuf|.
     if (bytesread == 0)
@@ -1247,7 +1198,7 @@ static uint32_t queue(pst_socket_t * self, const char * data, uint32_t len, TcpF
     available_space = pst_fifo_get_write_remaining(&priv->sbuf);
     if (len > available_space)
     {
-        g_assert(flags == FLAG_NONE);
+        //g_assert(flags == FLAG_NONE);
         len = available_space;
     }
 
@@ -1317,10 +1268,10 @@ static pst_wret_e packet(pst_socket_t * self, uint32_t seq, TcpFlags flags, uint
         //g_assert(bytes_read == len);
     }
 
-	nice_debug("[send]: <conv=%u><flg=%u><seq=%u:%u><ack=%u>"
-			"<wnd=%u><ts=%u><tsr=%u><len=%u>",
-          priv->conv, (unsigned)flags, seq, seq + len, priv->rcv_nxt, priv->rcv_wnd,
-          now % 10000, priv->ts_recent % 10000, len);
+    nice_debug("[send]: <conv=%u><flg=%u><seq=%u:%u><ack=%u>"
+               "<wnd=%u><ts=%u><tsr=%u><len=%u>",
+               priv->conv, (unsigned)flags, seq, seq + len, priv->rcv_nxt, priv->rcv_wnd,
+               now % 10000, priv->ts_recent % 10000, len);
 
     wres = priv->callbacks.WritePacket(self, (char *) buffer.u8, len + HEADER_SIZE, priv->callbacks.user_data);
     /* Note: When len is 0, this is an ACK packet.  We don't read the
@@ -1369,10 +1320,10 @@ static int parse(pst_socket_t * self, const uint8_t * _header_buf, uint32_t head
     seg.data = (const char *) data_buf;
     seg.len = data_buf_len;
 
-	nice_debug("[recv]: <conv=%u><flag=%u><seq=%u:%u><ack=%u>"
-          "<wnd=%u><ts=%u><tsr=%u><len=%u>",
-          seg.conv, (unsigned)seg.flags, seg.seq, seg.seq + seg.len, seg.ack,
-          seg.wnd, seg.tsval % 10000, seg.tsecr % 10000, seg.len);
+    nice_debug("[recv]: <conv=%u><flag=%u><seq=%u:%u><ack=%u>"
+               "<wnd=%u><ts=%u><tsr=%u><len=%u>",
+               seg.conv, (unsigned)seg.flags, seg.seq, seg.seq + seg.len, seg.ack,
+               seg.wnd, seg.tsval % 10000, seg.tsecr % 10000, seg.len);
 
     return process(self, &seg);
 }
@@ -1453,7 +1404,7 @@ static int process(pst_socket_t * self, Segment * seg)
     priv->last_traffic = priv->lastrecv = now;
     priv->bOutgoing = FALSE;
 
-    if (priv->state == TCP_CLOSED ||  (pseudo_tcp_state_has_sent_fin(priv->state) && seg->len > 0))
+    if (priv->state == TCP_CLOSED || (pseudo_tcp_state_has_sent_fin(priv->state) && seg->len > 0))
     {
         /* Send an RST segment. See: RFC 1122, ?4.2.2.13. */
         if ((seg->flags & FLAG_RST) == 0)
@@ -1537,7 +1488,7 @@ static int process(pst_socket_t * self, Segment * seg)
                 }
                 priv->rx_rto = bound(MIN_RTO, priv->rx_srtt + max(1LU, 4 * priv->rx_rttvar), MAX_RTO);
 
-				nice_debug("rtt: %ld   srtt: %u  rto: %u",  rtt, priv->rx_srtt, priv->rx_rto);
+                nice_debug("rtt: %ld   srtt: %u  rto: %u",  rtt, priv->rx_srtt, priv->rx_rto);
             }
             else
             {
@@ -1742,11 +1693,11 @@ static int process(pst_socket_t * self, Segment * seg)
                 /* Shouldn?t ever hit these cases. */
                 if (seg->flags & FLAG_FIN)
                 {
-					nice_debug("Unexpected state %u when FIN received", priv->state);
+                    nice_debug("Unexpected state %u when FIN received", priv->state);
                 }
                 else if (is_fin_ack)
                 {
-					nice_debug("Unexpected state %u when FIN-ACK received", priv->state);
+                    nice_debug("Unexpected state %u when FIN-ACK received", priv->state);
                 }
                 break;
             default:
@@ -1756,11 +1707,11 @@ static int process(pst_socket_t * self, Segment * seg)
     }
     else if (seg->flags & FLAG_FIN)
     {
-		nice_debug("Invalid FIN received when FIN-ACK support is disabled");
+        nice_debug("Invalid FIN received when FIN-ACK support is disabled");
     }
     else if (is_fin_ack)
     {
-		nice_debug("Invalid FIN-ACK received when FIN-ACK support is disabled");
+        nice_debug("Invalid FIN-ACK received when FIN-ACK support is disabled");
     }
 
     // If we make room in the send queue, notify the user
@@ -1879,7 +1830,7 @@ static int process(pst_socket_t * self, Segment * seg)
             uint32_t res;
 
             res = pst_fifo_write_offset(&priv->rbuf, (uint8_t *) seg->data,  seg->len, nOffset);
-            g_assert(res == seg->len);
+            //g_assert(res == seg->len);
 
             if (seg->seq == priv->rcv_nxt)
             {
@@ -1899,7 +1850,7 @@ static int process(pst_socket_t * self, Segment * seg)
                         uint32_t nAdjust = (data->seq + data->len) - priv->rcv_nxt;
                         sflags = sfImmediateAck; // (Fast Recovery)
                         nice_debug("Recovered %u bytes (%u -> %u)",
-                              nAdjust, priv->rcv_nxt, priv->rcv_nxt + nAdjust);
+                                   nAdjust, priv->rcv_nxt, priv->rcv_nxt + nAdjust);
                         pst_fifo_consume_write_buffer(&priv->rbuf, nAdjust);
                         priv->rcv_nxt += nAdjust;
                         priv->rcv_wnd -= nAdjust;
@@ -1915,7 +1866,7 @@ static int process(pst_socket_t * self, Segment * seg)
                 RSegment * rseg = g_slice_new0(RSegment);
 
                 nice_debug("Saving %u bytes (%u -> %u)",
-                      seg->len, seg->seq, seg->seq + seg->len);
+                           seg->len, seg->seq, seg->seq + seg->len);
                 rseg->seq = seg->seq;
                 rseg->len = seg->len;
                 iter = priv->rlist;
@@ -1976,7 +1927,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
             return FALSE;
         }
 
-        g_assert(wres == WR_TOO_LARGE);
+        //g_assert(wres == WR_TOO_LARGE);
 
         while (TRUE)
         {
@@ -2019,7 +1970,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
 
     if (segment->xmit == 0)
     {
-        g_assert(n_queue_peek_head(&priv->unsent_slist) == segment);
+        //g_assert(n_queue_peek_head(&priv->unsent_slist) == segment);
         n_queue_pop_head(&priv->unsent_slist);
         priv->snd_nxt += segment->len;
 
@@ -2091,11 +2042,11 @@ static void attempt_send(pst_socket_t * self, SendFlags sflags)
         {
             uint32_t available_space = pst_fifo_get_write_remaining(&priv->sbuf);
             bFirst = FALSE;
-			nice_debug("[cwnd: %u  nWindow: %u  nInFlight: %u "
-                  "nAvailable: %u nQueued: %" G_GSIZE_FORMAT " nEmpty: %" G_GSIZE_FORMAT
-                  "  ssthresh: %u]",
-                  priv->cwnd, nWindow, nInFlight, nAvailable, snd_buffered,
-                  available_space, priv->ssthresh);
+            nice_debug("[cwnd: %u  nWindow: %u  nInFlight: %u "
+                       "nAvailable: %u nQueued: %" G_GSIZE_FORMAT " nEmpty: %" G_GSIZE_FORMAT
+                       "  ssthresh: %u]",
+                       priv->cwnd, nWindow, nInFlight, nAvailable, snd_buffered,
+                       available_space, priv->ssthresh);
         }
 
         if (nAvailable == 0 && sflags != sfFin && sflags != sfRst)
@@ -2242,12 +2193,12 @@ static void apply_fin_ack_option(pst_socket_t * self)
 }
 
 static void apply_option(pst_socket_t * self, uint8_t kind, const uint8_t * data,
-             uint32_t len)
+                         uint32_t len)
 {
     switch (kind)
     {
         case TCP_OPT_MSS:
-			nice_debug("Peer specified MSS option which is not supported.");
+            nice_debug("Peer specified MSS option which is not supported.");
             // TODO: Implement.
             break;
         case TCP_OPT_WND_SCALE:
@@ -2389,7 +2340,7 @@ static void resize_receive_buffer(pst_socket_t * self, uint32_t new_size)
     // buffer. This should always be true because this method is called either
     // before connection is established or when peers are exchanging connect
     // messages.
-    g_assert(result);
+    //g_assert(result);
     priv->rbuf_len = new_size;
     priv->rwnd_scale = scale_factor;
     priv->ssthresh = new_size;
@@ -2473,8 +2424,8 @@ static void set_state(pst_socket_t * self, PseudoTcpState new_state)
         return;
 
     nice_debug("state change from [%s] to [%s]",
-          pseudo_tcp_state_get_name(old_state),
-          pseudo_tcp_state_get_name(new_state));
+               pseudo_tcp_state_get_name(old_state),
+               pseudo_tcp_state_get_name(new_state));
 
     /* Check whether it?s a valid state transition. */
 #define TRANSITION(OLD, NEW) \

@@ -128,7 +128,7 @@ void nice_thread(void * data)
 
     io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
 
-    g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
+    //g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
 
     // Create the nice agent
     agent = n_agent_new();

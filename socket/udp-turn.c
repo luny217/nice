@@ -505,14 +505,14 @@ static int32_t _socket_send_messages_wrapped(n_socket_t * sock, const n_addr_t *
         const n_output_msg_t * message;
         uint32_t message_len;
         uint32_t n_bufs = 0;
-        guint16 rfc4571_frame;
+        uint16_t rfc4571_frame;
         uint32_t i;
         int32_t ret;
 
-        g_assert(n_messages == 1);
+        //g_assert(n_messages == 1);
         message = &messages[0];
         message_len = output_message_get_size(message);
-        g_assert(message_len <= G_MAXUINT16);
+        //g_assert(message_len <= G_MAXUINT16);
 
         /* ICE-TCP requires that all packets be framed with RFC4571 */
 
@@ -533,7 +533,7 @@ static int32_t _socket_send_messages_wrapped(n_socket_t * sock, const n_addr_t *
 
         rfc4571_frame = htons(message_len);
         local_bufs[0].buffer = &rfc4571_frame;
-        local_bufs[0].size = sizeof(guint16);
+        local_bufs[0].size = sizeof(uint16_t);
 
         for (i = 0; i < n_bufs; i++)
         {
@@ -543,8 +543,7 @@ static int32_t _socket_send_messages_wrapped(n_socket_t * sock, const n_addr_t *
 
 
         if (reliable)
-            ret = nice_socket_send_messages_reliable(sock, to,
-                    &local_message, 1);
+            ret = nice_socket_send_messages_reliable(sock, to, &local_message, 1);
         else
             ret = nice_socket_send_messages(sock, to, &local_message, 1);
 
