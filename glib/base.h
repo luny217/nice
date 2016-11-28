@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#define N_ELEMENTS(arr)		(sizeof (arr) / sizeof ((arr)[0]))
+
 #define USEC_PER_SEC 1000000
 
 #define ONE_MSEC_PER_USEC   1000

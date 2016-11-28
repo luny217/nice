@@ -88,7 +88,7 @@ int stream_all_components_ready(const n_stream_t * stream)
 /*
  * Initialized the local crendentials for the stream.
  */
-void stream_initialize_credentials(n_stream_t * stream, NiceRNG * rng)
+void stream_initialize_credentials(n_stream_t * stream, n_rng_t * rng)
 {
     /* note: generate ufrag/pwd for the stream (see ICE 15.4.
      *       '"ice-ufrag" and "ice-pwd" Attributes', ID-19) */

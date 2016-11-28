@@ -44,7 +44,7 @@ void stream_close(n_stream_t * stream);
 void stream_free(n_stream_t * stream);
 int stream_all_components_ready(const n_stream_t * stream);
 n_comp_t * stream_find_comp_by_id(const n_stream_t * stream, uint32_t id);
-void stream_initialize_credentials(n_stream_t * stream, NiceRNG * rng);
+void stream_initialize_credentials(n_stream_t * stream, n_rng_t * rng);
 void stream_restart(n_agent_t * agent, n_stream_t * stream);
 
 #endif /* _N_STREAM_H */

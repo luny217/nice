@@ -29,7 +29,9 @@ static void stun_handler(const char * format, va_list ap) G_GNUC_PRINTF(1, 0);
 
 static void stun_handler(const char * format, va_list ap)
 {
-    g_logv("libnice-stun", G_LOG_LEVEL_DEBUG, format, ap);
+    //g_logv("libnice-stun", G_LOG_LEVEL_DEBUG, format, ap);
+	vfprintf(stderr, format, ap);
+	fprintf(stderr, "\n");
 }
 
 void nice_debug_init(void)

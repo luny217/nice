@@ -6,12 +6,12 @@
 #include "random.h"
 #include "random-glib.h"
 
-static NiceRNG * (*nice_rng_new_func)(void) = NULL;
+static n_rng_t * (*nice_rng_new_func)(void) = NULL;
 
 /*
  * Creates a new random number generator instance.
  */
-NiceRNG * nice_rng_new(void)
+n_rng_t * nice_rng_new(void)
 {
     if (nice_rng_new_func == NULL)
         return nice_rng_glib_new();
@@ -22,7 +22,7 @@ NiceRNG * nice_rng_new(void)
 /*
  * Sets a new generator function.
  */
-void nice_rng_set_new_func(NiceRNG * (*func)(void))
+void nice_rng_set_new_func(n_rng_t * (*func)(void))
 {
     nice_rng_new_func = func;
 }
@@ -32,7 +32,7 @@ void nice_rng_set_new_func(NiceRNG * (*func)(void))
  *
  * @param rng context
  */
-void nice_rng_free(NiceRNG * rng)
+void nice_rng_free(n_rng_t * rng)
 {
     rng->free(rng);
 }
@@ -44,7 +44,7 @@ void nice_rng_free(NiceRNG * rng)
  * @param len number of octets to product
  * @param buf buffer to store the results
  */
-void nice_rng_generate_bytes(NiceRNG * rng, uint32_t len, char * buf)
+void nice_rng_generate_bytes(n_rng_t * rng, uint32_t len, char * buf)
 {
     rng->generate_bytes(rng, len, buf);
 }
@@ -56,7 +56,7 @@ void nice_rng_generate_bytes(NiceRNG * rng, uint32_t len, char * buf)
  * @param low closed lower bound
  * @param high open upper bound
  */
-uint32_t n_rng_gen_int(NiceRNG * rng, uint32_t low, uint32_t high)
+uint32_t n_rng_gen_int(n_rng_t * rng, uint32_t low, uint32_t high)
 {
     return rng->generate_int(rng, low, high);
 }
@@ -72,7 +72,7 @@ uint32_t n_rng_gen_int(NiceRNG * rng, uint32_t low, uint32_t high)
  * @param len number of octets to product
  * @param buf buffer to store the results
  */
-void nice_rng_generate_bytes_print(NiceRNG * rng, uint32_t len, char * buf)
+void nice_rng_generate_bytes_print(n_rng_t * rng, uint32_t len, char * buf)
 {
 	uint32_t i;
     const char * chars =

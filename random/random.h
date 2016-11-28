@@ -4,32 +4,32 @@
 #define _RANDOM_H
 
 #include <stdint.h>
-#include <glib.h>
+//#include <glib.h>
 
-typedef struct _NiceRNG NiceRNG;
+typedef struct _n_rng_st n_rng_t;
 
-struct _NiceRNG
+struct _n_rng_st
 {
-    void (*seed)(NiceRNG * src, guint32 seed);
-    void (*generate_bytes)(NiceRNG * src, guint len, gchar * buf);
-    guint(*generate_int)(NiceRNG * src, guint low, guint high);
-    void (*free)(NiceRNG * src);
+    void (*seed)(n_rng_t * src, uint32_t seed);
+    void (*generate_bytes)(n_rng_t * src, uint32_t len, char * buf);
+	uint32_t(*generate_int)(n_rng_t * src, uint32_t low, uint32_t high);
+    void (*free)(n_rng_t * src);
     void * priv;
 };
 
-NiceRNG * nice_rng_new(void);
+n_rng_t * nice_rng_new(void);
 
-void nice_rng_set_new_func(NiceRNG * (*func)(void));
+void nice_rng_set_new_func(n_rng_t * (*func)(void));
 
-void nice_rng_seed(NiceRNG * rng, uint32_t seed);
+void nice_rng_seed(n_rng_t * rng, uint32_t seed);
 
-void nice_rng_generate_bytes(NiceRNG * rng, uint32_t len, char * buf);
+void nice_rng_generate_bytes(n_rng_t * rng, uint32_t len, char * buf);
 
-void nice_rng_generate_bytes_print(NiceRNG * rng, uint32_t len, char * buf);
+void nice_rng_generate_bytes_print(n_rng_t * rng, uint32_t len, char * buf);
 
-uint32_t n_rng_gen_int(NiceRNG * rng, uint32_t low, uint32_t high);
+uint32_t n_rng_gen_int(n_rng_t * rng, uint32_t low, uint32_t high);
 
-void nice_rng_free(NiceRNG * rng);
+void nice_rng_free(n_rng_t * rng);
 
 #endif // _RANDOM_H
 

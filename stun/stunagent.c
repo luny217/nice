@@ -387,6 +387,6 @@ static uint32_t stun_agent_find_unknowns(stun_agent_t * agent, const stun_msg_t 
         offset += STUN_ATT_VALUE_POS + alen;
     }
 
-    stun_debug("STUN unknown: %u mandatory attribute(s)!", count);
+	stun_debug("STUN unknown: %u mandatory attribute(s)!", count);
     return count;
 }

@@ -89,7 +89,7 @@ struct _agent_st
     n_slist_t * streams_list;               /* list of n_stream_t objects */
     uint32_t next_candidate_id;        /* id of next created candidate */
     uint32_t next_stream_id;           /* id of next created candidate */
-    NiceRNG * rng;                  /* random number generator */
+	n_rng_t * rng;                  /* random number generator */
     n_slist_t * discovery_list;        /* list of n_cand_disc_t items */
     uint32_t disc_unsched_items;  /* number of discovery items unscheduled */
     int32_t disc_timer;
