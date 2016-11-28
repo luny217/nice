@@ -18,7 +18,7 @@
 
 #include <agent.h>
 #include "agent-priv.h"
-#include <gio/gnetworking.h>
+//#include <gio/gnetworking.h>
 //#include "uv.h"
 #include "event.h"
 #include "pthread.h"
@@ -115,11 +115,11 @@ void nice_event_loop(void * data)
 
 void nice_thread(void * data)
 {
-    n_agent_t * agent;
-    n_cand_t * local, *remote;
-    GIOChannel * io_stdin;
-    uint32_t stream_id;
-    char * line = NULL;
+	n_agent_t * agent;
+	n_cand_t * local, *remote;
+	GIOChannel * io_stdin;
+	uint32_t stream_id;
+	char line[1024] = {0};
     int rval;
 	FILE  * file_fp;
 	char test_file[] = "test.dat";
@@ -192,29 +192,28 @@ void nice_thread(void * data)
     fflush(stdout);
     while (!exit_thread)
     {
-        GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
-        if (s == G_IO_STATUS_NORMAL)
-        {
-            // Parse remote candidate list and set it on the agent
-            rval = parse_remote_data(agent, stream_id, 1, line);
-            if (rval == EXIT_SUCCESS)
-            {
-                n_free(line);
-                break;
-            }
-            else
-            {
-                fprintf(stderr, "error: failed to parse remote data\n");
-                printf("Enter remote data (single line, no wrapping):\n");
-                printf("> ");
-                fflush(stdout);
-            }
-            n_free(line);
-        }
-        else if (s == G_IO_STATUS_AGAIN)
-        {
-			sleep_us(100000);
-        }
+        //GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
+        //if (s == G_IO_STATUS_NORMAL)
+		while (NULL != gets(line))
+		{
+			printf("Read line with len: %d\n", strlen(line));
+			//printf("%s", line);
+			// Parse remote candidate list and set it on the agent
+			rval = parse_remote_data(agent, stream_id, 1, line);
+			if (rval == EXIT_SUCCESS)
+			{
+				n_free(line);
+				break;
+			}
+			else
+			{
+				fprintf(stderr, "error: failed to parse remote data\n");
+				printf("Enter remote data (single line, no wrapping):\n");
+				printf("> ");
+				fflush(stdout);
+			}
+			//n_free(line);
+		}        
     }
 
     nice_debug("waiting for state ready or failed signal...");
@@ -249,7 +248,11 @@ void nice_thread(void * data)
 
 	printf("> ");
 	fflush(stdout);
-	GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);	
+	//GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);	
+	while (NULL != gets(line))
+	{
+		printf("Read line with len: %d\n", strlen(line));
+	}
 
     while (!exit_thread)
     {	
@@ -280,24 +283,23 @@ resend:
 		}
 		else
 		{
-			GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
-			if (s == G_IO_STATUS_NORMAL)
+			//GIOStatus s = g_io_channel_read_line(io_stdin, &line, NULL, NULL, NULL);
+			//if (s == G_IO_STATUS_NORMAL)
+			while (NULL != gets(line))
 			{
+				printf("Read line with len: %d\n", strlen(line));
 				n_agent_send(agent, stream_id, 1, strlen(line), line);
 				n_free(line);
 				printf("> ");
 				fflush(stdout);
 			}
-			else if (s == G_IO_STATUS_AGAIN)
-			{
-				sleep_us(100000);
-			}
-			else
+			
+			/*else
 			{
 				// Ctrl-D was pressed.
 				n_agent_send(agent, stream_id, 1, 1, "\0");
 				break;
-			}
+			}*/
 		}
     }
 
