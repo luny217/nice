@@ -3,7 +3,7 @@
 #include "config.h"
 //#include <glib.h>
 #include "socket.h"
-#include "socket-priv.h"
+//#include "socket-priv.h"
 #include "agent-priv.h"
 #include "nqueue.h"
 #include <string.h>

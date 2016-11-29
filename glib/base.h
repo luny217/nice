@@ -14,6 +14,34 @@
 #include <stdint.h>
 
 #define N_ELEMENTS(arr)		(sizeof (arr) / sizeof ((arr)[0]))
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+
+#define G_MININT8	((int8_t) -0x80)
+#define G_MAXINT8	((int8_t)  0x7f)
+#define G_MAXUINT8	((uint8_t) 0xff)
+
+#define G_MININT16	((int16_t) -0x8000)
+#define G_MAXINT16	((int16_t)  0x7fff)
+#define G_MAXUINT16	((uint16_t) 0xffff)
+
+#define G_MININT32	((int32_t) -0x80000000)
+#define G_MAXINT32	((int32_t)  0x7fffffff)
+#define G_MAXUINT32	((uint32_t) 0xffffffff)
+
+#define G_MININT64	((int64_t) G_GINT64_CONSTANT(-0x8000000000000000))
+#define G_MAXINT64	G_GINT64_CONSTANT(0x7fffffffffffffff)
+#define G_MAXUINT64	G_GUINT64_CONSTANT(0xffffffffffffffff)
+
+#if defined (__GNUC__) && defined (__cplusplus)
+#define G_STRFUNC     ((const char*) (__PRETTY_FUNCTION__))
+#elif defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#define G_STRFUNC     ((const char*) (__func__))
+#elif defined (__GNUC__) || (defined(_MSC_VER) && (_MSC_VER > 1300))
+#define G_STRFUNC     ((const char*) (__FUNCTION__))
+#else
+#define G_STRFUNC     ((const char*) ("???"))
+#endif
 
 #define USEC_PER_SEC 1000000
 

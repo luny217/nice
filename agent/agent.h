@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 //#include <glib-object.h>
-#include <gio/gio.h>
+//#include <gio/gio.h>
 
 /**
  * n_agent_t:
@@ -85,6 +85,7 @@ typedef struct
 } n_output_msg_t;
 
 
+#if 0
 #define NICE_TYPE_AGENT nice_agent_get_type()
 
 #define NICE_AGENT(obj) \
@@ -116,6 +117,7 @@ struct _NiceAgentClass
 
 
 GType nice_agent_get_type(void);
+#endif
 
 
 /**
@@ -439,52 +441,8 @@ int n_agent_set_remote_cands(n_agent_t * agent, uint32_t stream_id, uint32_t com
  *
  * Returns: The number of bytes sent, or negative error code
  */
-int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, const char * buf);
+int32_t n_agent_send(n_agent_t * agent, uint32_t stream_id, uint32_t comp_id, uint32_t len, const char * buf);
 
-/**
- * n_agent_send_msgs_nonblocking:
- * @agent: a #n_agent_t
- * @stream_id: the ID of the stream to send to
- * @component_id: the ID of the component to send to
- * @messages: (array length=n_messages): array of messages to send, of at least
- * @n_messages entries in length
- * @n_messages: number of entries in @messages
- * @cancellable: (allow-none): a #GCancellable to cancel the operation from
- * another thread, or %NULL
- * @error: (allow-none): return location for a #GError, or %NULL
- *
- * Sends multiple messages on the socket identified by the given
- * stream/component pair. Transmission is non-blocking, so a
- * %G_IO_ERROR_WOULD_BLOCK error may be returned if the send buffer is full.
- *
- * As with n_agent_send(), the given component must be in
- * %NICE_COMP_STATE_READY or, as a special case, in any state if it was
- * previously ready and was then restarted.
- *
- * On success, the number of messages written to the socket will be returned,
- * which may be less than @n_messages if transmission would have blocked
- * part-way through. Zero will be returned if @n_messages is zero, or if
- * transmission would have blocked on the first message.
- *
- * In reliable mode, it is instead recommended to use
- * n_agent_send().  The return value can be less than @n_messages
- * or 0 even if it is still possible to send a partial message. In
- * this case, "nice-agent-writable" will never be triggered, so the
- * application would have to use nice_agent_sent() to fill the buffer or have
- * to retry sending at a later point.
- *
- * On failure, -1 will be returned and @error will be set. If the #n_agent_t is
- * reliable and the socket is not yet connected, %G_IO_ERROR_BROKEN_PIPE will be
- * returned; if the write buffer is full, %G_IO_ERROR_WOULD_BLOCK will be
- * returned. In both cases, wait for the #n_agent_t::reliable-transport-writable
- * signal before trying again. If the given @stream_id or @component_id are
- * invalid or not yet connected, %G_IO_ERROR_BROKEN_PIPE will be returned.
- * %G_IO_ERROR_FAILED will be returned for other errors.
- *
- * Returns: the number of messages sent (may be zero), or -1 on error
- */
-int32_t n_agent_send_msgs_nonblocking(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, const n_output_msg_t * messages,
-                                      uint32_t n_messages,  GCancellable * cancellable, GError ** error);
 
 /**
  * n_agent_get_local_cands:
@@ -627,32 +585,6 @@ int n_agent_set_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t co
  */
 int n_agent_get_selected_pair(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, n_cand_t ** local, n_cand_t ** remote);
 
-/**
- * n_agent_get_selected_socket:
- * @agent: The #n_agent_t Object
- * @stream_id: The ID of the stream
- * @component_id: The ID of the component
- *
- * Retreive the local socket associated with the selected candidate pair
- * for media transmission for a given stream's component.
- *
- * This is useful for adding ICE support to legacy applications that already
- * have a protocol that maintains a connection. If the socket is duplicated
- * before unrefing the agent, the application can take over and continue to use
- * it. New applications are encouraged to use the built in libnice stream
- * handling instead and let libnice handle the connection maintenance.
- *
- * Users of this method are encouraged to not use a TURN relay or any kind
- * of proxy, as in this case, the socket will not be available to the
- * application because the packets are encapsulated.
- *
- * Returns: (transfer full) (nullable): pointer to the #GSocket, or %NULL if
- * there is no selected candidate or if the selected candidate is a relayed
- * candidate.
- *
- * Since: 0.1.5
- */
-GSocket * n_agent_get_selected_socket(n_agent_t * agent, uint32_t stream_id, uint32_t component_id);
 
 /**
  * n_agent_set_selected_rcand:

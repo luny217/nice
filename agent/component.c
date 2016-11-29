@@ -23,86 +23,6 @@ void incoming_check_free(n_inchk_t * icheck)
     n_slice_free(n_inchk_t, icheck);
 }
 
-#if 0
-/* Must *not* take the agent lock, since its called from within
- * comp_set_io_context(), which holds the Components I/O lock. */
-static void socket_source_attach(n_socket_source_t * socket_source)
-{
-    //GSource * source;
-    uv_os_fd_t fd;
-
-    uv_fileno((const uv_handle_t *)&socket_source->socket->fileno, &fd);
-
-    socket_source->socket->fileno.data = socket_source;
-
-
-    uv_udp_recv_start(&socket_source->socket->fileno, comp_alloc_cb, comp_io_cb);
-
-    /* Create a source. */
-    source = g_socket_create_source(socket_source->socket->fileno, G_IO_IN, NULL);
-    g_source_set_callback(source, (GSourceFunc) comp_io_cb, socket_source, NULL);
-
-    /* Add the source. */
-    nice_debug("[%s]: Attaching (socket %p, FD %d) to context %d", G_STRFUNC, socket_source->socket, fd);
-
-    //g_assert(socket_source->source == NULL);
-    socket_source->source = source;
-    g_source_attach(source, context);
-}
-
-static void socket_source_detach(n_socket_source_t * source)
-{
-    uv_os_fd_t fd;
-
-    uv_fileno((const uv_handle_t *)&source->socket->fileno, &fd);
-
-    nice_debug("Detaching source %p (socket %p, FD %d)", source->source, source->socket, fd);
-
-    if (source->source != NULL)
-    {
-        g_source_destroy(source->source);
-        g_source_unref(source->source);
-    }
-    source->source = NULL;
-}
-
-
-/* Must *not* take the agent lock, since its called from within
- * comp_set_io_context(), which holds the Components I/O lock. */
-static void socket_source_attach(n_socket_source_t * socket_source, GMainContext * context)
-{
-    GSource * source;
-
-    /* Create a source. */
-    source = g_socket_create_source(socket_source->socket->fileno, G_IO_IN, NULL);
-    g_source_set_callback(source, (GSourceFunc) comp_io_cb, socket_source, NULL);
-
-    /* Add the source. */
-    nice_debug("[%s]: Attaching source %p (socket %p, FD %d) to context %p", G_STRFUNC, source,
-               socket_source->socket, g_socket_get_fd(socket_source->socket->fileno), context);
-
-    //g_assert(socket_source->source == NULL);
-    socket_source->source = source;
-    g_source_attach(source, context);
-}
-
-static void socket_source_detach(n_socket_source_t * source)
-{
-    nice_debug("Detaching source %p (socket %p, FD %d) from context %p",
-               source->source, source->socket,
-               (source->socket->fileno != NULL) ?
-               g_socket_get_fd(source->socket->fileno) : 0,
-               (source->source != NULL) ? g_source_get_context(source->source) : 0);
-
-    if (source->source != NULL)
-    {
-        g_source_destroy(source->source);
-        g_source_unref(source->source);
-    }
-    source->source = NULL;
-}
-
-#endif
 static void socket_source_free(n_socket_source_t * source)
 {
     //socket_source_detach(source);
@@ -131,13 +51,6 @@ n_comp_t * comp_new(uint32_t id, n_agent_t * agent, n_stream_t * stream)
     pthread_mutex_init(&comp->io_mutex, NULL);
     n_queue_init(&comp->pend_io_msgs);
     comp->io_callback_id = 0;
-
-   /* comp->own_ctx = g_main_context_new();
-    comp->stop_cancellable = g_cancellable_new();
-    comp->stop_cancellable_source = g_cancellable_source_new(comp->stop_cancellable);
-    g_source_set_dummy_callback(comp->stop_cancellable_source);
-    g_source_attach(comp->stop_cancellable_source, comp->own_ctx);
-    comp->ctx = g_main_context_ref(comp->own_ctx);*/
 
     /* Start off with a fresh main context and all I/O paused. This
      * will be updated when n_agent_attach_recv() or nice_agent_recv_messages()
@@ -317,11 +230,12 @@ void component_free(n_comp_t * cmp)
         g_source_unref(cmp->stop_cancellable_source);
     }*/
 
+/*
     if (cmp->ctx != NULL)
     {
         //g_main_context_unref(cmp->ctx);
         cmp->ctx = NULL;
-    }
+    }*/
 
     //g_main_context_unref(cmp->own_ctx);
 
@@ -414,8 +328,7 @@ void comp_update_selected_pair(n_comp_t * comp, const n_cand_pair_t * pair)
 {
     //g_assert(comp);
     //g_assert(pair);
-    nice_debug("[%s]: setting SELECTED PAIR for component %u: %s:%s (prio:%"
-               G_GUINT64_FORMAT ")", G_STRFUNC, comp->id, pair->local->foundation,
+    nice_debug("[%s]: setting SELECTED PAIR for component %u: %s:%s (prio:%I64u)", G_STRFUNC, comp->id, pair->local->foundation,
                pair->remote->foundation, pair->priority);
 
     if (comp->selected_pair.local && comp->selected_pair.local == comp->turn_candidate)
@@ -641,29 +554,6 @@ void component_free_socket_sources(n_comp_t * component)
     comp_clear_selected_pair(component);
 }
 
-/* If @context is %NULL, it's own context is used, so component->ctx is always
- * guaranteed to be non-%NULL. */
-void comp_set_io_context(n_comp_t * comp, GMainContext * context)
-{
-    pthread_mutex_lock(&comp->io_mutex);
-
-    if (comp->ctx != context)
-    {
-        if (context == NULL)
-            context = g_main_context_ref(comp->own_ctx);
-        else
-            g_main_context_ref(context);
-
-        component_detach_all_sockets(comp);
-        g_main_context_unref(comp->ctx);
-
-        comp->ctx = context;
-        component_reattach_all_sockets(comp);
-    }
-
-    pthread_mutex_unlock(&comp->io_mutex);
-}
-
 /* (func, user_data) and (recv_messages, n_recv_messages) are mutually
  * exclusive. At most one of the two must be specified; if both are NULL, the
  * n_comp_t will not receive any data (i.e. reception is paused).
@@ -685,7 +575,7 @@ void comp_set_io_callback(n_comp_t * comp, n_agent_recv_func func, void * user_d
         comp->recv_messages = NULL;
         comp->n_recv_messages = 0;
 
-        comp_sched_io_cb(comp);
+        //comp_sched_io_cb(comp);
     }
     else
     {
@@ -761,7 +651,7 @@ static int emit_io_callback_cb(void * user_data)
 
         pthread_mutex_unlock(&comp->io_mutex);
 
-        io_callback(agent, stream_id, comp_id, data->buf_len - data->offset, (gchar *) data->buf + data->offset, io_user_data);
+        io_callback(agent, stream_id, comp_id, data->buf_len - data->offset, (char *) data->buf + data->offset, io_user_data);
 
         /* Check for the user destroying things underneath our feet. */
         if (!agent_find_comp(agent, stream_id, comp_id, NULL, &comp))
@@ -782,7 +672,7 @@ static int emit_io_callback_cb(void * user_data)
 done:
     //g_object_unref(agent);
 
-    return G_SOURCE_REMOVE;
+    return FALSE;
 }
 
 /* This must be called with the agent lock *held*. */
@@ -822,7 +712,7 @@ void comp_emit_io_cb(n_comp_t * comp, const uint8_t * buf, uint32_t buf_len)
     {
         /* Thread owns the main context, so invoke the callback directly. */
         agent_unlock();
-        io_callback(agent, stream_id, comp_id, buf_len, (gchar *) buf, io_user_data);
+        io_callback(agent, stream_id, comp_id, buf_len, (char *) buf, io_user_data);
         //nice_debug("[%s]: agent_lock+++++++++++", G_STRFUNC);
         agent_lock();
     }
@@ -843,30 +733,8 @@ void comp_emit_io_cb(n_comp_t * comp, const uint8_t * buf, uint32_t buf_len)
     }*/
 }
 
+
 #if 0
-/* Note: Must be called with the io_mutex held. */
-static void comp_sched_io_cb(n_comp_t * comp)
-{
-
-    /* Already scheduled or nothing to schedule? */
-    if (&comp->io_cb_handle != NULL || n_queue_is_empty(&comp->pend_io_msgs))
-        return;
-
-    uv_idle_init(uv_default_loop(), &comp->io_cb_handle);
-    uv_idle_start(&comp->io_cb_handle, emit_io_callback_cb);
-}
-
-/* Note: Must be called with the io_mutex held. */
-static void comp_desched_io_cb(n_comp_t * comp)
-{
-    /* Already descheduled? */
-    if (&comp->io_cb_handle == NULL)
-        return;
-
-    uv_idle_stop(&comp->io_cb_handle);
-}
-
-#else
 /* Note: Must be called with the io_mutex held. */
 static void comp_sched_io_cb(n_comp_t * component)
 {
@@ -887,6 +755,7 @@ static void comp_sched_io_cb(n_comp_t * component)
     component->io_callback_id = g_source_attach(source, component->ctx);
     g_source_unref(source);
 }
+#endif
 
 /* Note: Must be called with the io_mutex held. */
 static void comp_desched_io_cb(n_comp_t * component)
@@ -895,10 +764,10 @@ static void comp_desched_io_cb(n_comp_t * component)
     if (component->io_callback_id == 0)
         return;
 
-    g_source_remove(component->io_callback_id);
+    //g_source_remove(component->io_callback_id);
     component->io_callback_id = 0;
 }
-#endif
+
 
 turn_server_t * turn_server_new(const char * server_ip, uint32_t server_port, const char * username, const char * password)
 {

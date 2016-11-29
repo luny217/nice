@@ -181,8 +181,8 @@ n_cand_t * nice_candidate_copy(const n_cand_t * candidate)
     memcpy(copy, candidate, sizeof(n_cand_t));
 
     copy->turn = NULL;
-    copy->username = g_strdup(copy->username);
-    copy->password = g_strdup(copy->password);
+    copy->username = n_strdup(copy->username);
+    copy->password = n_strdup(copy->password);
 
     return copy;
 }

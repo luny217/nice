@@ -4,7 +4,7 @@
 #define _N_STREAM_H
 
 #include <stdint.h>
-#include <glib.h>
+//#include <glib.h>
 
 typedef struct _stream_st n_stream_t;
 

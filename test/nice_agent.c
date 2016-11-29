@@ -117,7 +117,7 @@ void nice_thread(void * data)
 {
 	n_agent_t * agent;
 	n_cand_t * local, *remote;
-	GIOChannel * io_stdin;
+	//GIOChannel * io_stdin;
 	uint32_t stream_id;
 	char line[1024] = {0};
     int rval;
@@ -126,7 +126,7 @@ void nice_thread(void * data)
 	char snd_buf[2048];
 	int ret = 0, numread, numsend;
 
-    io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
+    //io_stdin = g_io_channel_win32_new_fd(_fileno(stdin));
 
     //g_io_channel_set_flags(io_stdin, G_IO_FLAG_NONBLOCK, NULL);
 
@@ -202,7 +202,7 @@ void nice_thread(void * data)
 			rval = parse_remote_data(agent, stream_id, 1, line);
 			if (rval == EXIT_SUCCESS)
 			{
-				n_free(line);
+				//n_free(line);
 				break;
 			}
 			else
@@ -306,7 +306,7 @@ resend:
 end:
 	getchar();
 	fclose(file_fp);
-    g_io_channel_unref(io_stdin);
+   // g_io_channel_unref(io_stdin);
    //g_object_unref(agent);
     //g_main_loop_quit(gloop);
 
@@ -392,7 +392,7 @@ static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
     if (i != 5)
         goto end;
 
-    for (i = 0; i < G_N_ELEMENTS(candidate_type_name); i++)
+    for (i = 0; i < N_ELEMENTS(candidate_type_name); i++)
     {
         if (strcmp(tokens[4], candidate_type_name[i]) == 0)
         {
@@ -400,7 +400,7 @@ static n_cand_t * parse_candidate(char * scand, uint32_t stream_id)
             break;
         }
     }
-    if (i == G_N_ELEMENTS(candidate_type_name))
+    if (i == N_ELEMENTS(candidate_type_name))
         goto end;
 
     cand = n_cand_new(ntype);
@@ -467,7 +467,7 @@ end:
     if (local_password)
         free(local_password);
     if (cand_lists)
-        n_slist_free_full(cand_lists, (GDestroyNotify)&n_cand_free);
+        n_slist_free_full(cand_lists, (n_destroy_notify)&n_cand_free);
 
     return result;
 }

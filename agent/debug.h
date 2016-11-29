@@ -69,9 +69,7 @@
  */
 
 
-#include <glib.h>
-
-G_BEGIN_DECLS
+//#include <glib.h>
 
 /**
  * nice_debug_enable:
@@ -89,7 +87,7 @@ G_BEGIN_DECLS
  * - `libnice-pseudotcp`
  * - `libnice-pseudotcp-verbose`
  */
-void nice_debug_enable(gboolean with_stun);
+void nice_debug_enable(int with_stun);
 
 /**
  * nice_debug_disable:
@@ -97,9 +95,7 @@ void nice_debug_enable(gboolean with_stun);
  *
  * Disables libnice debug output to the terminal
  */
-void nice_debug_disable(gboolean with_stun);
-
-G_END_DECLS
+void nice_debug_disable(int with_stun);
 
 #endif /* __LIBNICE_DEBUG_H__ */
 

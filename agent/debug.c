@@ -16,6 +16,7 @@ static int debug_enabled = 0;
 #define NICE_DEBUG_PSEUDOTCP 4
 #define NICE_DEBUG_PSEUDOTCP_VERBOSE 8
 
+/*
 static const GDebugKey keys[] =
 {
     { (gchar *)"stun",  NICE_DEBUG_STUN },
@@ -23,9 +24,9 @@ static const GDebugKey keys[] =
     { (gchar *)"pseudotcp",  NICE_DEBUG_PSEUDOTCP },
     { (gchar *)"pseudotcp-verbose",  NICE_DEBUG_PSEUDOTCP_VERBOSE },
     { NULL, 0},
-};
+};*/
 
-static void stun_handler(const char * format, va_list ap) G_GNUC_PRINTF(1, 0);
+static void stun_handler(const char * format, va_list ap);
 
 static void stun_handler(const char * format, va_list ap)
 {
@@ -37,21 +38,21 @@ static void stun_handler(const char * format, va_list ap)
 void nice_debug_init(void)
 {
     static int debug_initialized = FALSE;
-    const char * flags_string;
-    const char * gflags_string;
+    //const char * flags_string;
+    //const char * gflags_string;
     uint32_t flags = 0;
 
     if (!debug_initialized)
     {
         debug_initialized = TRUE;
 
-        flags_string = g_getenv("NICE_DEBUG");
+        /*flags_string = g_getenv("NICE_DEBUG");
         gflags_string = g_getenv("G_MESSAGES_DEBUG");
 
         if (flags_string)
             flags = g_parse_debug_string(flags_string, keys,  4);
         if (gflags_string && strstr(gflags_string, "libnice-pseudotcp-verbose"))
-            flags |= NICE_DEBUG_PSEUDOTCP_VERBOSE;
+            flags |= NICE_DEBUG_PSEUDOTCP_VERBOSE;*/
 
         stun_set_debug_handler(stun_handler);
         nice_debug_enable(TRUE);
@@ -66,7 +67,7 @@ void nice_debug_init(void)
 }
 
 #ifndef NDEBUG
-gboolean nice_debug_is_enabled(void)
+int nice_debug_is_enabled(void)
 {
     return debug_enabled;
 }
@@ -74,14 +75,14 @@ gboolean nice_debug_is_enabled(void)
 /* Defined in agent-priv.h. */
 #endif
 
-void nice_debug_enable(gboolean with_stun)
+void nice_debug_enable(int with_stun)
 {
     nice_debug_init();
     debug_enabled = 1;
     if (with_stun)
         stun_debug_enable();
 }
-void nice_debug_disable(gboolean with_stun)
+void nice_debug_disable(int with_stun)
 {
     nice_debug_init();
     debug_enabled = 0;

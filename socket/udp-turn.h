@@ -24,8 +24,9 @@ uint32_t nice_udp_turn_socket_parse_recv(n_socket_t * sock, n_socket_t ** from_s
 
 int nice_udp_turn_socket_set_peer(n_socket_t * sock, n_addr_t * peer);
 
+/*
 n_socket_t * n_udp_turn_new(GMainContext * ctx, n_addr_t * addr,
-                         n_socket_t * base_socket, n_addr_t * server_addr, char * username, char * password);
+                         n_socket_t * base_socket, n_addr_t * server_addr, char * username, char * password);*/
 
 #endif /* _UDP_TURN_H */
 

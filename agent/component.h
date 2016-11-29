@@ -4,7 +4,7 @@
 #define _NICE_COMPONENT_H
 
 #include <stdint.h>
-#include <glib.h>
+//#include <glib.h>
 
 typedef struct _comp_st n_comp_t;
 
@@ -138,26 +138,25 @@ struct _comp_st
     uint32_t io_callback_id;             /* GSource ID of the I/O callback */
     uv_idle_t io_cb_handle;
 
-    GMainContext * own_ctx;            /* own context for GSources for this component */
-    GMainContext * ctx;                /* context for GSources for this component (possibly set from the app) */
+    //GMainContext * own_ctx;            /* own context for GSources for this component */
+    //GMainContext * ctx;                /* context for GSources for this component (possibly set from the app) */
     n_input_msg_t * recv_messages; /* unowned messages for receiving into */
     uint32_t n_recv_messages;            /* length of recv_messages */
-    n_input_msg_iter_t recv_messages_iter; /* current write position in
-                                                recv_messages */
-    GError ** recv_buf_error;         /* error information about failed reads */
+    n_input_msg_iter_t recv_messages_iter; /* current write position in  recv_messages */
+    //GError ** recv_buf_error;         /* error information about failed reads */
 
     n_agent_t * agent;  /* unowned, immutable: can be accessed without holding the agent lock */
     n_stream_t * stream;  /* unowned, immutable: can be accessed without holding the agent lock */
     stun_agent_t stun_agent; /* This stun agent is used to validate all stun requests */   
 
-    GCancellable * stop_cancellable;
-    GSource * stop_cancellable_source; /* owned */
+    //GCancellable * stop_cancellable;
+    //GSource * stop_cancellable_source; /* owned */
 
     pst_socket_t * tcp;
     int32_t tcp_clock;
     uint64_t last_clock_timeout;
     int tcp_readable;
-    GCancellable * tcp_writable_cancellable;
+    //GCancellable * tcp_writable_cancellable;
 
     uint32_t min_port;
     uint32_t max_port;
@@ -181,7 +180,7 @@ void component_detach_socket(n_comp_t * component, n_socket_t * nsocket);
 void component_detach_all_sockets(n_comp_t * component);
 void component_free_socket_sources(n_comp_t * component);
 
-void comp_set_io_context(n_comp_t * component, GMainContext * context);
+//void comp_set_io_context(n_comp_t * component, GMainContext * context);
 void comp_set_io_callback(n_comp_t * component,  n_agent_recv_func func, void * user_data);
 void comp_emit_io_cb(n_comp_t * component, const uint8_t * buf, uint32_t buf_len);
 int component_has_io_callback(n_comp_t * component);

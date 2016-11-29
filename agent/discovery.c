@@ -171,9 +171,9 @@ static void refresh_free_item(n_cand_refresh_t * cand)
         stun_agent_forget_trans(&cand->stun_agent, id);
 
         /* send the refresh twice since we won't do retransmissions */
-        agent_socket_send(cand->nicesock, &cand->server, buffer_len, (gchar *)cand->stun_buffer);
+        agent_socket_send(cand->nicesock, &cand->server, buffer_len, (char *)cand->stun_buffer);
         
-        agent_socket_send(cand->nicesock, &cand->server, buffer_len, (gchar *)cand->stun_buffer);
+        agent_socket_send(cand->nicesock, &cand->server, buffer_len, (char *)cand->stun_buffer);
         
 
     }
@@ -626,8 +626,8 @@ n_cand_t * disc_add_peer_cand(n_agent_t * agent, uint32_t stream_id, uint32_t co
         n_free(candidate->username);
         n_free(candidate->password);
 
-        candidate->username = g_strdup(local->username);
-        candidate->password = g_strdup(local->password);
+        candidate->username = n_strdup(local->username);
+        candidate->password = n_strdup(local->password);
     }
 
     result = _add_local_cand_pruned(agent, stream_id, comp, candidate);
@@ -695,8 +695,8 @@ n_cand_t * disc_learn_remote_peer_cand(
     {
         n_free(candidate->username);
         n_free(candidate->password);
-        candidate->username = g_strdup(remote->username);
-        candidate->password = g_strdup(remote->password);
+        candidate->username = n_strdup(remote->username);
+        candidate->password = n_strdup(remote->password);
     }
 
     /* note: candidate username and password are left NULL as stream
@@ -788,9 +788,9 @@ static int _disc_tick_unlocked(void * pointer)
                     continue;
                 }
             }
-            else
-                /* allocate relayed candidates */
-                g_assert_not_reached();
+            /*else
+                / * allocate relayed candidates * /
+                g_assert_not_reached();*/
 
             not_done++; /* note: new discovery scheduled */
         }

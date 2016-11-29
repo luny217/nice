@@ -63,7 +63,7 @@ static void pst_writable(pst_socket_t * sock, void * user_data);
 static void pst_closed(pst_socket_t * sock, uint32_t err, void * user_data);
 static pst_wret_e pst_write_packet(pst_socket_t * sock, char * buffer, uint32_t len, void * user_data);
 static void adjust_tcp_clock(n_agent_t * agent, n_stream_t * stream, n_comp_t * component);
-static void n_agent_dispose(GObject * object);
+//static void n_agent_dispose(GObject * object);
 
 #if 0// _WIN32
 typedef struct _GWin32WinsockFuncs
@@ -349,164 +349,6 @@ static void pst_opened(pst_socket_t * sock, void * user_data)
     nice_debug("[%s]: s%d:%d pseudo Tcp socket Opened", G_STRFUNC,  stream->id, comp->id);
 
     agent_signal_socket_writable(agent, comp);
-}
-
-/* Will attempt to queue all @n_messages into the pseudo-TCP transmission
- * buffer. This is always used in reliable mode, so essentially treats @messages
- * as a massive flat array of buffers.
- *
- * Returns the number of messages successfully sent on success (which may be
- * zero if sending the first buffer of the message would have blocked), or
- * a negative number on error. If "allow_partial" is TRUE, then it returns
- * the number of bytes sent
- */
-static int32_t pst_send_messages(pst_socket_t * self, const n_output_msg_t * messages,
-                                 uint32_t n_messages, int32_t allow_partial, GError ** error)
-{
-    uint32_t i;
-    int32_t bytes_sent = 0;
-
-    for (i = 0; i < n_messages; i++)
-    {
-        const n_output_msg_t * message = &messages[i];
-        uint32_t j;
-
-        /* If allow_partial is FALSE and there's not enough space for the
-         * entire message, bail now before queuing anything. This doesn't
-         * gel with the fact this function is only used in reliable mode,
-         * and there is no concept of a message, but is necessary
-         * because the calling API has no way of returning to the client
-         * and indicating that a message was partially sent. */
-        if (!allow_partial &&
-                output_message_get_size(message) >
-                pst_get_available_send_space(self))
-        {
-            return i;
-        }
-
-        for (j = 0;
-                (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
-                (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
-                j++)
-        {
-            const n_outvector_t * buffer = &message->buffers[j];
-            int32_t ret;
-
-            /* Send on the pseudo-TCP socket. */
-            ret = pst_send(self, buffer->buffer, buffer->size);
-
-            /* In case of -1, the error is either EWOULDBLOCK or ENOTCONN, which both
-             * need the user to wait for the reliable-transport-writable signal */
-            if (ret < 0)
-            {
-                if (pst_get_error(self) == EWOULDBLOCK)
-                    goto out;
-
-                if (pst_get_error(self) == ENOTCONN ||  pst_get_error(self) == EPIPE)
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK, "TCP connection is not yet established.");
-                else
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "Error writing data to pseudo-TCP socket.");
-                return -1;
-            }
-            else
-            {
-                bytes_sent += ret;
-            }
-        }
-    }
-
-out:
-
-    return allow_partial ? bytes_sent : (int32_t) i;
-}
-
-/* Will fill up @messages from the first free byte onwards (as determined using
- * @iter). This is always used in reliable mode, so it essentially treats
- * @messages as a massive flat array of buffers.
- *
- * Updates @iter in place. @iter and @messages are left in invalid states if
- * an error is returned.
- *
- * Returns the number of valid messages in @messages on success (which may be
- * zero if no data is pending and the peer has disconnected), or a negative
- * number on error (including if the request would have blocked returning no
- * messages). */
-static int32_t
-pst_recv_messages(pst_socket_t * self, n_input_msg_t * messages, uint32_t n_messages, n_input_msg_iter_t * iter, GError ** error)
-{
-    for (; iter->message < n_messages; iter->message++)
-    {
-        n_input_msg_t * message = &messages[iter->message];
-
-        if (iter->buffer == 0 && iter->offset == 0)
-        {
-            message->length = 0;
-        }
-
-        for (;
-                (message->n_buffers >= 0 && iter->buffer < (uint32_t) message->n_buffers) ||
-                (message->n_buffers < 0 && message->buffers[iter->buffer].buffer != NULL);
-                iter->buffer++)
-        {
-            n_invector_t * buffer = &message->buffers[iter->buffer];
-
-            do
-            {
-                int32_t len;
-
-                len = pst_recv(self, (char *) buffer->buffer + iter->offset, buffer->size - iter->offset);
-
-                nice_debug("%s: Received %" G_GSSIZE_FORMAT " bytes into "
-                           "buffer %p (offset %" G_GSIZE_FORMAT ", length %" G_GSIZE_FORMAT
-                           ").", G_STRFUNC, len, buffer->buffer, iter->offset, buffer->size);
-
-                if (len == 0)
-                {
-                    /* Reached EOS. */
-                    len = 0;
-                    goto done;
-                }
-                else if (len < 0 && pst_get_error(self) == EWOULDBLOCK)
-                {
-                    /* EWOULDBLOCK. If we??ve already received something, return that;
-                     * otherwise, error. */
-                    if (n_input_msg_iter_get_n_valid_msgs(iter) > 0)
-                    {
-                        goto done;
-                    }
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK,
-                                "Error reading data from pseudo-TCP socket: would block.");
-                    return len;
-                }
-                else if (len < 0 && pst_get_error(self) == ENOTCONN)
-                {
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK,
-                                "Error reading data from pseudo-TCP socket: not connected.");
-                    return len;
-                }
-                else if (len < 0)
-                {
-                    g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                                "Error reading data from pseudo-TCP socket.");
-                    return len;
-                }
-                else
-                {
-                    /* Got some data! */
-                    message->length += len;
-                    iter->offset += len;
-                }
-            }
-            while (iter->offset < buffer->size);
-
-            iter->offset = 0;
-        }
-
-        iter->buffer = 0;
-    }
-
-done:
-    return n_input_msg_iter_get_n_valid_msgs(iter);
 }
 
 /* This is called with the agent lock held. */
@@ -1898,7 +1740,7 @@ static void n_debug_input_msg(const n_input_msg_t * messages, uint32_t n_message
         const n_input_msg_t * message = &messages[i];
         uint32_t j;
 
-        nice_debug("[%s]: Message %p (from: %p, length: %" G_GSIZE_FORMAT ")", G_STRFUNC, message, message->from, message->length);
+        nice_debug("[%s]: Message %p (from: %p, length: %u)", G_STRFUNC, message, message->from, message->length);
         for (j = 0;
                 (message->n_buffers >= 0 && j < (uint32_t) message->n_buffers) ||
                 (message->n_buffers < 0 && message->buffers[j].buffer != NULL);
@@ -1906,48 +1748,9 @@ static void n_debug_input_msg(const n_input_msg_t * messages, uint32_t n_message
         {
             n_invector_t * buffer = &message->buffers[j];
 
-            nice_debug("[%s]: Buffer %p (length: %" G_GSIZE_FORMAT ")", G_STRFUNC, buffer->buffer, buffer->size);
+            nice_debug("[%s]: Buffer %p (length: %u)", G_STRFUNC, buffer->buffer, buffer->size);
         }
     }
-}
-
-static uint8_t * compact_message(const n_output_msg_t * message, uint32_t buffer_length)
-{
-    uint8_t * buffer;
-    uint32_t offset = 0;
-    uint32_t i;
-
-    buffer = g_malloc(buffer_length);
-
-    for (i = 0;
-            (message->n_buffers >= 0 && i < (uint32_t) message->n_buffers) ||
-            (message->n_buffers < 0 && message->buffers[i].buffer != NULL);
-            i++)
-    {
-        uint32_t len = MIN(buffer_length - offset, message->buffers[i].size);
-        memcpy(buffer + offset, message->buffers[i].buffer, len);
-        offset += len;
-    }
-
-    return buffer;
-}
-
-/* Concatenate all the buffers in the given @recv_message into a single, newly
- * allocated, monolithic buffer which is returned. The length of the new buffer
- * is returned in @buffer_length, and should be equal to the length field of
- * @recv_message.
- *
- * The return value must be freed with n_free(). */
-uint8_t * compact_input_message(const n_input_msg_t * message, uint32_t * buffer_length)
-{
-    //nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
-    n_debug_input_msg(message, 1);
-
-    /* This works as long as n_input_msg_t is a subset of eNiceOutputMessage */
-
-    *buffer_length = message->length;
-
-    return compact_message((n_output_msg_t *) message, *buffer_length);
 }
 
 /* Returns the number of bytes copied. Silently drops any data from @buffer
@@ -1981,8 +1784,8 @@ uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t *
 
     if (buffer_length > 0)
     {
-        nice_debug("Dropped %" G_GSIZE_FORMAT " bytes of data from the end of "
-                   "buffer %p (length: %" G_GSIZE_FORMAT ") due to not fitting in "
+        nice_debug("Dropped %u bytes of data from the end of "
+                   "buffer %p (length: %u) due to not fitting in "
                    "message %p", buffer_length, buffer - message->length,
                    message->length + buffer_length, message);
     }
@@ -1990,20 +1793,7 @@ uint32_t memcpy_buffer_to_input_message(n_input_msg_t * message, const uint8_t *
     return message->length;
 }
 
-/* Concatenate all the buffers in the given @message into a single, newly
- * allocated, monolithic buffer which is returned. The length of the new buffer
- * is returned in @buffer_length, and should be equal to the length field of
- * @recv_message.
- *
- * The return value must be freed with n_free(). */
-uint8_t * compact_output_message(const n_output_msg_t * message, uint32_t * buffer_length)
-{
-    //nice_debug("%s: **WARNING: SLOW PATH**", G_STRFUNC);
 
-    *buffer_length = output_message_get_size(message);
-
-    return compact_message(message, *buffer_length);
-}
 
 uint32_t output_message_get_size(const n_output_msg_t * message)
 {
@@ -2259,11 +2049,11 @@ done:
 }
 
 
-static void n_agent_dispose(GObject * object)
+static void n_agent_dispose(n_agent_t * agent)
 {
     n_slist_t * i;
     //QueuedSignal * sig;
-    n_agent_t * agent = NICE_AGENT(object);
+    //n_agent_t * agent = NICE_AGENT(object);
 
     /* step: free resources for the binding discovery timers */
     disc_free(agent);
@@ -2308,12 +2098,6 @@ static void n_agent_dispose(GObject * object)
     nice_rng_free(agent->rng);
     agent->rng = NULL;
 
-    /* if (agent->main_context != NULL)
-         g_main_context_unref(agent->main_context);
-     agent->main_context = NULL;*/
-
-    /*if (G_OBJECT_CLASS(nice_agent_parent_class)->dispose)
-        G_OBJECT_CLASS(nice_agent_parent_class)->dispose(object);*/
 }
 
 #if 1
@@ -2385,7 +2169,7 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
     };
     n_input_msg_t local_message =
     {
-        local_bufs, G_N_ELEMENTS(local_bufs), NULL, 0
+        local_bufs, N_ELEMENTS(local_bufs), NULL, 0
     };
     n_recv_status_t retval = 0;
 
@@ -2497,7 +2281,7 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
 					vec->buffer = n_slice_copy(length, local_body_buf);
 					vec->size = length;
                     n_queue_push_tail(&comp->queued_tcp_packets, vec);
-                    nice_debug("%s: Queued %" G_GSSIZE_FORMAT " bytes for agent %p.", G_STRFUNC, length, agent);
+                    nice_debug("%s: Queued %u bytes for agent %p.", G_STRFUNC, length, agent);
 
                     return RECV_OOB;
                 }
@@ -2508,7 +2292,7 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
 
                 /* Received data on a reliable connection. */
 
-                nice_debug("%s: notifying pseudo-TCP of packet, length %" G_GSIZE_FORMAT, G_STRFUNC, length);
+                nice_debug("%s: notifying pseudo-TCP of packet, length %u", G_STRFUNC, length);
                 //pst_notify_message(comp->tcp, local_body_buf, length);
 				pst_notify_packet(comp->tcp, local_body_buf, length);
 
@@ -2755,7 +2539,7 @@ void _set_socket_tos(n_agent_t * agent, n_socket_t * sock, int32_t tos)
 {
     if (setsockopt(sock->sock_fd, IPPROTO_IP, IP_TOS, (const char *) &tos, sizeof(tos)) < 0)
     {
-        nice_debug("[%s]: Could not set socket ToS: %s", G_STRFUNC, g_strerror(errno));
+        nice_debug("[%s]: Could not set socket ToS: %d", G_STRFUNC, errno);
     }
 }
 

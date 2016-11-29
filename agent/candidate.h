@@ -3,8 +3,8 @@
 #ifndef __LIBNICE_CANDIDATE_H__
 #define __LIBNICE_CANDIDATE_H__
 
-#include <glib.h>
-#include <glib-object.h>
+//#include <glib.h>
+//#include <glib-object.h>
 
 /* Constants for determining candidate priorities */
 #define CAND_TYPE_PREF_HOST 120
@@ -167,14 +167,14 @@ void n_cand_free(n_cand_t * candidate);
  */
 n_cand_t * nice_candidate_copy(const n_cand_t * candidate);
 
-GType nice_candidate_get_type(void);
+//GType nice_candidate_get_type(void);
 
 /**
  * NICE_TYPE_CANDIDATE:
  *
  * A boxed type for a #n_cand_t.
  */
-#define NICE_TYPE_CANDIDATE nice_candidate_get_type ()
+//#define NICE_TYPE_CANDIDATE nice_candidate_get_type ()
 
 #endif /* __LIBNICE_CANDIDATE_H__ */
 

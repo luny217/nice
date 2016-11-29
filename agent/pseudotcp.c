@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include <glib.h>
+//#include <glib.h>
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -647,7 +647,7 @@ static void pst_init(pst_socket_t * obj)
     /* Use g_new0, and do not use g_object_set_private because the size of
      * our private data is too big (150KB+) and the g_slice_allow cannot allocate
      * it. So we handle the private ourselves */
-    PseudoTcpSocketPrivate * priv = g_new0(PseudoTcpSocketPrivate, 1);
+    PseudoTcpSocketPrivate * priv = malloc(sizeof(PseudoTcpSocketPrivate));
 
     obj->priv = priv;
 
@@ -778,7 +778,7 @@ int pst_connect(pst_socket_t * self)
     return TRUE;
 }
 
-void pst_notify_mtu(pst_socket_t * self, guint16 mtu)
+void pst_notify_mtu(pst_socket_t * self, uint16_t mtu)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     priv->mtu_advise = mtu;
@@ -822,7 +822,7 @@ void pst_notify_clock(pst_socket_t * self)
     {
         if (n_queue_get_length(&priv->slist) == 0)
         {
-            g_assert_not_reached();
+            //g_assert_not_reached();
         }
         else
         {
@@ -903,7 +903,7 @@ int pst_notify_packet(pst_socket_t * self, const char * buffer, uint32_t len)
     return retval;
 }
 
-int pst_get_next_clock(pst_socket_t * self, guint64 * timeout)
+int pst_get_next_clock(pst_socket_t * self, uint64_t * timeout)
 {
     PseudoTcpSocketPrivate * priv = self->priv;
     uint32_t now = pseudo_tcp_get_current_time(self);
@@ -1863,10 +1863,9 @@ static int process(pst_socket_t * self, Segment * seg)
             else
             {
                 n_dlist_t * iter = NULL;
-                RSegment * rseg = g_slice_new0(RSegment);
+                RSegment * rseg = n_slice_new0(RSegment);
 
-                nice_debug("Saving %u bytes (%u -> %u)",
-                           seg->len, seg->seq, seg->seq + seg->len);
+                nice_debug("Saving %u bytes (%u -> %u)", seg->len, seg->seq, seg->seq + seg->len);
                 rseg->seq = seg->seq;
                 rseg->len = seg->len;
                 iter = priv->rlist;
@@ -1954,7 +1953,7 @@ static int transmit(pst_socket_t * self, SSegment * segment, uint32_t now)
 
     if (nTransmit < segment->len)
     {
-        SSegment * subseg = g_slice_new0(SSegment);
+        SSegment * subseg = n_slice_new0(SSegment);
         subseg->seq = segment->seq + nTransmit;
         subseg->len = segment->len - nTransmit;
         subseg->flags = segment->flags;
@@ -2042,11 +2041,8 @@ static void attempt_send(pst_socket_t * self, SendFlags sflags)
         {
             uint32_t available_space = pst_fifo_get_write_remaining(&priv->sbuf);
             bFirst = FALSE;
-            nice_debug("[cwnd: %u  nWindow: %u  nInFlight: %u "
-                       "nAvailable: %u nQueued: %" G_GSIZE_FORMAT " nEmpty: %" G_GSIZE_FORMAT
-                       "  ssthresh: %u]",
-                       priv->cwnd, nWindow, nInFlight, nAvailable, snd_buffered,
-                       available_space, priv->ssthresh);
+            nice_debug("[cwnd: %u  nWindow: %u  nInFlight: %u nAvailable: %u nQueued: %u nEmpty: %u ssthresh: %u]",
+                       priv->cwnd, nWindow, nInFlight, nAvailable, snd_buffered, available_space, priv->ssthresh);
         }
 
         if (nAvailable == 0 && sflags != sfFin && sflags != sfRst)
@@ -2086,7 +2082,7 @@ static void attempt_send(pst_socket_t * self, SendFlags sflags)
         // If the segment is too large, break it into two
         if (sseg->len > nAvailable && sflags != sfFin && sflags != sfRst)
         {
-            SSegment * subseg = g_slice_new0(SSegment);
+            SSegment * subseg = n_slice_new0(SSegment);
             subseg->seq = sseg->seq + nAvailable;
             subseg->len = sseg->len - nAvailable;
             subseg->flags = sseg->flags;
@@ -2165,7 +2161,7 @@ static void adjustMTU(pst_socket_t * self)
             PACKET_MAXIMUMS[priv->msslevel + 1] > 0;
             ++priv->msslevel)
     {
-        if (((guint16)PACKET_MAXIMUMS[priv->msslevel]) <= priv->mtu_advise)
+        if (((uint16_t)PACKET_MAXIMUMS[priv->msslevel]) <= priv->mtu_advise)
         {
             break;
         }
@@ -2427,7 +2423,8 @@ static void set_state(pst_socket_t * self, PseudoTcpState new_state)
                pseudo_tcp_state_get_name(old_state),
                pseudo_tcp_state_get_name(new_state));
 
-    /* Check whether it?s a valid state transition. */
+    #if 0
+/* Check whether it?s a valid state transition. */
 #define TRANSITION(OLD, NEW) \
     (old_state == TCP_##OLD && \
      new_state == TCP_##NEW)
@@ -2458,6 +2455,7 @@ static void set_state(pst_socket_t * self, PseudoTcpState new_state)
         TRANSITION(FIN_WAIT_1, TIME_WAIT));
 
 #undef TRANSITION
+#endif
 
     priv->state = new_state;
 }

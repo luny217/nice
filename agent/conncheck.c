@@ -5,6 +5,7 @@
  * @brief ICE connectivity checks
  */
 
+#include <stdlib.h>
 #include <config.h>
 #include <errno.h>
 #include <string.h>
@@ -676,8 +677,8 @@ static int _conn_keepalive_tick_unlocked(n_agent_t * agent)
 						nice_address_to_string(&p->remote->addr, tmpbuf);
                         
 						nice_debug("[%s]: Keepalive STUN-CC REQ to '%s:%u', "
-                                   "socket=%u (c-id:%u), username='%.*s' (%" G_GSIZE_FORMAT "), "
-                                   "password='%.*s' (%" G_GSIZE_FORMAT "), priority=%u.", G_STRFUNC,
+                                   "socket=%u (c-id:%u), username='%.*s' (%u), "
+                                   "password='%.*s' (%u), priority=%u.", G_STRFUNC,
                                    tmpbuf, n_addr_get_port(&p->remote->addr),
                                    1,
                                    component->id, (int) uname_len, uname, uname_len,
@@ -1233,7 +1234,7 @@ static int _update_selected_pair(n_agent_t * agent, n_comp_t * component, n_cand
                                 pair->remote->foundation, &cpair))
     {
         nice_debug("[%s]: changing SELECTED PAIR for component %u: %s:%s "
-                   "(prio:%" G_GUINT64_FORMAT ").", G_STRFUNC, component->id,
+                   "(prio:%I64u).", G_STRFUNC, component->id,
                    pair->local->foundation, pair->remote->foundation, pair->priority);
 
         comp_update_selected_pair(component, &cpair);
@@ -1401,7 +1402,7 @@ static void _add_new_chk_pair(n_agent_t * agent, uint32_t stream_id, n_comp_t * 
     //g_assert(remote != NULL);
 
     stream = agent_find_stream(agent, stream_id);
-    pair = g_slice_new0(n_cand_chk_pair_t);
+    pair = n_slice_new0(n_cand_chk_pair_t);
 
     pair->agent = agent;
     pair->stream_id = stream_id;
@@ -1412,7 +1413,7 @@ static void _add_new_chk_pair(n_agent_t * agent, uint32_t stream_id, n_comp_t * 
         pair->sockptr = (n_socket_t *) remote->sockptr;
     else
         pair->sockptr = (n_socket_t *) local->sockptr;
-    g_snprintf(pair->foundation, CAND_PAIR_MAX_FOUNDATION, "%s:%s", local->foundation, remote->foundation);
+    _snprintf(pair->foundation, CAND_PAIR_MAX_FOUNDATION, "%s:%s", local->foundation, remote->foundation);
 
     pair->priority = agent_candidate_pair_priority(agent, local, remote);
     pair->state = initial_state;
@@ -1420,7 +1421,7 @@ static void _add_new_chk_pair(n_agent_t * agent, uint32_t stream_id, n_comp_t * 
     pair->nominated = use_candidate;
     pair->controlling = agent->controlling_mode;
 
-    stream->conncheck_list = n_slist_insert_sorted(stream->conncheck_list, pair,  (GCompareFunc)cocheck_compare);
+    stream->conncheck_list = n_slist_insert_sorted(stream->conncheck_list, pair,  (n_compare_func)cocheck_compare);
 
     nice_debug("[%s]: added a new conncheck %p with foundation of '%s' to list %u.", G_STRFUNC, pair, pair->foundation, stream_id);
 
@@ -1801,8 +1802,8 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
         char tmpbuf[INET6_ADDRSTRLEN];
         nice_address_to_string(&pair->remote->addr, tmpbuf);
         nice_debug("[%s]: STUN-CC REQ to '%s:%u', socket=%u, "
-                   "pair=%s (c-id:%u), tie=%llu, username='%.*s' (%" G_GSIZE_FORMAT "), "
-                   "password='%.*s' (%" G_GSIZE_FORMAT "), priority=%u.", G_STRFUNC,
+                   "pair=%s (c-id:%u), tie=%llu, username='%.*s' (%u), "
+                   "password='%.*s' (%u), priority=%u.", G_STRFUNC,
                    tmpbuf,
                    n_addr_get_port(&pair->remote->addr),
                    1,
@@ -1873,7 +1874,7 @@ int cocheck_send(n_agent_t * agent, n_cand_chk_pair_t * pair)
 static uint32_t _prune_pending_checks(n_stream_t * stream, uint32_t component_id)
 {
     n_slist_t * i;
-    guint64 highest_nominated_priority = 0;
+    uint64_t highest_nominated_priority = 0;
     uint32_t in_progress = 0;
 
     nice_debug("Agent XXX: Finding highest priority for component %d", component_id);
@@ -1893,8 +1894,7 @@ static uint32_t _prune_pending_checks(n_stream_t * stream, uint32_t component_id
         }
     }
 
-    nice_debug("Agent XXX: Pruning pending checks. Highest nominated priority "
-               "is %" G_GUINT64_FORMAT, highest_nominated_priority);
+    nice_debug("Agent XXX: Pruning pending checks. Highest nominated priority is %I64u", highest_nominated_priority);
 
     /* step: cancel all FROZEN and WAITING pairs for the component */
     for (i = stream->conncheck_list; i; i = i->next)
@@ -1924,9 +1924,8 @@ static uint32_t _prune_pending_checks(n_stream_t * stream, uint32_t component_id
                 {
                     /* We must keep the higher priority pairs running because if a udp
                      * packet was lost, we might end up using a bad candidate */
-                    nice_debug("Agent XXX : pair %p kept IN_PROGRESS because priority %"
-                               G_GUINT64_FORMAT " is higher than currently nominated pair %"
-                               G_GUINT64_FORMAT, p, p->priority, highest_nominated_priority);
+                    nice_debug("Agent XXX : pair %p kept IN_PROGRESS because priority %I64u \
+						is higher than currently nominated pair %I64u", p, p->priority, highest_nominated_priority);
                     in_progress++;
                 }
             }
@@ -2106,7 +2105,7 @@ static int _store_pending_chk(n_agent_t * agent, n_comp_t * component,
     icheck->username_len = username_len;
     icheck->username = NULL;
     if (username_len > 0)
-        icheck->username = g_memdup(username, username_len);
+        icheck->username = n_memdup(username, username_len);
 
     return 0;
 }
@@ -2131,7 +2130,7 @@ static n_cand_chk_pair_t * _add_peer_reflexive_pair(n_agent_t * agent, uint32_t 
     pair->state = NCHK_DISCOVERED;
     nice_debug("[%s]: pair %p state DISCOVERED", G_STRFUNC, pair);
 	nice_print_candpair(agent, pair);
-    g_snprintf(pair->foundation, CAND_PAIR_MAX_FOUNDATION, "%s:%s", l_cand->foundation, parent_pair->remote->foundation);
+    _snprintf(pair->foundation, CAND_PAIR_MAX_FOUNDATION, "%s:%s", l_cand->foundation, parent_pair->remote->foundation);
     if (agent->controlling_mode == TRUE)
         pair->priority = n_cand_pair_priority(pair->local->priority, pair->remote->priority);
     else
@@ -2140,7 +2139,7 @@ static n_cand_chk_pair_t * _add_peer_reflexive_pair(n_agent_t * agent, uint32_t 
     pair->controlling = agent->controlling_mode;
     nice_debug("[%s]: added a new peer-discovered pair with foundation of '%s'",  agent, pair->foundation);
 
-    stream->conncheck_list = n_slist_insert_sorted(stream->conncheck_list, pair, (GCompareFunc)cocheck_compare);
+    stream->conncheck_list = n_slist_insert_sorted(stream->conncheck_list, pair, (n_compare_func)cocheck_compare);
 
     return pair;
 }

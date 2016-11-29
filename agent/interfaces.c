@@ -76,7 +76,7 @@ n_dlist_t  * nice_interfaces_get_local_interfaces(void)
         if (ifa->ifa_addr->sa_family == AF_INET || ifa->ifa_addr->sa_family == AF_INET6)
         {
             nice_debug("Found interface : %s", ifa->ifa_name);
-            interfaces = n_dlist_prepend(interfaces, g_strdup(ifa->ifa_name));
+            interfaces = n_dlist_prepend(interfaces, n_strdup(ifa->ifa_name));
         }
     }
 
@@ -160,8 +160,7 @@ n_dlist_t  * nice_interfaces_get_local_ips(int include_loopback)
         addr_string = sockaddr_to_string(ifa->ifa_addr);
         if (addr_string == NULL)
         {
-            nice_debug("Failed to convert address to string for interface ?%s?.",
-                       ifa->ifa_name);
+            nice_debug("Failed to convert address to string for interface ?%s?", ifa->ifa_name);
             continue;
         }
 
@@ -176,7 +175,7 @@ n_dlist_t  * nice_interfaces_get_local_ips(int include_loopback)
             else
             {
                 nice_debug("Ignoring loopback interface");
-                g_free(addr_string);
+                n_free(addr_string);
             }
         }
         else
@@ -206,11 +205,11 @@ char * nice_interfaces_get_ip_for_interface(char * interface_name)
     } sa;
     int32_t  sockfd;
 
-    g_return_val_if_fail(interface_name != NULL, NULL);
+    //g_return_val_if_fail(interface_name != NULL, NULL);
 
     ifr.ifr_addr.sa_family = AF_INET;
     memset(ifr.ifr_name, 0, sizeof(ifr.ifr_name));
-    g_strlcpy(ifr.ifr_name, interface_name, sizeof(ifr.ifr_name));
+    strncpy(ifr.ifr_name, interface_name, sizeof(ifr.ifr_name));
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) < 0)
     {
@@ -229,7 +228,7 @@ char * nice_interfaces_get_ip_for_interface(char * interface_name)
     close(sockfd);
     sa.addr = &ifr.ifr_addr;
     nice_debug("Address for %s: %s", interface_name, inet_ntoa(sa.in->sin_addr));
-    return g_strdup(inet_ntoa(sa.in->sin_addr));
+    return n_strdup(inet_ntoa(sa.in->sin_addr));
 }
 
 #else ifdef G_OS_WIN32
@@ -245,7 +244,7 @@ n_dlist_t  * n_get_local_interfaces(void)
     if (!size)
         return NULL;
 
-    if_table = (PMIB_IFTABLE)g_malloc0(size);
+    if_table = (PMIB_IFTABLE)malloc(size);
 
     if (GetIfTable(if_table, &size, TRUE) == ERROR_SUCCESS)
     {
@@ -279,7 +278,7 @@ n_dlist_t  * n_get_local_ips(int include_loopback)
     do
     {
         n_free(addresses);
-        addresses = g_malloc0(addresses_size);
+        addresses = malloc(addresses_size);
 
         status = GetAdaptersAddresses(AF_UNSPEC,
                                       GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST |
@@ -296,7 +295,7 @@ n_dlist_t  * n_get_local_ips(int include_loopback)
     if (status != NO_ERROR)
     {
         nice_debug("Error retrieving local addresses (error code %lu).", status);
-        g_free(addresses);
+        n_free(addresses);
         return NULL;
     }
 
@@ -351,11 +350,12 @@ n_dlist_t  * n_get_local_ips(int include_loopback)
         }
     }
 
-    g_free(addresses);
+    n_free(addresses);
 
     return ret;
 }
 
+#if 0
 /*
  * returns ip address as an utf8 string
  */
@@ -373,7 +373,7 @@ static char * win32_get_ip_for_interface(DWORD idx)
     if (!size)
         return NULL;
 
-    ip_table = (PMIB_IPADDRTABLE)g_malloc0(size);
+    ip_table = (PMIB_IPADDRTABLE)malloc(size);
 
     if (GetIpAddrTable(ip_table, &size, TRUE) == ERROR_SUCCESS)
     {
@@ -394,9 +394,10 @@ static char * win32_get_ip_for_interface(DWORD idx)
         }
     }
 
-    g_free(ip_table);
+    n_free(ip_table);
     return ret;
 }
+
 
 char * n_get_ip_for_interface(char * interface_name)
 {
@@ -409,7 +410,7 @@ char * n_get_ip_for_interface(char * interface_name)
     if (!size)
         return NULL;
 
-    if_table = (PMIB_IFTABLE)g_malloc0(size);
+    if_table = (PMIB_IFTABLE)malloc(size);
 
     if (GetIfTable(if_table, &size, TRUE) == ERROR_SUCCESS)
     {
@@ -422,16 +423,17 @@ char * n_get_ip_for_interface(char * interface_name)
             if (strlen(interface_name) == strlen(tmp_str) && g_ascii_strncasecmp(interface_name, tmp_str, strlen(interface_name)) == 0)
             {
                 ret = win32_get_ip_for_interface(if_table->table[i].dwIndex);
-                g_free(tmp_str);
+                n_free(tmp_str);
                 break;
             }
 
-            g_free(tmp_str);
+            n_free(tmp_str);
         }
     }
 
-    g_free(if_table);
+    n_free(if_table);
 
     return ret;
 }
+#endif
 #endif

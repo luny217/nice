@@ -22,7 +22,7 @@
 
 
 
-#include <glib-object.h>
+//#include <glib-object.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -43,6 +43,7 @@
  */
 typedef struct _PseudoTcpSocket pst_socket_t;
 
+#if 0
 typedef struct _PseudoTcpSocketClass pst_socket_tClass;
 
 GType pst_get_type(void);
@@ -68,12 +69,13 @@ struct _PseudoTcpSocketClass
 {
     GObjectClass parent_class;
 };
+#endif
 
 typedef struct _PseudoTcpSocketPrivate PseudoTcpSocketPrivate;
 
 struct _PseudoTcpSocket
 {
-    GObject parent;
+    //GObject parent;
     PseudoTcpSocketPrivate * priv;
 };
 
@@ -240,7 +242,7 @@ pst_socket_t * pst_new(uint32_t conversation, pst_callback_t * callbacks);
  *
  * Since: 0.0.11
  */
-gboolean pst_connect(pst_socket_t * self);
+int pst_connect(pst_socket_t * self);
 
 
 /**
@@ -268,7 +270,6 @@ gboolean pst_connect(pst_socket_t * self);
  * Since: 0.0.11
  */
 int32_t  pst_recv(pst_socket_t * self, char * buffer, size_t len);
-
 
 /**
  * pst_send:
@@ -323,7 +324,7 @@ int32_t pst_send(pst_socket_t * self, const char * buffer, uint32_t len);
  *
  * Since: 0.0.11
  */
-void pst_close(pst_socket_t * self, gboolean force);
+void pst_close(pst_socket_t * self, int force);
 
 /**
  * pst_shutdown:
@@ -485,7 +486,7 @@ int32_t pst_get_available_bytes(pst_socket_t * self);
  * Since: 0.1.5
  */
 
-gboolean pst_can_send(pst_socket_t * self);
+int pst_can_send(pst_socket_t * self);
 
 /**
  * pst_get_available_send_space:
@@ -497,7 +498,7 @@ gboolean pst_can_send(pst_socket_t * self);
  *
  * Since: 0.1.5
  */
-gsize pst_get_available_send_space(pst_socket_t * self);
+uint32_t pst_get_available_send_space(pst_socket_t * self);
 
 /**
  * pst_set_time:
