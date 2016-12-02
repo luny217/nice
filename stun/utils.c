@@ -58,12 +58,10 @@ size_t stun_align(size_t l)
     return (l + 3) & ~3;
 }
 
-
 uint16_t stun_getw(const uint8_t * ptr)
 {
     return ((ptr)[0] << 8) | ptr[1];
 }
-
 
 void * stun_setw(uint8_t * ptr, uint16_t value)
 {
@@ -71,7 +69,6 @@ void * stun_setw(uint8_t * ptr, uint16_t value)
     *ptr++ = value & 0xff;
     return ptr;
 }
-
 
 void stun_set_type(uint8_t * h, StunClass c, stun_method_e m)
 {

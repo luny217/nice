@@ -218,7 +218,7 @@ typedef struct
 
 static void pst_fifo_init(PseudoTcpFifo * b, uint32_t size)
 {
-    b->buffer = n_slice_alloc(size);
+    b->buffer = n_slice_alloc0(size);
     b->buffer_length = size;
 }
 
@@ -647,7 +647,7 @@ static void pst_init(pst_socket_t * obj)
     /* Use g_new0, and do not use g_object_set_private because the size of
      * our private data is too big (150KB+) and the g_slice_allow cannot allocate
      * it. So we handle the private ourselves */
-    PseudoTcpSocketPrivate * priv = malloc(sizeof(PseudoTcpSocketPrivate));
+    PseudoTcpSocketPrivate * priv = n_slice_alloc0(sizeof(PseudoTcpSocketPrivate));
 
     obj->priv = priv;
 
@@ -660,7 +660,7 @@ static void pst_init(pst_socket_t * obj)
     pst_fifo_init(&priv->sbuf, priv->sbuf_len);
 
     priv->state = TCP_LISTEN;
-    priv->conv = 0;
+    priv->conv = 0x8989;
     n_queue_init(&priv->slist);
     n_queue_init(&priv->unsent_slist);
     priv->rcv_wnd = priv->rbuf_len;
@@ -703,16 +703,14 @@ pst_socket_t * pst_new(uint32_t conversation, pst_callback_t * callbacks)
 {
     //return g_object_new(PSEUDO_TCP_SOCKET_TYPE,  "conversation", conversation, "callbacks", callbacks, NULL);
 
-    int conv = 0;
+    int conv = 0x8989;
 
     pst_socket_t * pst = n_slice_new0(pst_socket_t);
     if (pst)
     {
-
         pst_init(pst);
         pst_set_property(pst, PROP_CONVERSATION, (void *)&conv);
         pst_set_property(pst, PROP_CALLBACKS, (void *)callbacks);
-
     }
     return pst;
 }

@@ -34,7 +34,7 @@ void * n_slice_alloc0(uint32_t mem_size)
 
 void * n_slice_copy(uint32_t mem_size, const void * mem_block)
 {
-	void * mem = n_slice_alloc(mem_size);
+	void * mem = n_slice_alloc0(mem_size);
 	if (mem)
 		memcpy(mem, mem_block, mem_size);
 	return mem;

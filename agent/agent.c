@@ -310,8 +310,8 @@ static void pst_create(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp)
         pst_closed,
         pst_write_packet
     };
-    comp->tcp = pst_new(0, &tcp_callbacks);
-    nice_debug("[%s]: create pseudo tcp socket for component %d", G_STRFUNC, comp->id);
+    comp->tcp = pst_new(0x8989, &tcp_callbacks);
+    nice_debug("[%s]: create pst 0x%p", G_STRFUNC, comp->tcp);
 }
 
 static void _pseudo_tcp_error(n_agent_t * agent, n_stream_t * stream, n_comp_t * comp)
@@ -773,7 +773,7 @@ static void process_queued_tcp_packets(n_agent_t * agent, n_stream_t * stream, n
     {
         int32_t retval;
 
-        nice_debug("[%s]: sending queued %u bytes", G_STRFUNC, vec->size);
+        nice_debug("[%s]: sending queued %u bytes for n_outvector_t %p", G_STRFUNC, vec->size, vec);
         retval =  pst_notify_packet(comp->tcp, vec->buffer, vec->size);
 
         if (!agent_find_comp(agent, stream_id, comp_id, &stream, &comp))
@@ -2160,8 +2160,8 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
     n_stream_t * stream;
     int32_t has_io_callback = 1;
     int32_t remove_source = FALSE;
-    uint8_t local_header_buf[TCP_HEADER_SIZE];
-    uint8_t local_body_buf[MAX_BUFFER_SIZE];
+	uint8_t local_header_buf[TCP_HEADER_SIZE] = {0};
+	uint8_t local_body_buf[MAX_BUFFER_SIZE] = {0};
     n_invector_t local_bufs[] =
     {
         { local_header_buf, sizeof(local_header_buf) },
@@ -2281,7 +2281,7 @@ int32_t agent_recv_packet(n_socket_source_t * s_source)
 					vec->buffer = n_slice_copy(length, local_body_buf);
 					vec->size = length;
                     n_queue_push_tail(&comp->queued_tcp_packets, vec);
-                    nice_debug("%s: Queued %u bytes for agent %p.", G_STRFUNC, length, agent);
+                    nice_debug("%s: queued %d bytes for n_outvector_t %p", G_STRFUNC, length, vec);
 
                     return RECV_OOB;
                 }

@@ -37,7 +37,7 @@ bool stun_msg_init(stun_msg_t * msg, StunClass c, stun_method_e m,
 
 uint16_t stun_msg_len(const stun_msg_t * msg)
 {
-    return stun_getw(msg->buffer + STUN_MSG_LENGTH_POS) + STUN_MSG_HEADER_LENGTH;
+	return stun_getw(msg->buffer + STUN_MSG_LENGTH_POS) + STUN_MSG_HEADER_LENGTH;
 }
 
 const void * stun_msg_find(const stun_msg_t * msg, stun_attr_e type, uint16_t * palen)

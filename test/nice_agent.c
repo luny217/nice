@@ -347,7 +347,7 @@ static void cb_new_selected_pair(n_agent_t * agent, uint32_t stream_id,
                                  uint32_t comp_id, char * lfoundation,
                                  char * rfoundation, void * data)
 {
-    nice_debug("signal: selected pair %s %s", lfoundation, rfoundation);
+    //nice_debug("signal: selected pair %s %s", lfoundation, rfoundation);
 }
 
 static void cb_nice_recv(n_agent_t * agent, uint32_t stream_id, uint32_t component_id, uint32_t len, char * buf, void * data)

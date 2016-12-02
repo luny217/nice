@@ -265,11 +265,11 @@ static int _cocheck_tick_stream(n_stream_t * stream, n_agent_t * agent, n_timeva
 	uint32_t s_inprogress = 0, s_succeeded = 0, s_discovered = 0;
 	uint32_t s_nominated = 0, s_waiting_for_nomination = 0;
     uint32_t frozen = 0, waiting = 0;
-    n_slist_t * i, * k;
+    n_slist_t * l, * k;
 
-    for (i = stream->conncheck_list; i ; i = i->next)
+    for (l = stream->conncheck_list; l ; l = l->next)
     {
-        n_cand_chk_pair_t * p = i->data;
+        n_cand_chk_pair_t * p = l->data;
 
         if (p->state == NCHK_IN_PROGRESS)
         {
@@ -295,18 +295,22 @@ static int _cocheck_tick_stream(n_stream_t * stream, n_agent_t * agent, n_timeva
                     }
                     case STUN_TIMER_RET_RETRANSMIT:
                     {
+						uint16_t msg_len;
                         /* case: not ready, so schedule a new timeout */
                         unsigned int timeout = stun_timer_remainder(&p->timer);
+						
                         nice_debug("[%s]: STUN transaction retransmitted (timeout %dms)", G_STRFUNC, timeout);
 						nice_print_candpair(agent, p);
+						msg_len = stun_msg_len(&p->stun_message);
+						if (msg_len > 0)
+						{
+							agent_socket_send(p->sockptr, &p->remote->addr, msg_len, (char *)p->stun_buffer);
+							/* note: convert from milli to microseconds for g_time_val_add() */
+							p->next_tick = *now;
+							time_val_add(&p->next_tick, timeout * 1000);
 
-                        agent_socket_send(p->sockptr, &p->remote->addr, stun_msg_len(&p->stun_message), (char *)p->stun_buffer);
-
-                        /* note: convert from milli to microseconds for g_time_val_add() */
-                        p->next_tick = *now;
-                        time_val_add(&p->next_tick, timeout * 1000);
-
-                        keep_timer_going = TRUE;
+							keep_timer_going = TRUE;
+						}                        
                         break;
                     }
                     case STUN_TIMER_RET_SUCCESS:
@@ -439,8 +443,7 @@ static int _cocheck_tick_unlocked(n_agent_t * agent)
     for (j = agent->streams_list; j; j = j->next)
     {
         n_stream_t * stream = j->data;
-        int res =
-            _cocheck_tick_stream(stream, agent, &now);
+        int res = _cocheck_tick_stream(stream, agent, &now);
         if (res)
             keep_timer_going = res;
     }
